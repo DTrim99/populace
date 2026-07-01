@@ -581,6 +581,49 @@ def test_reviewed_zero_support_facts_are_not_active_targets() -> None:
     assert control.value == 456_000_000
 
 
+def test_state_level_snap_benefits_fact_compiles_to_state_hard_target() -> None:
+    california_source_record_id = (
+        "usda_snap.fy2024.state_benefits.wro.ca.total_benefits"
+    )
+    guam_source_record_id = "usda_snap.fy2024.state_benefits.wro.gu.total_benefits"
+    facts = [
+        *packaged_reference_facts(),
+        _dynamic_ledger_fact(
+            source_record_id=california_source_record_id,
+            source_name="usda_snap",
+            measure_id="total_benefits",
+            value=12_000_000_000,
+            geography_level="state",
+            geography_id="0400000US06",
+            groupby_value_id="ca",
+        ),
+        _dynamic_ledger_fact(
+            source_record_id=guam_source_record_id,
+            source_name="usda_snap",
+            measure_id="total_benefits",
+            value=250_000_000,
+            geography_level="state",
+            geography_id="0400000US66",
+            groupby_value_id="gu",
+        ),
+    ]
+
+    registry = compile_us_fiscal_target_registry(facts)
+
+    by_source_record_id = {
+        spec.metadata["ledger_source_record_id"]: spec for spec in registry.specs
+    }
+    assert california_source_record_id in by_source_record_id
+    california = by_source_record_id[california_source_record_id]
+    assert california.family == "usda_snap"
+    assert california.metadata["target_role"] == "snap_total"
+    assert california.metadata["base_variable"] == "snap"
+    assert california.metadata["state_fips"] == "06"
+    assert california.value == 12_000_000_000
+    # Guam has no PolicyEngine state FIPS, so the row must not become a target.
+    assert guam_source_record_id not in by_source_record_id
+
+
 def test_weight_dependent_medicaid_spending_is_validation_only() -> None:
     source_record_id = (
         "cms_nhe.cy2024.medicaid_title_xix_expenditures."
@@ -2641,6 +2684,7 @@ def test_us_fiscal_requirements_include_reference_program_and_tax_controls() -> 
     assert "social_security_total" in ids
     assert "ssi_total" in ids
     assert "snap_total" in ids
+    assert "snap_state_benefits" in ids
     assert "unemployment_compensation_total" in ids
     assert "ssa_social_security_components" in ids
     assert "eitc_total" in ids
@@ -2775,6 +2819,53 @@ def test_jct_revenue_loss_targets_do_not_satisfy_deduction_amount_controls() -> 
     assert not result.passed
     for role in REFERENCE_DEDUCTION_TARGET_ROLES:
         assert any(role in failure for failure in result.failures)
+
+
+def test_snap_state_benefits_need_full_state_surface() -> None:
+    targets = [
+        federal_income_tax_total_row(),
+        *complete_agi_distribution_rows(),
+        *complete_income_source_rows(),
+        *complete_deduction_amount_rows(),
+        *[
+            row
+            for row in complete_program_rows()
+            if "state_fips" not in row["metadata"]
+        ],
+        *complete_snap_state_rows(50),
+        *complete_state_income_tax_rows(45),
+        *complete_population_age_rows(),
+        *complete_jct_rows(),
+    ]
+    result = target_profile_coverage_gate(
+        targets,
+        US_FISCAL_TARGET_COVERAGE_REQUIREMENTS,
+    )
+    assert not result.passed
+    assert any("snap_state_benefits" in failure for failure in result.failures)
+
+
+def test_national_snap_row_does_not_satisfy_state_benefit_requirement() -> None:
+    targets = [
+        federal_income_tax_total_row(),
+        *complete_agi_distribution_rows(),
+        *complete_income_source_rows(),
+        *complete_deduction_amount_rows(),
+        *[
+            row
+            for row in complete_program_rows()
+            if "state_fips" not in row["metadata"]
+        ],
+        *complete_state_income_tax_rows(45),
+        *complete_population_age_rows(),
+        *complete_jct_rows(),
+    ]
+    result = target_profile_coverage_gate(
+        targets,
+        US_FISCAL_TARGET_COVERAGE_REQUIREMENTS,
+    )
+    assert not result.passed
+    assert any("snap_state_benefits" in failure for failure in result.failures)
 
 
 def test_state_income_tax_needs_actual_state_surface_not_federal_row() -> None:
@@ -3605,7 +3696,24 @@ def complete_program_rows() -> list[dict[str, object]]:
                 "metadata": {"target_role": role},
             }
         )
+    rows.extend(complete_snap_state_rows(51))
     return rows
+
+
+def complete_snap_state_rows(count: int) -> list[dict[str, object]]:
+    return [
+        {
+            "name": (
+                f"usda_snap.fy2024.state_benefits.region.state_{i:02d}.total_benefits"
+            ),
+            "measure": (
+                f"usda_snap.fy2024.state_benefits.region.state_{i:02d}.total_benefits"
+            ),
+            "family": "usda_snap",
+            "metadata": {"target_role": "snap_total", "state_fips": f"{i:02d}"},
+        }
+        for i in range(count)
+    ]
 
 
 def complete_state_income_tax_rows(count: int) -> list[dict[str, object]]:
