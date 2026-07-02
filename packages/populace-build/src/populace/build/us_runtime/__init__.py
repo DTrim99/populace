@@ -125,16 +125,6 @@ from populace.build.us_runtime.immigration import (
 from populace.build.us_runtime.input_mass import (
     us_input_mass_totals,
 )
-from populace.build.us_runtime.snap_take_up import (
-    US_SNAP_TAKE_UP_OUTPUT_COLUMN,
-    US_SNAP_TAKE_UP_RAW_COLUMN,
-    US_SNAP_TAKE_UP_STAGE_NAME,
-    derive_us_snap_take_up_from_manifest,
-    us_snap_take_up_signal_gate,
-    us_snap_take_up_stage_spec,
-    us_snap_take_up_summary,
-    with_us_snap_take_up_inputs,
-)
 from populace.build.us_runtime.puf_support import (
     BASE_ASEC_SUPPORT_CHANNEL,
     PUF_TAX_DETAIL_DEFAULT_PERSON_OUTPUTS,
@@ -156,6 +146,16 @@ from populace.build.us_runtime.reform_validation import (
     out_of_sample_reform_specs,
     reform_validation_payload,
     write_reform_validation,
+)
+from populace.build.us_runtime.snap_take_up import (
+    US_SNAP_TAKE_UP_OUTPUT_COLUMN,
+    US_SNAP_TAKE_UP_RAW_COLUMN,
+    US_SNAP_TAKE_UP_STAGE_NAME,
+    derive_us_snap_take_up_from_manifest,
+    us_snap_take_up_signal_gate,
+    us_snap_take_up_stage_spec,
+    us_snap_take_up_summary,
+    with_us_snap_take_up_inputs,
 )
 from populace.build.us_runtime.source_coverage import (
     LEDGER_US_SOURCE_COVERAGE_CONTRACT_COMMIT,

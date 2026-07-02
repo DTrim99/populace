@@ -17,13 +17,13 @@ from populace.build.source_runtime import (
 from populace.build.us_runtime.immigration import (
     derive_us_immigration_status_from_manifest,
 )
-from populace.build.us_runtime.snap_take_up import (
-    derive_us_snap_take_up_from_manifest,
-)
 from populace.build.us_runtime.puf_aggregate_records import (
     derive_puf_policyengine_variables,
     disaggregate_puf_aggregate_records,
     load_default_puf_aggregate_disaggregation_spec,
+)
+from populace.build.us_runtime.snap_take_up import (
+    derive_us_snap_take_up_from_manifest,
 )
 
 __all__ = [
