@@ -74,6 +74,10 @@ from populace.build.holdout import (  # noqa: E402 - after the compat gate
     rotated_folds,
     summarize_rotations,
 )
+from populace.build.ledger_artifact import (  # noqa: E402 - after the compat gate
+    LedgerConsumerArtifact,
+    load_ledger_consumer_artifact,
+)
 from populace.build.ledger_targets import (  # noqa: E402 - after the compat gate
     LedgerTargetMapping,
     LedgerTargetSelection,
@@ -120,6 +124,7 @@ __all__ = [
     "STAGING_SCHEMA_VERSION",
     "StagingTelemetry",
     "TargetCoverageRequirement",
+    "LedgerConsumerArtifact",
     "LedgerTargetMapping",
     "LedgerTargetSelection",
     "aggregate_admin_gate",
@@ -129,6 +134,7 @@ __all__ = [
     "exported_nonzero_gate",
     "formula_owned_export_gate",
     "input_mass_parity_gate",
+    "load_ledger_consumer_artifact",
     "macro_realism_gate",
     "nonconstant_columns_gate",
     "nonnegative_columns_gate",
