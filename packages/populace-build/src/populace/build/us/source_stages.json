@@ -1,734 +1,734 @@
 {
- "version": 1,
- "country": "us",
- "policy": "US source stages are manifest-defined. Country/source content may declare primary artifacts, columns, sentinel handling, derivations, imputation recipes, and outputs here; executable Python belongs only in shared Populace runtimes.",
- "stages": [
-  {
-   "stage": "puf_tax_detail",
-   "survey": "IRS PUF 2015 (uprated)",
-   "source": "https://www.irs.gov/statistics/soi-tax-stats-individual-public-use-microdata-files",
-   "grain": "tax_unit",
-   "artifacts": [
+  "version": 1,
+  "country": "us",
+  "policy": "US source stages are manifest-defined. Country/source content may declare primary artifacts, columns, sentinel handling, derivations, imputation recipes, and outputs here; executable Python belongs only in shared Populace runtimes.",
+  "stages": [
     {
-     "kind": "public_microdata",
-     "format": "fixed_width_or_csv",
-     "vintage": "2015",
-     "locator": "IRS SOI Public Use File"
+      "stage": "puf_tax_detail",
+      "survey": "IRS PUF 2015 (uprated)",
+      "source": "https://www.irs.gov/statistics/soi-tax-stats-individual-public-use-microdata-files",
+      "grain": "tax_unit",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "fixed_width_or_csv",
+          "vintage": "2015",
+          "locator": "IRS SOI Public Use File"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "puf_tax_unit",
+          "weight": "s006"
+        },
+        {
+          "kind": "derive_puf_policyengine_variables",
+          "ordinary_dividend_source": "E00600",
+          "qualified_dividend_source": "E00650",
+          "qualified_dividend_output": "qualified_dividend_income",
+          "non_qualified_dividend_output": "non_qualified_dividend_income"
+        },
+        {
+          "kind": "disaggregate_aggregate_records",
+          "method": "donor_template_calibration",
+          "spec": "puf_aggregate_record_disaggregation",
+          "replace_records": [
+            999996,
+            999997,
+            999998,
+            999999
+          ],
+          "weight": "s006",
+          "amount_columns": "irs_puf_amount_columns",
+          "seed_from_build_config": true
+        },
+        {
+          "kind": "uprate",
+          "from_year": 2015,
+          "to_year_from_build_config": true
+        },
+        {
+          "kind": "fit_weighted_qrf",
+          "predictors": [
+            "employment_income",
+            "self_employment_income",
+            "taxable_interest_income",
+            "qualified_dividend_income",
+            "non_qualified_dividend_income",
+            "capital_gains",
+            "filing_status"
+          ]
+        },
+        {
+          "kind": "support_clip",
+          "range": "donor_realized"
+        }
+      ],
+      "outputs": [
+        "employment_income_before_lsr",
+        "self_employment_income_before_lsr",
+        "taxable_interest_income",
+        "qualified_dividend_income",
+        "non_qualified_dividend_income",
+        "tax_exempt_interest_income",
+        "short_term_capital_gains",
+        "long_term_capital_gains_before_response",
+        "non_sch_d_capital_gains",
+        "taxable_private_pension_income",
+        "taxable_ira_distributions",
+        "social_security_retirement",
+        "social_security_disability",
+        "social_security_dependents",
+        "social_security_survivors",
+        "charitable_cash_donations",
+        "charitable_non_cash_donations",
+        "real_estate_taxes",
+        "home_mortgage_interest",
+        "student_loan_interest",
+        "traditional_ira_contributions_desired",
+        "self_employed_pension_contributions_desired",
+        "rental_income",
+        "estate_income",
+        "farm_income",
+        "miscellaneous_income",
+        "partnership_income",
+        "s_corp_income",
+        "partnership_self_employment_net_earnings",
+        "first_home_mortgage_balance",
+        "second_home_mortgage_balance",
+        "first_home_mortgage_interest",
+        "second_home_mortgage_interest",
+        "first_home_mortgage_origination_year",
+        "second_home_mortgage_origination_year",
+        "health_savings_account_ald"
+      ],
+      "nonnegative_outputs": [
+        "employment_income_before_lsr",
+        "self_employment_income_before_lsr",
+        "taxable_interest_income",
+        "qualified_dividend_income",
+        "non_qualified_dividend_income",
+        "tax_exempt_interest_income",
+        "long_term_capital_gains_before_response",
+        "taxable_private_pension_income",
+        "taxable_ira_distributions",
+        "social_security_retirement",
+        "social_security_disability",
+        "social_security_dependents",
+        "social_security_survivors",
+        "charitable_cash_donations",
+        "charitable_non_cash_donations",
+        "real_estate_taxes",
+        "home_mortgage_interest",
+        "student_loan_interest",
+        "traditional_ira_contributions_desired",
+        "self_employed_pension_contributions_desired",
+        "health_savings_account_ald",
+        "first_home_mortgage_balance",
+        "second_home_mortgage_balance",
+        "first_home_mortgage_interest",
+        "second_home_mortgage_interest",
+        "first_home_mortgage_origination_year",
+        "second_home_mortgage_origination_year"
+      ],
+      "notes": "PUF detail is a primary-source donor and must stay separate from benchmark comparisons. IRS disclosure aggregate rows are replaced from raw PUF aggregate totals before uprating; Forbes top-tail synthesis is not enabled."
+    },
+    {
+      "stage": "scf_wealth",
+      "survey": "Fed SCF 2022",
+      "source": "https://www.federalreserve.gov/econres/scfindex.htm",
+      "grain": "household",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "sas_or_stata",
+          "vintage": "2022",
+          "locator": "Federal Reserve Survey of Consumer Finances public extract"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "scf_household",
+          "weight": "wgt"
+        },
+        {
+          "kind": "replace_sentinels",
+          "sentinels": [
+            -1,
+            -7,
+            -8,
+            -9
+          ],
+          "scope": "not_applicable_or_missing_fields"
+        },
+        {
+          "kind": "derive",
+          "outputs": [
+            "auto_loan_interest",
+            "net_worth_components",
+            "financial_asset_components",
+            "household_asset_components"
+          ]
+        },
+        {
+          "kind": "fit_weighted_qrf",
+          "predictors": [
+            "age",
+            "is_female",
+            "cps_race",
+            "is_married",
+            "own_children_in_household",
+            "employment_income",
+            "interest_dividend_income",
+            "social_security_pension_income"
+          ]
+        },
+        {
+          "kind": "head_carry",
+          "from_entity": "household",
+          "to_entity": "person",
+          "condition": "is_household_head"
+        },
+        {
+          "kind": "support_clip",
+          "range": "donor_realized"
+        }
+      ],
+      "outputs": [
+        "net_worth",
+        "scf_primary_residence_value",
+        "scf_retirement_assets",
+        "scf_business_equity",
+        "scf_mortgage_debt",
+        "scf_other_residential_real_estate",
+        "scf_nonresidential_real_estate_equity",
+        "scf_other_residential_debt",
+        "scf_other_financial_assets",
+        "scf_other_nonfinancial_assets",
+        "scf_other_managed_assets",
+        "scf_cash_value_life_insurance",
+        "scf_certificates_of_deposit",
+        "scf_savings_bonds",
+        "scf_credit_card_debt",
+        "scf_student_loan_debt",
+        "scf_vehicle_installment_debt",
+        "scf_other_installment_debt",
+        "scf_other_lines_of_credit",
+        "scf_other_debt",
+        "auto_loan_balance",
+        "auto_loan_interest",
+        "bank_account_assets",
+        "bond_assets",
+        "stock_assets"
+      ],
+      "nonnegative_outputs": [
+        "auto_loan_interest"
+      ],
+      "notes": "Sentinel replacement is declared here so impossible negative auto-loan interest is rejected at the source boundary and again at export gates."
+    },
+    {
+      "stage": "sipp_tips",
+      "survey": "Census SIPP",
+      "source": "https://www.census.gov/programs-surveys/sipp.html",
+      "grain": "person",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "census_extract",
+          "vintage": "latest_available",
+          "locator": "Census Survey of Income and Program Participation"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "sipp_person"
+        },
+        {
+          "kind": "fit_tip_income_model",
+          "predictors": [
+            "employment_income",
+            "is_tipped_occupation",
+            "age"
+          ]
+        },
+        {
+          "kind": "zero_when_false",
+          "condition": "is_tipped_occupation"
+        }
+      ],
+      "outputs": [
+        "tip_income"
+      ],
+      "nonnegative_outputs": [
+        "tip_income"
+      ]
+    },
+    {
+      "stage": "org_wages",
+      "survey": "CPS ORG",
+      "source": "https://www.bls.gov/cps/earnings.htm",
+      "grain": "person",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "cps_basic_monthly",
+          "vintage": "build_year",
+          "locator": "CPS Outgoing Rotation Group"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "cps_org_person"
+        },
+        {
+          "kind": "fit_labor_market_models",
+          "predictors": [
+            "age",
+            "is_female",
+            "cps_race",
+            "is_hispanic",
+            "state_fips",
+            "employment_income",
+            "hours_worked_last_week",
+            "weeks_worked"
+          ]
+        }
+      ],
+      "outputs": [
+        "hourly_wage",
+        "is_paid_hourly",
+        "is_union_member_or_covered",
+        "fsla_overtime_premium"
+      ],
+      "nonnegative_outputs": [
+        "hourly_wage",
+        "fsla_overtime_premium"
+      ],
+      "notes": "Usual weekly hours are owned by the hours_worked stage (ASEC HRSWK), matching the retired enhanced-CPS pipeline mapping; this stage consumes them as predictors."
+    },
+    {
+      "stage": "meps_esi_premiums",
+      "survey": "MEPS-IC",
+      "source": "https://meps.ahrq.gov/mepsweb/survey_comp/Insurance.jsp",
+      "grain": "person",
+      "artifacts": [
+        {
+          "kind": "administrative_table",
+          "format": "published_table",
+          "vintage": "build_year",
+          "locator": "MEPS Insurance Component plan-type premium tables"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "meps_ic_plan_premiums"
+        },
+        {
+          "kind": "assign_by_plan_type",
+          "inputs": [
+            "has_esi",
+            "is_esi_dependent",
+            "tax_unit_size",
+            "state_fips"
+          ]
+        }
+      ],
+      "outputs": [
+        "employer_sponsored_insurance_premiums"
+      ],
+      "nonnegative_outputs": [
+        "employer_sponsored_insurance_premiums"
+      ]
+    },
+    {
+      "stage": "prior_year_income",
+      "survey": "CPS ASEC (prior year)",
+      "source": "https://www.census.gov/programs-surveys/cps.html",
+      "grain": "person",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "census_asec",
+          "vintage": "build_year_minus_one",
+          "locator": "Census CPS ASEC person file"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "asec_person",
+          "columns": [
+            "PERIDNUM",
+            "WSAL_VAL",
+            "SEMP_VAL"
+          ]
+        },
+        {
+          "kind": "join",
+          "left": "current_person.PERIDNUM",
+          "right": "prior_person.PERIDNUM"
+        },
+        {
+          "kind": "replace_sentinels",
+          "sentinels": [
+            -1,
+            -9999
+          ],
+          "value": null
+        }
+      ],
+      "outputs": [
+        "employment_income_last_year",
+        "self_employment_income_last_year",
+        "previous_year_income_available"
+      ],
+      "nonnegative_outputs": [
+        "employment_income_last_year",
+        "self_employment_income_last_year"
+      ]
+    },
+    {
+      "stage": "immigration_status",
+      "survey": "CPS ASEC + published unauthorized-population estimates",
+      "source": "https://www.pewresearch.org/short-reads/2024/07/22/what-we-know-about-unauthorized-immigrants-living-in-the-us/",
+      "grain": "person",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "census_asec",
+          "vintage": "build_year",
+          "locator": "Census CPS ASEC person file citizenship (PRCITSHP), entry year (PEINUSYR), nativity (PENATVTY), and program-participation fields"
+        },
+        {
+          "kind": "administrative_table",
+          "format": "published_estimate",
+          "vintage": "latest_available",
+          "locator": "Pew Research Center unauthorized-immigrant population and worker estimates; Higher Ed Immigration Portal undocumented-student estimates"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "person",
+          "weight": "person_weight"
+        },
+        {
+          "kind": "derive_immigration_status",
+          "seed_from_build_config": true,
+          "time_period_from_build_config": true,
+          "undocumented_workers": {
+            "target": 8300000,
+            "source": "https://www.pewresearch.org/short-reads/2024/07/22/what-we-know-about-unauthorized-immigrants-living-in-the-us/"
+          },
+          "undocumented_students": {
+            "target": 408000,
+            "source": "https://www.higheredimmigrationportal.org/research/undocumented-students-in-higher-education-updated-march-2021/"
+          },
+          "undocumented_population_anchor": {
+            "value": 11000000,
+            "source": "https://www.pewresearch.org/short-reads/2024/07/22/what-we-know-about-unauthorized-immigrants-living-in-the-us/"
+          }
+        }
+      ],
+      "outputs": [
+        "ssn_card_type",
+        "immigration_status_str"
+      ],
+      "notes": "Citizenship is measured (PRCITSHP), not imputed. Non-citizens with any ASEC-UA legal-status indicator (Van Hook et al., SSRN 4662801) become OTHER_NON_CITIZEN. The CPS carries no work-authorization variable, so among residual non-citizens, workers and students spill to NON_CITIZEN_VALID_EAD in deterministic seeded order until the remaining undocumented worker count matches Pew's 8.3M and the undocumented student count matches the Higher Ed Immigration Portal's ~408k \u2014 the only forced margins. The total undocumented population is emergent (\u224813M on the 2024 ASEC, within the range of published 2023-24 estimates) and is gated against Pew's 11.0M 2022 anchor with a coarse plausibility band rather than forced; reconciling the level is the calibration lane's job. Immigration-status tags carry only statutory tests the data supports: DACA (arrival cohort among EAD holders) and CUBAN_HAITIAN_ENTRANT (nativity plus post-1980 arrival); other documented non-citizens stay LEGAL_PERMANENT_RESIDENT, the modal true status \u2014 blanket REFUGEE/TPS labels are deliberately not fabricated because they would mislabel millions and over-grant refugee-class benefit exemptions."
+    },
+    {
+      "stage": "hours_worked",
+      "survey": "Census CPS ASEC",
+      "source": "https://www.census.gov/programs-surveys/cps.html",
+      "grain": "person",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "census_asec",
+          "vintage": "build_year",
+          "locator": "Census CPS ASEC person file usual weekly hours (HRSWK), reference-week hours (A_HRS1), and weeks worked (WKSWORK)"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "person"
+        },
+        {
+          "kind": "derive_hours_worked"
+        }
+      ],
+      "outputs": [
+        "weekly_hours_worked_before_lsr",
+        "hours_worked_last_week",
+        "weeks_worked"
+      ],
+      "nonnegative_outputs": [
+        "weekly_hours_worked_before_lsr",
+        "hours_worked_last_week",
+        "weeks_worked"
+      ],
+      "notes": "Direct mappings of measured ASEC hours variables, identical to the retired enhanced-CPS pipeline: weekly_hours_worked_before_lsr <- HRSWK (usual hours per week last year, 0 for non-workers), hours_worked_last_week <- A_HRS1, weeks_worked <- WKSWORK clipped to [0, 52]. Nothing is imputed. Without this stage PolicyEngine-US defaults every person to 40 weekly hours, so the SNAP 30-hour general and 20-hour ABAWD work requirements pass universally (populace #242/#248). HRSWK is an annual usual-hours measure while the ABAWD standard is a monthly 80-hour test; week-by-week volatility is not observable in the CPS and is deliberately out of scope."
+    },
+    {
+      "stage": "mortgage_conversion",
+      "survey": "IRS PUF 2015 (uprated) + Fed SCF 2022",
+      "source": "https://www.irs.gov/statistics/soi-tax-stats-individual-public-use-microdata-files",
+      "grain": "tax_unit",
+      "artifacts": [
+        {
+          "kind": "derived_from_prior_stages",
+          "inputs": [
+            "interest_deduction",
+            "scf_mortgage_debt",
+            "tenure_type"
+          ]
+        }
+      ],
+      "operations": [
+        {
+          "kind": "derive_mortgage_balance_hints",
+          "inputs": [
+            "interest_deduction",
+            "scf_mortgage_debt",
+            "filing_status"
+          ]
+        },
+        {
+          "kind": "convert_interest_to_structural_mortgage_inputs"
+        },
+        {
+          "kind": "head_carry",
+          "from_entity": "tax_unit",
+          "to_entity": "person",
+          "condition": "tax_unit_role_input == HEAD"
+        }
+      ],
+      "outputs": [
+        "deductible_mortgage_interest",
+        "home_mortgage_interest",
+        "mortgage_interest",
+        "mortgage_principal",
+        "investment_interest_expense"
+      ],
+      "nonnegative_outputs": [
+        "deductible_mortgage_interest",
+        "home_mortgage_interest",
+        "mortgage_interest",
+        "mortgage_principal",
+        "investment_interest_expense"
+      ],
+      "notes": "The conversion is a declarative structural transform over PUF and SCF outputs, not a benchmark data loader."
+    },
+    {
+      "stage": "acs_rent",
+      "survey": "Census ACS 2022",
+      "source": "https://www.census.gov/programs-surveys/acs",
+      "grain": "household",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "acs_pums",
+          "vintage": "2022",
+          "locator": "Census ACS PUMS household and person files"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_tables",
+          "tables": [
+            "acs_household",
+            "acs_person"
+          ]
+        },
+        {
+          "kind": "aggregate_person_to_household",
+          "aggregates": [
+            "employment_income",
+            "household_size"
+          ]
+        },
+        {
+          "kind": "fit_weighted_imputer",
+          "predictors": [
+            "state_fips",
+            "household_employment_income",
+            "household_size"
+          ],
+          "weight": "household_weight"
+        },
+        {
+          "kind": "zero_when_false",
+          "condition": "tenure_type == RENTED"
+        },
+        {
+          "kind": "head_carry",
+          "from_entity": "household",
+          "to_entity": "person",
+          "condition": "is_household_head"
+        }
+      ],
+      "outputs": [
+        "pre_subsidy_rent"
+      ],
+      "nonnegative_outputs": [
+        "pre_subsidy_rent"
+      ]
+    },
+    {
+      "stage": "vehicle_assets",
+      "survey": "Census SIPP",
+      "source": "https://www.census.gov/programs-surveys/sipp.html",
+      "grain": "household",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "census_extract",
+          "vintage": "latest_available",
+          "locator": "Census Survey of Income and Program Participation"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "read_table",
+          "table": "sipp_household"
+        },
+        {
+          "kind": "fit_vehicle_model",
+          "predictors": [
+            "employment_income",
+            "interest_dividend_income",
+            "rental_income",
+            "age",
+            "is_female",
+            "is_married",
+            "tenure_type"
+          ]
+        },
+        {
+          "kind": "fold_into",
+          "output": "net_worth",
+          "component": "household_vehicles_value"
+        }
+      ],
+      "outputs": [
+        "household_vehicles_owned",
+        "household_vehicles_value"
+      ],
+      "nonnegative_outputs": [
+        "household_vehicles_owned",
+        "household_vehicles_value"
+      ]
+    },
+    {
+      "stage": "aca_marketplace_inputs",
+      "survey": "CPS ASEC + CMS Marketplace Open Enrollment PUFs",
+      "source": "https://www.cms.gov/marketplace/resources/data/public-use-files",
+      "grain": "tax_unit",
+      "artifacts": [
+        {
+          "kind": "public_microdata",
+          "format": "census_asec",
+          "vintage": "build_year",
+          "locator": "CPS ASEC current coverage and health premium fields"
+        },
+        {
+          "kind": "administrative_table",
+          "format": "cms_public_use_file",
+          "vintage": "build_year_or_latest_available",
+          "locator": "CMS Marketplace OEP state-level, APTC, and metal-level public use files"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "aggregate_person_to_tax_unit",
+          "person_table": "cps_person",
+          "tax_unit_table": "tax_unit",
+          "person_tax_unit_id": "tax_unit_id",
+          "tax_unit_id": "tax_unit_id",
+          "aggregates": [
+            "has_marketplace_health_coverage_at_interview",
+            "reported_has_subsidized_marketplace_health_coverage_at_interview"
+          ],
+          "operation": "any"
+        },
+        {
+          "kind": "assign_binary_from_rate",
+          "output": "takes_up_aca_if_eligible",
+          "draw": "stable_tax_unit_draw",
+          "rate_key": "aca",
+          "rate_column": "aca_take_up_rate",
+          "eligibility": "is_aca_ptc_eligible",
+          "reported_true_anchor": "reported_has_subsidized_marketplace_health_coverage_at_interview"
+        },
+        {
+          "kind": "calibrate_binary_assignment",
+          "variable": "takes_up_aca_if_eligible",
+          "targets": [
+            "cms_aca_aptc_recipients_by_state",
+            "cms_aca_marketplace_enrollment_by_state"
+          ],
+          "preserve_true_anchors": true,
+          "preserve_true_anchor": "reported_has_subsidized_marketplace_health_coverage_at_interview",
+          "domain": "is_aca_ptc_eligible",
+          "weight": "tax_unit_weight"
+        },
+        {
+          "kind": "calibrate_binary_assignment_joint_targets",
+          "variable": "takes_up_aca_if_eligible",
+          "count_targets": [
+            "irs_soi_premium_tax_credit_returns_by_state"
+          ],
+          "amount_targets": [
+            "irs_soi_premium_tax_credit_amount_by_state"
+          ],
+          "optional": true,
+          "preserve_true_anchors": true,
+          "preserve_true_anchor": "reported_has_subsidized_marketplace_health_coverage_at_interview",
+          "domain": "is_aca_ptc_eligible",
+          "count_weight": "household_weight",
+          "amount_weight": "weighted_assigned_aca_ptc"
+        },
+        {
+          "kind": "compute_ratio",
+          "output": "selected_marketplace_plan_benchmark_ratio",
+          "numerator": [
+            "health_insurance_premiums_without_medicare_part_b",
+            "assigned_aca_ptc"
+          ],
+          "denominator": "slcsp",
+          "where": "takes_up_aca_if_eligible"
+        },
+        {
+          "kind": "support_clip",
+          "output": "selected_marketplace_plan_benchmark_ratio",
+          "lower": 0.5,
+          "upper": 1.5,
+          "range": "reviewed_marketplace_plan_ratio"
+        },
+        {
+          "kind": "calibrate_binary_assignment",
+          "variable": "selected_marketplace_plan_benchmark_ratio < 1.0",
+          "targets": [
+            "cms_aca_bronze_aptc_consumers_by_state"
+          ],
+          "domain": "assigned_aca_ptc > 0",
+          "weight": "tax_unit_weight"
+        }
+      ],
+      "outputs": [
+        "takes_up_aca_if_eligible",
+        "selected_marketplace_plan_benchmark_ratio"
+      ],
+      "nonnegative_outputs": [
+        "selected_marketplace_plan_benchmark_ratio"
+      ],
+      "notes": "When PolicyEngine-US separates observed Marketplace coverage from simulated take-up, this stage should write the simulated take-up input while reported coverage remains a CPS-carried person-level input."
     }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "puf_tax_unit",
-     "weight": "s006"
-    },
-    {
-     "kind": "derive_puf_policyengine_variables",
-     "ordinary_dividend_source": "E00600",
-     "qualified_dividend_source": "E00650",
-     "qualified_dividend_output": "qualified_dividend_income",
-     "non_qualified_dividend_output": "non_qualified_dividend_income"
-    },
-    {
-     "kind": "disaggregate_aggregate_records",
-     "method": "donor_template_calibration",
-     "spec": "puf_aggregate_record_disaggregation",
-     "replace_records": [
-      999996,
-      999997,
-      999998,
-      999999
-     ],
-     "weight": "s006",
-     "amount_columns": "irs_puf_amount_columns",
-     "seed_from_build_config": true
-    },
-    {
-     "kind": "uprate",
-     "from_year": 2015,
-     "to_year_from_build_config": true
-    },
-    {
-     "kind": "fit_weighted_qrf",
-     "predictors": [
-      "employment_income",
-      "self_employment_income",
-      "taxable_interest_income",
-      "qualified_dividend_income",
-      "non_qualified_dividend_income",
-      "capital_gains",
-      "filing_status"
-     ]
-    },
-    {
-     "kind": "support_clip",
-     "range": "donor_realized"
-    }
-   ],
-   "outputs": [
-    "employment_income_before_lsr",
-    "self_employment_income_before_lsr",
-    "taxable_interest_income",
-    "qualified_dividend_income",
-    "non_qualified_dividend_income",
-    "tax_exempt_interest_income",
-    "short_term_capital_gains",
-    "long_term_capital_gains_before_response",
-    "non_sch_d_capital_gains",
-    "taxable_private_pension_income",
-    "taxable_ira_distributions",
-    "social_security_retirement",
-    "social_security_disability",
-    "social_security_dependents",
-    "social_security_survivors",
-    "charitable_cash_donations",
-    "charitable_non_cash_donations",
-    "real_estate_taxes",
-    "home_mortgage_interest",
-    "student_loan_interest",
-    "traditional_ira_contributions_desired",
-    "self_employed_pension_contributions_desired",
-    "rental_income",
-    "estate_income",
-    "farm_income",
-    "miscellaneous_income",
-    "partnership_income",
-    "s_corp_income",
-    "partnership_self_employment_net_earnings",
-    "first_home_mortgage_balance",
-    "second_home_mortgage_balance",
-    "first_home_mortgage_interest",
-    "second_home_mortgage_interest",
-    "first_home_mortgage_origination_year",
-    "second_home_mortgage_origination_year",
-    "health_savings_account_ald"
-   ],
-   "nonnegative_outputs": [
-    "employment_income_before_lsr",
-    "self_employment_income_before_lsr",
-    "taxable_interest_income",
-    "qualified_dividend_income",
-    "non_qualified_dividend_income",
-    "tax_exempt_interest_income",
-    "long_term_capital_gains_before_response",
-    "taxable_private_pension_income",
-    "taxable_ira_distributions",
-    "social_security_retirement",
-    "social_security_disability",
-    "social_security_dependents",
-    "social_security_survivors",
-    "charitable_cash_donations",
-    "charitable_non_cash_donations",
-    "real_estate_taxes",
-    "home_mortgage_interest",
-    "student_loan_interest",
-    "traditional_ira_contributions_desired",
-    "self_employed_pension_contributions_desired",
-    "health_savings_account_ald",
-    "first_home_mortgage_balance",
-    "second_home_mortgage_balance",
-    "first_home_mortgage_interest",
-    "second_home_mortgage_interest",
-    "first_home_mortgage_origination_year",
-    "second_home_mortgage_origination_year"
-   ],
-   "notes": "PUF detail is a primary-source donor and must stay separate from benchmark comparisons. IRS disclosure aggregate rows are replaced from raw PUF aggregate totals before uprating; Forbes top-tail synthesis is not enabled."
-  },
-  {
-   "stage": "scf_wealth",
-   "survey": "Fed SCF 2022",
-   "source": "https://www.federalreserve.gov/econres/scfindex.htm",
-   "grain": "household",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "sas_or_stata",
-     "vintage": "2022",
-     "locator": "Federal Reserve Survey of Consumer Finances public extract"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "scf_household",
-     "weight": "wgt"
-    },
-    {
-     "kind": "replace_sentinels",
-     "sentinels": [
-      -1,
-      -7,
-      -8,
-      -9
-     ],
-     "scope": "not_applicable_or_missing_fields"
-    },
-    {
-     "kind": "derive",
-     "outputs": [
-      "auto_loan_interest",
-      "net_worth_components",
-      "financial_asset_components",
-      "household_asset_components"
-     ]
-    },
-    {
-     "kind": "fit_weighted_qrf",
-     "predictors": [
-      "age",
-      "is_female",
-      "cps_race",
-      "is_married",
-      "own_children_in_household",
-      "employment_income",
-      "interest_dividend_income",
-      "social_security_pension_income"
-     ]
-    },
-    {
-     "kind": "head_carry",
-     "from_entity": "household",
-     "to_entity": "person",
-     "condition": "is_household_head"
-    },
-    {
-     "kind": "support_clip",
-     "range": "donor_realized"
-    }
-   ],
-   "outputs": [
-    "net_worth",
-    "scf_primary_residence_value",
-    "scf_retirement_assets",
-    "scf_business_equity",
-    "scf_mortgage_debt",
-    "scf_other_residential_real_estate",
-    "scf_nonresidential_real_estate_equity",
-    "scf_other_residential_debt",
-    "scf_other_financial_assets",
-    "scf_other_nonfinancial_assets",
-    "scf_other_managed_assets",
-    "scf_cash_value_life_insurance",
-    "scf_certificates_of_deposit",
-    "scf_savings_bonds",
-    "scf_credit_card_debt",
-    "scf_student_loan_debt",
-    "scf_vehicle_installment_debt",
-    "scf_other_installment_debt",
-    "scf_other_lines_of_credit",
-    "scf_other_debt",
-    "auto_loan_balance",
-    "auto_loan_interest",
-    "bank_account_assets",
-    "bond_assets",
-    "stock_assets"
-   ],
-   "nonnegative_outputs": [
-    "auto_loan_interest"
-   ],
-   "notes": "Sentinel replacement is declared here so impossible negative auto-loan interest is rejected at the source boundary and again at export gates."
-  },
-  {
-   "stage": "sipp_tips",
-   "survey": "Census SIPP",
-   "source": "https://www.census.gov/programs-surveys/sipp.html",
-   "grain": "person",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "census_extract",
-     "vintage": "latest_available",
-     "locator": "Census Survey of Income and Program Participation"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "sipp_person"
-    },
-    {
-     "kind": "fit_tip_income_model",
-     "predictors": [
-      "employment_income",
-      "is_tipped_occupation",
-      "age"
-     ]
-    },
-    {
-     "kind": "zero_when_false",
-     "condition": "is_tipped_occupation"
-    }
-   ],
-   "outputs": [
-    "tip_income"
-   ],
-   "nonnegative_outputs": [
-    "tip_income"
-   ]
-  },
-  {
-   "stage": "org_wages",
-   "survey": "CPS ORG",
-   "source": "https://www.bls.gov/cps/earnings.htm",
-   "grain": "person",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "cps_basic_monthly",
-     "vintage": "build_year",
-     "locator": "CPS Outgoing Rotation Group"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "cps_org_person"
-    },
-    {
-     "kind": "fit_labor_market_models",
-     "predictors": [
-      "age",
-      "is_female",
-      "cps_race",
-      "is_hispanic",
-      "state_fips",
-      "employment_income",
-      "hours_worked_last_week",
-      "weeks_worked"
-     ]
-    }
-   ],
-   "outputs": [
-    "hourly_wage",
-    "is_paid_hourly",
-    "is_union_member_or_covered",
-    "fsla_overtime_premium"
-   ],
-   "nonnegative_outputs": [
-    "hourly_wage",
-    "fsla_overtime_premium"
-   ],
-   "notes": "Usual weekly hours are owned by the hours_worked stage (ASEC HRSWK), matching the retired enhanced-CPS pipeline mapping; this stage consumes them as predictors."
-  },
-  {
-   "stage": "meps_esi_premiums",
-   "survey": "MEPS-IC",
-   "source": "https://meps.ahrq.gov/mepsweb/survey_comp/Insurance.jsp",
-   "grain": "person",
-   "artifacts": [
-    {
-     "kind": "administrative_table",
-     "format": "published_table",
-     "vintage": "build_year",
-     "locator": "MEPS Insurance Component plan-type premium tables"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "meps_ic_plan_premiums"
-    },
-    {
-     "kind": "assign_by_plan_type",
-     "inputs": [
-      "has_esi",
-      "is_esi_dependent",
-      "tax_unit_size",
-      "state_fips"
-     ]
-    }
-   ],
-   "outputs": [
-    "employer_sponsored_insurance_premiums"
-   ],
-   "nonnegative_outputs": [
-    "employer_sponsored_insurance_premiums"
-   ]
-  },
-  {
-   "stage": "prior_year_income",
-   "survey": "CPS ASEC (prior year)",
-   "source": "https://www.census.gov/programs-surveys/cps.html",
-   "grain": "person",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "census_asec",
-     "vintage": "build_year_minus_one",
-     "locator": "Census CPS ASEC person file"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "asec_person",
-     "columns": [
-      "PERIDNUM",
-      "WSAL_VAL",
-      "SEMP_VAL"
-     ]
-    },
-    {
-     "kind": "join",
-     "left": "current_person.PERIDNUM",
-     "right": "prior_person.PERIDNUM"
-    },
-    {
-     "kind": "replace_sentinels",
-     "sentinels": [
-      -1,
-      -9999
-     ],
-     "value": null
-    }
-   ],
-   "outputs": [
-    "employment_income_last_year",
-    "self_employment_income_last_year",
-    "previous_year_income_available"
-   ],
-   "nonnegative_outputs": [
-    "employment_income_last_year",
-    "self_employment_income_last_year"
-   ]
-  },
-  {
-   "stage": "immigration_status",
-   "survey": "CPS ASEC + published unauthorized-population estimates",
-   "source": "https://www.pewresearch.org/short-reads/2024/07/22/what-we-know-about-unauthorized-immigrants-living-in-the-us/",
-   "grain": "person",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "census_asec",
-     "vintage": "build_year",
-     "locator": "Census CPS ASEC person file citizenship (PRCITSHP), entry year (PEINUSYR), nativity (PENATVTY), and program-participation fields"
-    },
-    {
-     "kind": "administrative_table",
-     "format": "published_estimate",
-     "vintage": "latest_available",
-     "locator": "Pew Research Center unauthorized-immigrant population and worker estimates; Higher Ed Immigration Portal undocumented-student estimates"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "person",
-     "weight": "person_weight"
-    },
-    {
-     "kind": "derive_immigration_status",
-     "seed_from_build_config": true,
-     "time_period_from_build_config": true,
-     "undocumented_workers": {
-      "target": 8300000,
-      "source": "https://www.pewresearch.org/short-reads/2024/07/22/what-we-know-about-unauthorized-immigrants-living-in-the-us/"
-     },
-     "undocumented_students": {
-      "target": 408000,
-      "source": "https://www.higheredimmigrationportal.org/research/undocumented-students-in-higher-education-updated-march-2021/"
-     },
-     "undocumented_population_anchor": {
-      "value": 11000000,
-      "source": "https://www.pewresearch.org/short-reads/2024/07/22/what-we-know-about-unauthorized-immigrants-living-in-the-us/"
-     }
-    }
-   ],
-   "outputs": [
-    "ssn_card_type",
-    "immigration_status_str"
-   ],
-   "notes": "Citizenship is measured (PRCITSHP), not imputed. Non-citizens with any ASEC-UA legal-status indicator (Van Hook et al., SSRN 4662801) become OTHER_NON_CITIZEN. The CPS carries no work-authorization variable, so among residual non-citizens, workers and students spill to NON_CITIZEN_VALID_EAD in deterministic seeded order until the remaining undocumented worker count matches Pew's 8.3M and the undocumented student count matches the Higher Ed Immigration Portal's ~408k \u2014 the only forced margins. The total undocumented population is emergent (\u224813M on the 2024 ASEC, within the range of published 2023-24 estimates) and is gated against Pew's 11.0M 2022 anchor with a coarse plausibility band rather than forced; reconciling the level is the calibration lane's job. Immigration-status tags carry only statutory tests the data supports: DACA (arrival cohort among EAD holders) and CUBAN_HAITIAN_ENTRANT (nativity plus post-1980 arrival); other documented non-citizens stay LEGAL_PERMANENT_RESIDENT, the modal true status \u2014 blanket REFUGEE/TPS labels are deliberately not fabricated because they would mislabel millions and over-grant refugee-class benefit exemptions."
-  },
-  {
-   "stage": "hours_worked",
-   "survey": "Census CPS ASEC",
-   "source": "https://www.census.gov/programs-surveys/cps.html",
-   "grain": "person",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "census_asec",
-     "vintage": "build_year",
-     "locator": "Census CPS ASEC person file usual weekly hours (HRSWK), reference-week hours (A_HRS1), and weeks worked (WKSWORK)"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "person"
-    },
-    {
-     "kind": "derive_hours_worked"
-    }
-   ],
-   "outputs": [
-    "weekly_hours_worked_before_lsr",
-    "hours_worked_last_week",
-    "weeks_worked"
-   ],
-   "nonnegative_outputs": [
-    "weekly_hours_worked_before_lsr",
-    "hours_worked_last_week",
-    "weeks_worked"
-   ],
-   "notes": "Direct mappings of measured ASEC hours variables, identical to the retired enhanced-CPS pipeline: weekly_hours_worked_before_lsr <- HRSWK (usual hours per week last year, 0 for non-workers), hours_worked_last_week <- A_HRS1, weeks_worked <- WKSWORK clipped to [0, 52]. Nothing is imputed. Without this stage PolicyEngine-US defaults every person to 40 weekly hours, so the SNAP 30-hour general and 20-hour ABAWD work requirements pass universally (populace #242/#248). HRSWK is an annual usual-hours measure while the ABAWD standard is a monthly 80-hour test; week-by-week volatility is not observable in the CPS and is deliberately out of scope."
-  },
-  {
-   "stage": "mortgage_conversion",
-   "survey": "IRS PUF 2015 (uprated) + Fed SCF 2022",
-   "source": "https://www.irs.gov/statistics/soi-tax-stats-individual-public-use-microdata-files",
-   "grain": "tax_unit",
-   "artifacts": [
-    {
-     "kind": "derived_from_prior_stages",
-     "inputs": [
-      "interest_deduction",
-      "scf_mortgage_debt",
-      "tenure_type"
-     ]
-    }
-   ],
-   "operations": [
-    {
-     "kind": "derive_mortgage_balance_hints",
-     "inputs": [
-      "interest_deduction",
-      "scf_mortgage_debt",
-      "filing_status"
-     ]
-    },
-    {
-     "kind": "convert_interest_to_structural_mortgage_inputs"
-    },
-    {
-     "kind": "head_carry",
-     "from_entity": "tax_unit",
-     "to_entity": "person",
-     "condition": "tax_unit_role_input == HEAD"
-    }
-   ],
-   "outputs": [
-    "deductible_mortgage_interest",
-    "home_mortgage_interest",
-    "mortgage_interest",
-    "mortgage_principal",
-    "investment_interest_expense"
-   ],
-   "nonnegative_outputs": [
-    "deductible_mortgage_interest",
-    "home_mortgage_interest",
-    "mortgage_interest",
-    "mortgage_principal",
-    "investment_interest_expense"
-   ],
-   "notes": "The conversion is a declarative structural transform over PUF and SCF outputs, not a benchmark data loader."
-  },
-  {
-   "stage": "acs_rent",
-   "survey": "Census ACS 2022",
-   "source": "https://www.census.gov/programs-surveys/acs",
-   "grain": "household",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "acs_pums",
-     "vintage": "2022",
-     "locator": "Census ACS PUMS household and person files"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_tables",
-     "tables": [
-      "acs_household",
-      "acs_person"
-     ]
-    },
-    {
-     "kind": "aggregate_person_to_household",
-     "aggregates": [
-      "employment_income",
-      "household_size"
-     ]
-    },
-    {
-     "kind": "fit_weighted_imputer",
-     "predictors": [
-      "state_fips",
-      "household_employment_income",
-      "household_size"
-     ],
-     "weight": "household_weight"
-    },
-    {
-     "kind": "zero_when_false",
-     "condition": "tenure_type == RENTED"
-    },
-    {
-     "kind": "head_carry",
-     "from_entity": "household",
-     "to_entity": "person",
-     "condition": "is_household_head"
-    }
-   ],
-   "outputs": [
-    "pre_subsidy_rent"
-   ],
-   "nonnegative_outputs": [
-    "pre_subsidy_rent"
-   ]
-  },
-  {
-   "stage": "vehicle_assets",
-   "survey": "Census SIPP",
-   "source": "https://www.census.gov/programs-surveys/sipp.html",
-   "grain": "household",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "census_extract",
-     "vintage": "latest_available",
-     "locator": "Census Survey of Income and Program Participation"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "read_table",
-     "table": "sipp_household"
-    },
-    {
-     "kind": "fit_vehicle_model",
-     "predictors": [
-      "employment_income",
-      "interest_dividend_income",
-      "rental_income",
-      "age",
-      "is_female",
-      "is_married",
-      "tenure_type"
-     ]
-    },
-    {
-     "kind": "fold_into",
-     "output": "net_worth",
-     "component": "household_vehicles_value"
-    }
-   ],
-   "outputs": [
-    "household_vehicles_owned",
-    "household_vehicles_value"
-   ],
-   "nonnegative_outputs": [
-    "household_vehicles_owned",
-    "household_vehicles_value"
-   ]
-  },
-  {
-   "stage": "aca_marketplace_inputs",
-   "survey": "CPS ASEC + CMS Marketplace Open Enrollment PUFs",
-   "source": "https://www.cms.gov/marketplace/resources/data/public-use-files",
-   "grain": "tax_unit",
-   "artifacts": [
-    {
-     "kind": "public_microdata",
-     "format": "census_asec",
-     "vintage": "build_year",
-     "locator": "CPS ASEC current coverage and health premium fields"
-    },
-    {
-     "kind": "administrative_table",
-     "format": "cms_public_use_file",
-     "vintage": "build_year_or_latest_available",
-     "locator": "CMS Marketplace OEP state-level, APTC, and metal-level public use files"
-    }
-   ],
-   "operations": [
-    {
-     "kind": "aggregate_person_to_tax_unit",
-     "person_table": "cps_person",
-     "tax_unit_table": "tax_unit",
-     "person_tax_unit_id": "tax_unit_id",
-     "tax_unit_id": "tax_unit_id",
-     "aggregates": [
-      "has_marketplace_health_coverage_at_interview",
-      "reported_has_subsidized_marketplace_health_coverage_at_interview"
-     ],
-     "operation": "any"
-    },
-    {
-     "kind": "assign_binary_from_rate",
-     "output": "takes_up_aca_if_eligible",
-     "draw": "stable_tax_unit_draw",
-     "rate_key": "aca",
-     "rate_column": "aca_take_up_rate",
-     "eligibility": "is_aca_ptc_eligible",
-     "reported_true_anchor": "reported_has_subsidized_marketplace_health_coverage_at_interview"
-    },
-    {
-     "kind": "calibrate_binary_assignment",
-     "variable": "takes_up_aca_if_eligible",
-     "targets": [
-      "cms_aca_aptc_recipients_by_state",
-      "cms_aca_marketplace_enrollment_by_state"
-     ],
-     "preserve_true_anchors": true,
-     "preserve_true_anchor": "reported_has_subsidized_marketplace_health_coverage_at_interview",
-     "domain": "is_aca_ptc_eligible",
-     "weight": "tax_unit_weight"
-    },
-    {
-     "kind": "calibrate_binary_assignment_joint_targets",
-     "variable": "takes_up_aca_if_eligible",
-     "count_targets": [
-      "irs_soi_premium_tax_credit_returns_by_state"
-     ],
-     "amount_targets": [
-      "irs_soi_premium_tax_credit_amount_by_state"
-     ],
-     "optional": true,
-     "preserve_true_anchors": true,
-     "preserve_true_anchor": "reported_has_subsidized_marketplace_health_coverage_at_interview",
-     "domain": "is_aca_ptc_eligible",
-     "count_weight": "household_weight",
-     "amount_weight": "weighted_assigned_aca_ptc"
-    },
-    {
-     "kind": "compute_ratio",
-     "output": "selected_marketplace_plan_benchmark_ratio",
-     "numerator": [
-      "health_insurance_premiums_without_medicare_part_b",
-      "assigned_aca_ptc"
-     ],
-     "denominator": "slcsp",
-     "where": "takes_up_aca_if_eligible"
-    },
-    {
-     "kind": "support_clip",
-     "output": "selected_marketplace_plan_benchmark_ratio",
-     "lower": 0.5,
-     "upper": 1.5,
-     "range": "reviewed_marketplace_plan_ratio"
-    },
-    {
-     "kind": "calibrate_binary_assignment",
-     "variable": "selected_marketplace_plan_benchmark_ratio < 1.0",
-     "targets": [
-      "cms_aca_bronze_aptc_consumers_by_state"
-     ],
-     "domain": "assigned_aca_ptc > 0",
-     "weight": "tax_unit_weight"
-    }
-   ],
-   "outputs": [
-    "takes_up_aca_if_eligible",
-    "selected_marketplace_plan_benchmark_ratio"
-   ],
-   "nonnegative_outputs": [
-    "selected_marketplace_plan_benchmark_ratio"
-   ],
-   "notes": "When PolicyEngine-US separates observed Marketplace coverage from simulated take-up, this stage should write the simulated take-up input while reported coverage remains a CPS-carried person-level input."
-  }
- ]
+  ]
 }
