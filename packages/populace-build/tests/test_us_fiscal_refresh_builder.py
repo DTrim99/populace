@@ -526,9 +526,11 @@ def test_export_target_audit_is_opt_in(monkeypatch) -> None:
     assert args.audit_export_targets
 
 
-def test_cd_targets_require_vintage_crosswalk(monkeypatch) -> None:
+def test_cd_targets_default_to_the_packaged_vintage_crosswalk(monkeypatch) -> None:
     builder = _load_builder_module()
 
+    # CD targets with no explicit crosswalk fall back to the packaged
+    # Census-built default so the build works out of the box.
     monkeypatch.setattr(
         sys,
         "argv",
@@ -541,9 +543,13 @@ def test_cd_targets_require_vintage_crosswalk(monkeypatch) -> None:
             "--include-congressional-district-targets",
         ],
     )
-    with pytest.raises(SystemExit):
-        builder._parse_args()
+    args = builder._parse_args()
+    default_path = args.congressional_district_vintage_crosswalk
+    assert default_path is not None
+    assert default_path.name == "congressional_district_vintage_crosswalk.csv"
+    assert default_path.exists()
 
+    # An explicit path still overrides the default.
     monkeypatch.setattr(
         sys,
         "argv",
