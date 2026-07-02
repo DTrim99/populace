@@ -17,6 +17,9 @@ from populace.build.source_runtime import (
 from populace.build.us_runtime.immigration import (
     derive_us_immigration_status_from_manifest,
 )
+from populace.build.us_runtime.snap_take_up import (
+    derive_us_snap_take_up_from_manifest,
+)
 from populace.build.us_runtime.puf_aggregate_records import (
     derive_puf_policyengine_variables,
     disaggregate_puf_aggregate_records,
@@ -177,6 +180,7 @@ def us_source_operation_handlers() -> Mapping[str, SourceOperationHandler]:
         ),
         "compute_ratio": compute_us_ratio_from_manifest,
         "derive_immigration_status": derive_us_immigration_status_from_manifest,
+        "derive_snap_take_up": derive_us_snap_take_up_from_manifest,
         "derive_puf_policyengine_variables": (
             derive_us_puf_policyengine_variables_from_manifest
         ),

@@ -51,6 +51,7 @@ ALLOWED_SOURCE_OPERATION_KINDS = frozenset(
         "declare_income_reference_offset",
         "derive",
         "derive_immigration_status",
+        "derive_snap_take_up",
         "derive_puf_policyengine_variables",
         "derive_mortgage_balance_hints",
         "disaggregate_aggregate_records",

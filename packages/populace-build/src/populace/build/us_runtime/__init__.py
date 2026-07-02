@@ -125,6 +125,16 @@ from populace.build.us_runtime.immigration import (
 from populace.build.us_runtime.input_mass import (
     us_input_mass_totals,
 )
+from populace.build.us_runtime.snap_take_up import (
+    US_SNAP_TAKE_UP_OUTPUT_COLUMN,
+    US_SNAP_TAKE_UP_RAW_COLUMN,
+    US_SNAP_TAKE_UP_STAGE_NAME,
+    derive_us_snap_take_up_from_manifest,
+    us_snap_take_up_signal_gate,
+    us_snap_take_up_stage_spec,
+    us_snap_take_up_summary,
+    with_us_snap_take_up_inputs,
+)
 from populace.build.us_runtime.puf_support import (
     BASE_ASEC_SUPPORT_CHANNEL,
     PUF_TAX_DETAIL_DEFAULT_PERSON_OUTPUTS,
@@ -221,6 +231,14 @@ __all__ = [
     "US_IMMIGRATION_REQUIRED_SOURCE_COLUMNS",
     "US_IMMIGRATION_STAGE_NAME",
     "UndocumentedControls",
+    "US_SNAP_TAKE_UP_OUTPUT_COLUMN",
+    "US_SNAP_TAKE_UP_RAW_COLUMN",
+    "US_SNAP_TAKE_UP_STAGE_NAME",
+    "derive_us_snap_take_up_from_manifest",
+    "us_snap_take_up_signal_gate",
+    "us_snap_take_up_stage_spec",
+    "us_snap_take_up_summary",
+    "with_us_snap_take_up_inputs",
     "derive_us_immigration_status_from_manifest",
     "us_immigration_composition_gate",
     "us_immigration_composition_summary",
@@ -386,6 +404,16 @@ US_DONORS: Mapping[str, DonorSpec] = {
             "undocumented population/worker/student control totals."
         ),
     ),
+    US_SNAP_TAKE_UP_STAGE_NAME: DonorSpec(
+        survey="Census CPS ASEC + USDA FNS participation rate estimates",
+        source="https://www.fns.usda.gov/snap/participation-rates",
+        notes=(
+            "SNAP take-up: reported recipients (SPM_SNAPSUB) always take "
+            "up; non-reporting units drawn to the cited FNS participation "
+            "rate. Without it the engine defaults every eligible unit to "
+            "100% take-up."
+        ),
+    ),
     "puf_tax_detail": DonorSpec(
         survey="IRS PUF 2015 (uprated)",
         source="https://www.irs.gov/statistics/soi-tax-stats-individual-public-use-microdata-files",
@@ -419,6 +447,7 @@ US_STAGE_NAMES: tuple[str, ...] = (
     "unit_assignment",
     "derive_cps_carried",
     US_IMMIGRATION_STAGE_NAME,
+    US_SNAP_TAKE_UP_STAGE_NAME,
     US_PUF_SUPPORT_STAGE_NAME,
     "puf_tax_detail",
     "scf_wealth",
