@@ -37,6 +37,10 @@ from microcosm.build.target_reference_authoring import (
 from microcosm.build.uk_runtime.chronicle_feed import (
     load_uk_chronicle_feed,
 )
+from microcosm.build.uk_runtime.geography_ladder import (
+    UK_REGION_TIER,
+    UK_REGION_TIER_ENUM,
+)
 from microcosm.build.uk_runtime.local_target_census import _LEDGER_FACT_FEED_PIN
 from microcosm.calibrate.matrix import build_constraint_matrix
 from microcosm.frame import EntitySchema, Frame, WeightKind, Weights
