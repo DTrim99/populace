@@ -9,13 +9,13 @@ import pandas as pd
 import pytest
 
 from microcosm.build.country_spec import load_country_spec
-from microcosm.build.uk_runtime.geography_ladder import UK_REGION_TIER_ENUM
 from microcosm.build.uk_runtime.ledger_targets import (
     UKFrameTargetAdapter,
     materialize_uk_ledger_targets,
 )
 from microcosm.build.uk_runtime.local_targets import load_uk_population_contract
 from microcosm.calibrate import TargetRegistry, TargetSpec
+from microcosm.calibrate.geography_constants import UK_REGION_TIER_ENUM
 from microcosm.calibrate.matrix import build_constraint_matrix
 from microcosm.frame import EntitySchema, Frame, WeightKind, Weights
 from tools.generate_uk_local_target_references import _area_signed_deferrals

@@ -143,55 +143,6 @@ UK_ENGLAND_WALES_REGION_CODES = (
 #: collapse to zero is caught the way the US ladder catches an NYC collapse).
 UK_LONDON_REGION_CODE = "E12000007"
 
-#: The twelve-area region tier of the national calibration surface, in the
-#: order the FRS ``gvtregno`` coding and the incumbent's regional rows use:
-#: the nine English regions at Chronicle's ``region`` level, then Wales,
-#: Scotland and Northern Ireland, which Chronicle stamps at ``country`` (their
-#: GSS codes are country codes) but which sit at the same ITL1 tier as the
-#: English regions. Two-level (country + region) contract targets fan out
-#: over this roster (microcosm#905).
-UK_REGION_TIER: tuple[tuple[str, str], ...] = (
-    ("region", "E12000001"),  # North East
-    ("region", "E12000002"),  # North West
-    ("region", "E12000003"),  # Yorkshire and The Humber
-    ("region", "E12000004"),  # East Midlands
-    ("region", "E12000005"),  # West Midlands
-    ("region", "E12000006"),  # East of England
-    ("region", "E12000007"),  # London
-    ("region", "E12000008"),  # South East
-    ("region", "E12000009"),  # South West
-    ("country", "W92000004"),  # Wales
-    ("country", "S92000003"),  # Scotland
-    ("country", "N92000002"),  # Northern Ireland
-)
-
-#: Region-tier GSS code -> the spine's ``region`` enum name (``REGION_MAP`` in
-#: ``frs_spine``), the value a fan-out row's geography predicate compares
-#: against. Kept beside the roster so the two cannot drift apart.
-UK_REGION_TIER_ENUM: dict[str, str] = {
-    "E12000001": "NORTH_EAST",
-    "E12000002": "NORTH_WEST",
-    "E12000003": "YORKSHIRE",
-    "E12000004": "EAST_MIDLANDS",
-    "E12000005": "WEST_MIDLANDS",
-    "E12000006": "EAST_OF_ENGLAND",
-    "E12000007": "LONDON",
-    "E12000008": "SOUTH_EAST",
-    "E12000009": "SOUTH_WEST",
-    "W92000004": "WALES",
-    "S92000003": "SCOTLAND",
-    "N92000002": "NORTHERN_IRELAND",
-}
-
-#: The ladder's nation pseudo region codes -> the GSS country code the region
-#: tier uses for the same area, so an OA-derived region membership can be
-#: expressed in tier codes.
-UK_LADDER_NATION_REGION_CODES: dict[str, str] = {
-    "W99999999": "W92000004",
-    "S99999999": "S92000003",
-    "N99999999": "N92000002",
-}
-
 UK_OA_LADDER_SCHEMA_VERSION = 1
 UK_OA_LADDER_KIND = "uk_oa_ladder"
 

@@ -21,12 +21,12 @@ from microcosm.build.target_reference_authoring import (
     author_target_references,
     target_references_resource,
 )
-from microcosm.build.uk_runtime.geography_ladder import (
+from microcosm.build.uk_runtime.ledger_targets import UK_UPRATING_APPLIERS
+from microcosm.build.uk_runtime.uc_source_periods import uc_source_month_metadata
+from microcosm.calibrate.geography_constants import (
     UK_REGION_TIER,
     UK_REGION_TIER_ENUM,
 )
-from microcosm.build.uk_runtime.ledger_targets import UK_UPRATING_APPLIERS
-from microcosm.build.uk_runtime.uc_source_periods import uc_source_month_metadata
 
 UK_GEOGRAPHY_IDS = {
     "uk": "K02000001",

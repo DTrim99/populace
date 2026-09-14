@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from microcosm.build.uk_runtime.geography_ladder import (
+from microcosm.calibrate.geography_constants import (
     UK_LADDER_NATION_REGION_CODES,
     UK_REGION_TIER,
 )

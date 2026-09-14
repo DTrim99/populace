@@ -30,11 +30,7 @@ from microcosm.build.target_materialization import (
 )
 from microcosm.build.uk_runtime.cgt_calibration import uk_cgt_annual_exempt_amount
 from microcosm.build.uk_runtime.chronicle_feed import load_uk_chronicle_feed
-from microcosm.build.uk_runtime.geography_ladder import (
-    UK_ENGLAND_WALES_REGION_CODES,
-    UK_REGION_TIER,
-    UK_REGION_TIER_ENUM,
-)
+from microcosm.build.uk_runtime.geography_ladder import UK_ENGLAND_WALES_REGION_CODES
 from microcosm.build.uk_runtime.ledger_fact_vendoring import (
     feed_identity,
     load_vendored_resource,
@@ -50,6 +46,10 @@ from microcosm.build.uk_runtime.uc_source_periods import (
     validate_uc_source_month_coverage,
 )
 from microcosm.calibrate import TargetRegistry, TargetSpec
+from microcosm.calibrate.geography_constants import (
+    UK_REGION_TIER,
+    UK_REGION_TIER_ENUM,
+)
 from microcosm.frame import Frame
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from microcosm.build.country_spec import load_country_spec
-from microcosm.build.uk_runtime.geography_ladder import UK_REGION_TIER
+from microcosm.calibrate.geography_constants import UK_REGION_TIER
 from tools.generate_uk_local_area_crosswalk import build_local_area_crosswalk
 
 LADDER_ARTIFACT = Path("build/uk/uk_oa_ladder_2021.npz")

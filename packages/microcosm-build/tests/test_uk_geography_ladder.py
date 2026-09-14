@@ -668,6 +668,9 @@ def test_region_tier_roster_and_enum_table_are_consistent() -> None:
     from microcosm.build.uk_runtime.frs_spine import REGION_MAP
     from microcosm.build.uk_runtime.geography_ladder import (
         UK_ENGLAND_WALES_REGION_CODES,
+    )
+    from microcosm.calibrate.geography_constants import (
+        UK_GEOGRAPHY_ID_TO_LABEL,
         UK_LADDER_NATION_REGION_CODES,
         UK_REGION_TIER,
         UK_REGION_TIER_ENUM,
@@ -675,6 +678,9 @@ def test_region_tier_roster_and_enum_table_are_consistent() -> None:
 
     codes = [code for _, code in UK_REGION_TIER]
     assert len(codes) == 12 == len(set(codes))
+    # Every tier code is a catalogued geography, so the schema-8 hierarchy can
+    # label a region-tier cell without a Chronicle geography.name.
+    assert set(codes) <= set(UK_GEOGRAPHY_ID_TO_LABEL)
     assert [code for level, code in UK_REGION_TIER if level == "region"] == [
         code for code in UK_ENGLAND_WALES_REGION_CODES if code.startswith("E12")
     ]
