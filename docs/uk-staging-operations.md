@@ -187,6 +187,15 @@ That obsolete sampling option has also been removed because it selected source
 families before construction and therefore did not guarantee a requested final
 household count.
 
+A current-layout authenticated check completed on 2026-09-14 using the full
+deterministic synthetic fixture. It recorded
+`uk-smoke-full-s42-20260914T172919Z` under its own `runs/` directory, completed
+15 of 15 upload attempts, and passed authenticated read-back. Repository
+inspection found exactly `run_manifest.json`, `progress.json`, and
+`events.ndjson` in that directory. The Calibration Diagnostics PR preview then
+listed and loaded the completed non-release run through its server API while
+reporting the obsolete 2026-09-09 run separately as incompatible.
+
 ## Monitoring authentication
 
 Calibration Diagnostics already loads staging files inside Next.js API routes,
