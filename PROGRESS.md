@@ -71,10 +71,26 @@ bytes are unchanged still needs re-certification.
   `docs/us-native-spm-role-source-enrichment.md` with when to use a range and
   when not to, a note in the `microcosm-data` README, and a changelog fragment.
 
+## Second session, 2026-09-14 evening
+
+The lane was re-entered after the first session ended at `a4e7e131c`. Nothing
+was rewritten: the feature and test files are untouched, and this session's job
+was to confirm the branch rather than extend it. Done here:
+
+- `packages/microcosm-data/tests/` re-run from scratch in the lane venv: 565
+  passed, 2 skipped, matching what the PR body claims.
+- A second, independent adversarial pass over the branch, run out of two
+  detached review worktrees so no reviewer could write into this one (the
+  collision recorded above must not repeat): PEP 440 containment parity against
+  both consumers, guard-preservation and bypass, wrapper accept/refuse measured
+  rather than described, mutation testing of every new guard, a claims audit of
+  the PR body and docs, and a blast-radius sweep for anything that reads
+  `compatible_model_packages`.
+
 ## Next
 
-- Answer the adversarial review, confirm the whole-workspace run and CI, then
-  hand to human review. Do not merge; do not publish.
+- Whole-workspace run and PR CI to finish; hand to human review. Do not merge;
+  do not publish.
 
 ---
 
