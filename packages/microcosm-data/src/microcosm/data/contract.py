@@ -64,6 +64,7 @@ __all__ = [
     "LOCAL_AREA_REQUIRED_RELEASE_FILES",
     "NATIONAL_DEFAULT_DATASET_ROLE",
     "NON_DEFAULT_LOCAL_AREA_DATASET_ROLE",
+    "PUBLISHER_CLAIM_BASIS",
     "RELEASE_MANIFEST_SCHEMA_VERSION",
     "REQUIRED_RELEASE_FILES",
     "US_SOURCE_COVERAGE_DIAGNOSTICS_FILE",
@@ -78,6 +79,10 @@ __all__ = [
 #: schema, and keep :func:`validate_release_dir` rejecting drift loudly — the
 #: unversioned 1abddeb-era manifest is exactly the silence this guards against.
 RELEASE_MANIFEST_SCHEMA_VERSION = 1
+#: ``compatible_*_packages`` entries default to the exact version the build
+#: measured. An entry the publisher widened deliberately declares this basis
+#: and the person or process accountable for it.
+PUBLISHER_CLAIM_BASIS = "publisher_claim"
 
 #: The release-manifest schema marker for EVIDENCE-tier releases
 #: (microcosm#506). Deliberately a distinct value, not a superset flag on the
@@ -1561,6 +1566,27 @@ def _check_compatible_package_entries(
                 f"{owner}.specifier {specifier!r} is not a valid PEP 440 specifier."
             )
             continue
+        # An entry wider than the tested build is a publisher's own claim, so
+        # it says so and says who made it. Silence means the entry records what
+        # the build measured.
+        basis = entry.get("basis")
+        if basis is not None:
+            if basis != PUBLISHER_CLAIM_BASIS:
+                failures.append(
+                    f"{owner}.basis {basis!r} is not a recognised compatibility "
+                    f"basis; the only declared basis is {PUBLISHER_CLAIM_BASIS!r}."
+                )
+            declared_by = entry.get("declared_by")
+            if not isinstance(declared_by, str) or not declared_by.strip():
+                failures.append(
+                    f"{owner}.declared_by is required for a "
+                    f"{PUBLISHER_CLAIM_BASIS!r} entry."
+                )
+        elif entry.get("declared_by") is not None:
+            failures.append(
+                f"{owner}.declared_by needs the matching "
+                f"'basis': {PUBLISHER_CLAIM_BASIS!r}."
+            )
         if name == expected_name:
             matching_specifiers.append(specifier)
 

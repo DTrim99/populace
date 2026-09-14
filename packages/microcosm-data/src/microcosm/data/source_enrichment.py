@@ -15,7 +15,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from microcosm.data.contract import ReleaseContractError
+from microcosm.data.contract import PUBLISHER_CLAIM_BASIS, ReleaseContractError
 
 SOURCE_ENRICHMENT_RELEASE_TYPE = "source_enrichment"
 SOURCE_ENRICHMENT_FILE = "source_enrichment.json"
@@ -27,6 +27,9 @@ SOURCE_EVIDENCE_SHA256 = (
 )
 SOURCE_PROVENANCE_FILE = "source_spm_independence_provenance.json"
 COMPATIBILITY_FILE = "source_enrichment_compatibility.json"
+#: A declared range must exclude this version, so "compatible with everything
+#: from here on" cannot be published as a claim.
+UNBOUNDED_CLAIM_PROBE_VERSION = "99999"
 COMPATIBILITY_PACKAGES = (
     "policyengine-us",
     "policyengine-core",
@@ -472,6 +475,12 @@ def validate_source_enrichment_candidate(
             failures.append(
                 "pending source enrichment must not copy built-with package claims"
             )
+        if compatibility.get("publisher_claims") is not None:
+            failures.append(
+                "pending source enrichment must not declare a publisher "
+                "compatibility claim; a claim is made at certification, "
+                "against the measured runtime"
+            )
     elif compatibility.get("status") == "passed":
         if COMPATIBILITY_FILE not in by_path:
             failures.append(
@@ -564,6 +573,102 @@ def _check_producer_source_identity(code: Mapping) -> None:
             )
 
 
+def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> str:
+    """Return the bare specifier of ``<package><specifier>``, or raise.
+
+    Spelling the package name into the claim is deliberate: the operator states
+    which package the range is about, and a claim naming the wrong one is a
+    typo the tooling must refuse rather than silently retarget.
+    """
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    if not isinstance(requirement, str) or not requirement.strip():
+        raise ValueError("publisher compatibility claim must not be empty")
+    try:
+        parsed = Requirement(requirement)
+    except InvalidRequirement as exc:
+        raise ValueError(
+            f"publisher compatibility claim {requirement!r} is not a PEP 508 "
+            "requirement such as 'policyengine-us>=2.0.1,<2.1'"
+        ) from exc
+    if canonicalize_name(parsed.name) != canonicalize_name(package):
+        raise ValueError(
+            f"publisher compatibility claim names {parsed.name!r}; this claim "
+            f"declares compatibility for the built-with package {package!r}"
+        )
+    if parsed.url or parsed.extras or parsed.marker:
+        raise ValueError(
+            "publisher compatibility claim must be a bare name and specifier, "
+            "with no URL, extras or environment marker"
+        )
+    return str(parsed.specifier)
+
+
+def compatibility_claim_entry(
+    specifier: object, *, package: str, version: str, declared_by: object
+) -> dict:
+    """Validate one publisher claim and return its manifest entry, or raise.
+
+    Containment uses the same PEP 440 semantics the consumers apply
+    (``microcosm.data.loader._package_certification`` and the wrapper's
+    ``policyengine.provenance.manifest._specifier_matches``), so a claim this
+    function accepts is a claim they will honour, and one they would refuse for
+    the tested version is refused here instead of at load time.
+    """
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+    from packaging.version import InvalidVersion, Version
+
+    if not isinstance(specifier, str) or not specifier.strip():
+        raise ValueError("publisher compatibility claim needs a PEP 440 specifier")
+    if (
+        not isinstance(declared_by, str)
+        or not declared_by.strip()
+        or declared_by != declared_by.strip()
+        or len(declared_by) > 200
+        or not declared_by.isprintable()
+    ):
+        raise ValueError(
+            "publisher compatibility claim must record who declared it, as "
+            "trimmed printable text of at most 200 characters"
+        )
+    try:
+        specifier_set = SpecifierSet(specifier)
+    except InvalidSpecifier as exc:
+        raise ValueError(
+            f"publisher compatibility claim {specifier!r} is not a valid PEP 440 "
+            "specifier set"
+        ) from exc
+    if not tuple(specifier_set):
+        raise ValueError(
+            "publisher compatibility claim must constrain the version; an empty "
+            "specifier claims every release"
+        )
+    try:
+        tested = Version(version)
+    except InvalidVersion as exc:
+        raise ValueError(
+            f"tested {package} version {version!r} is not a valid PEP 440 version"
+        ) from exc
+    if tested not in specifier_set:
+        raise ValueError(
+            f"publisher compatibility claim {specifier!r} excludes the tested "
+            f"{package} version {version}; a claim must cover what was measured"
+        )
+    if Version(UNBOUNDED_CLAIM_PROBE_VERSION) in specifier_set:
+        raise ValueError(
+            f"publisher compatibility claim {specifier!r} is unbounded above; "
+            "declare an upper bound such as '<2.1' so the claim cannot outlive "
+            "the runtime it was measured against"
+        )
+    return {
+        "name": package,
+        "specifier": specifier,
+        "basis": PUBLISHER_CLAIM_BASIS,
+        "declared_by": declared_by,
+    }
+
+
 def _check_compatibility(
     release_dir,
     manifest,
@@ -596,6 +701,18 @@ def _check_compatibility(
         from microcosm.data.contract import _check_release_manifest
 
         _check_release_manifest(manifest, release_dir.name, failures)
+        raw_claims = compatibility.get("publisher_claims")
+        claims = _mapping(raw_claims)
+        if raw_claims is not None and (
+            not isinstance(raw_claims, Mapping)
+            or not claims
+            or set(claims) - {"model", "core"}
+        ):
+            failures.append(
+                "publisher_claims must map 'model' and/or 'core' to declared "
+                "compatibility claims"
+            )
+            claims = {}
         for package, field in (
             ("policyengine-us", "model"),
             ("policyengine-core", "core"),
@@ -607,11 +724,40 @@ def _check_compatibility(
                 failures.append(
                     f"compatibility built-with {package} must match tested runtime"
                 )
-            if manifest.get(f"compatible_{field}_packages") != [
-                {"name": package, "specifier": f"=={version}"}
-            ]:
+            declared = claims.get(field)
+            if declared is None:
+                if manifest.get(f"compatible_{field}_packages") != [
+                    {"name": package, "specifier": f"=={version}"}
+                ]:
+                    failures.append(
+                        f"compatibility {package} must pin exactly the tested "
+                        "version unless the certified report declares a "
+                        "publisher compatibility claim"
+                    )
+                continue
+            # A claim widens the binding, so the report must carry it and the
+            # manifest must say exactly what the report says. The report is
+            # hash-bound by the manifest's own artifact entry, so a manifest
+            # widened after certification has no declaration to stand on.
+            try:
+                entry = compatibility_claim_entry(
+                    _mapping(declared).get("specifier"),
+                    package=package,
+                    version=version,
+                    declared_by=_mapping(declared).get("declared_by"),
+                )
+            except ValueError as exc:
+                failures.append(f"declared {package} compatibility claim: {exc}")
+                continue
+            if declared != entry:
                 failures.append(
-                    f"compatibility {package} must pin exactly the tested version"
+                    f"declared {package} compatibility claim must record only "
+                    "the validated name, specifier, basis and declarer"
+                )
+            if manifest.get(f"compatible_{field}_packages") != [entry]:
+                failures.append(
+                    f"compatibility {package} must match the declared publisher "
+                    "compatibility claim"
                 )
     except (ValueError, OSError, ImportError, KeyError, TypeError) as exc:
         failures.append(f"native loader compatibility failed: {exc}")
@@ -886,11 +1032,21 @@ def certify_source_enrichment(
     parent_h5: Path | str,
     artifact_root: Path | str,
     compatibility_wheels: tuple[Path | str, ...],
+    compatible_model_specifier: str | None = None,
+    compatibility_claim_declared_by: str | None = None,
 ) -> Path:
     """Create a separate certified bundle only after measured loader checks pass.
 
     H5 and source evidence are never modified. The caller still owns canonical
     model acceptance, package publication proof, and publisher authorization.
+
+    By default the bundle pins the exact model and Core versions the loader
+    checks ran against. ``compatible_model_specifier`` lets the publisher
+    declare a wider model range instead — ``"policyengine-us>=2.0.1,<2.1"`` —
+    which the bundle records as a publisher claim attributed to
+    ``compatibility_claim_declared_by``. The claim never replaces the measured
+    runtime: ``build.built_with_model_package`` still names the exact version
+    certification tested, and the range must contain it.
     """
     import shutil
     import tempfile
@@ -901,12 +1057,39 @@ def certify_source_enrichment(
         raise ValueError(
             "output_dir must be new and keep the candidate release id as its basename"
         )
+    if (compatible_model_specifier is None) != (
+        compatibility_claim_declared_by is None
+    ):
+        raise ValueError(
+            "a publisher compatibility claim needs both its specifier and the "
+            "declarer who is accountable for it"
+        )
+    claim_specifier = (
+        # Fail on a misspelled package before the long qualification run.
+        parse_compatibility_claim_requirement(
+            compatible_model_specifier, package="policyengine-us"
+        )
+        if compatible_model_specifier is not None
+        else None
+    )
     report = validate_source_enrichment_candidate(
         release_dir, parent_h5=parent_h5, artifact_root=artifact_root
     )
     candidate = Path(artifact_root) / report["dataset"]["filename"]
     receipt = run_native_loader_compatibility(
         candidate, require_wheels=True, compatibility_wheels=compatibility_wheels
+    )
+    claims = (
+        {
+            "model": compatibility_claim_entry(
+                claim_specifier,
+                package="policyengine-us",
+                version=receipt["packages"]["policyengine-us"]["version"],
+                declared_by=compatibility_claim_declared_by,
+            )
+        }
+        if claim_specifier is not None
+        else {}
     )
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
@@ -926,6 +1109,10 @@ def certify_source_enrichment(
             "filename": COMPATIBILITY_FILE,
             "sha256": sha256_file(staged / COMPATIBILITY_FILE),
         }
+        if claims:
+            # Absent by default, so an undeclared bundle keeps the bytes it
+            # has always had.
+            report["compatibility"]["publisher_claims"] = claims
         write(SOURCE_ENRICHMENT_FILE, report)
         manifest = json.loads((staged / "release_manifest.json").read_text())
         for package, field in (
@@ -938,7 +1125,7 @@ def certify_source_enrichment(
                 "version": version,
             }
             manifest[f"compatible_{field}_packages"] = [
-                {"name": package, "specifier": f"=={version}"}
+                claims.get(field, {"name": package, "specifier": f"=={version}"})
             ]
         manifest["data_package"] = {
             "name": "microcosm-data",
@@ -978,10 +1165,39 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--require-compatibility", action="store_true")
     parser.add_argument("--compatibility-wheel", action="append", type=Path, default=[])
+    parser.add_argument(
+        "--compatible-model-specifier",
+        help=(
+            "declare a publisher model compatibility range instead of the "
+            "default exact pin, as a PEP 508 requirement naming the built-with "
+            "package, e.g. 'policyengine-us>=2.0.1,<2.1'. The range must "
+            "contain the version certification tested and be bounded above. "
+            "Requires --compatibility-claim-declared-by."
+        ),
+    )
+    parser.add_argument(
+        "--compatibility-claim-declared-by",
+        help=(
+            "who declares the compatibility range, recorded in the bundle "
+            "(e.g. 'PolicyEngine data release owner, microcosm#912')"
+        ),
+    )
     args = parser.parse_args(argv)
     if args.certify and args.output_dir is None:
         parser.error(
             "--certify requires a new --output-dir ending in the same release id"
+        )
+    if (args.compatible_model_specifier is None) != (
+        args.compatibility_claim_declared_by is None
+    ):
+        parser.error(
+            "--compatible-model-specifier and --compatibility-claim-declared-by "
+            "are declared together; a claim records who is accountable for it"
+        )
+    if args.compatible_model_specifier is not None and not args.certify:
+        parser.error(
+            "--compatible-model-specifier applies to --certify; validation "
+            "reads the claim the certified bundle already records"
         )
     try:
         if args.certify:
@@ -991,6 +1207,8 @@ def main(argv: list[str] | None = None) -> int:
                 parent_h5=args.parent_h5,
                 artifact_root=args.artifact_root,
                 compatibility_wheels=tuple(args.compatibility_wheel),
+                compatible_model_specifier=args.compatible_model_specifier,
+                compatibility_claim_declared_by=(args.compatibility_claim_declared_by),
             )
             print(json.dumps({"certified_bundle": str(result), "published": False}))
         else:
