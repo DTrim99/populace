@@ -344,7 +344,7 @@ def test_unknown_release_type_cannot_fall_back_to_calibration(candidate):
         validate_release_dir(release)
 
 
-def _qualify_candidate(candidate, tmp_path, monkeypatch):
+def _qualify_candidate(candidate, tmp_path, monkeypatch, **claim):
     from importlib import metadata
 
     release, parent, root = candidate
@@ -376,6 +376,7 @@ def _qualify_candidate(candidate, tmp_path, monkeypatch):
         parent_h5=parent,
         artifact_root=root,
         compatibility_wheels=(tmp_path / "country.whl",),
+        **claim,
     )
     assert result == output
     return output, calls
@@ -834,3 +835,324 @@ def test_producer_identity_rejects_uncommitted_source_mutation(tmp_path, monkeyp
     monkeypatch.setattr(subprocess, "run", git_result)
     with pytest.raises(ValueError, match="checkout source differs"):
         enrichment._check_producer_source_identity(code)
+
+
+DECLARED_RANGE = "policyengine-us>=1.999.0,<2"
+DECLARED_BY = "PolicyEngine data release owner"
+DECLARED_ENTRY = {
+    "name": "policyengine-us",
+    "specifier": ">=1.999.0,<2",
+    "basis": enrichment.PUBLISHER_CLAIM_BASIS,
+    "declared_by": DECLARED_BY,
+}
+
+
+def _declare(**overrides):
+    return {
+        "compatible_model_specifier": DECLARED_RANGE,
+        "compatibility_claim_declared_by": DECLARED_BY,
+        **overrides,
+    }
+
+
+def _certified(output):
+    return (
+        json.loads((output / "release_manifest.json").read_text()),
+        json.loads((output / enrichment.SOURCE_ENRICHMENT_FILE).read_text()),
+    )
+
+
+def test_default_certification_pins_the_tested_version_and_declares_nothing(
+    candidate, tmp_path, monkeypatch
+):
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch)
+    manifest, report = _certified(output)
+    assert manifest["compatible_model_packages"] == [
+        {"name": "policyengine-us", "specifier": "==1.999.0"}
+    ]
+    assert manifest["compatible_core_packages"] == [
+        {"name": "policyengine-core", "specifier": "==3.99.0"}
+    ]
+    assert "publisher_claims" not in report["compatibility"]
+
+
+def test_declared_model_range_is_emitted_verbatim_and_replayed_by_preflight(
+    candidate, tmp_path, monkeypatch
+):
+    import microcosm.data.release as release_module
+
+    monkeypatch.setattr(
+        release_module,
+        "_hf_api",
+        lambda: pytest.fail("successful preflight constructed a Hub client"),
+    )
+    release, parent, root = candidate
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    manifest, report = _certified(output)
+    assert manifest["compatible_model_packages"] == [DECLARED_ENTRY]
+    assert report["compatibility"]["publisher_claims"] == {"model": DECLARED_ENTRY}
+    # The claim widens the binding; it never restates what was measured.
+    assert manifest["build"]["built_with_model_package"] == {
+        "name": "policyengine-us",
+        "version": "1.999.0",
+    }
+    assert manifest["compatible_core_packages"] == [
+        {"name": "policyengine-core", "specifier": "==3.99.0"}
+    ]
+    assert (
+        publish_main(
+            [
+                str(output),
+                "--parent-h5",
+                str(parent),
+                "--artifact-root",
+                str(root),
+                "--compatibility-wheel",
+                str(tmp_path / "country.whl"),
+                "--preflight-only",
+            ]
+        )
+        == 0
+    )
+
+
+@pytest.mark.parametrize(
+    ("specifier", "message"),
+    [
+        ("policyengine-us>=2.0,<3", "excludes the tested policyengine-us version"),
+        ("policyengine-uk>=1.999.0,<2", "declares compatibility for the built-with"),
+        ("policyengine-us>=1.999.0", "is unbounded above"),
+        ("policyengine-us", "needs a PEP 440 specifier"),
+        ("policyengine-us[us]>=1.999.0,<2", "bare name and specifier"),
+        ("policyengine-us>=oops", "is not a PEP 508 requirement"),
+    ],
+)
+def test_certification_refuses_an_unsound_claim(
+    candidate, tmp_path, monkeypatch, specifier, message
+):
+    with pytest.raises(ValueError, match=message):
+        _qualify_candidate(
+            candidate,
+            tmp_path,
+            monkeypatch,
+            **_declare(compatible_model_specifier=specifier),
+        )
+
+
+@pytest.mark.parametrize("declared_by", [None, "   ", "x" * 201, "two\nlines"])
+def test_claim_must_record_an_accountable_declarer(
+    candidate, tmp_path, monkeypatch, declared_by
+):
+    with pytest.raises(ValueError, match="who declared it|accountable for it"):
+        _qualify_candidate(
+            candidate,
+            tmp_path,
+            monkeypatch,
+            **_declare(compatibility_claim_declared_by=declared_by),
+        )
+
+
+def test_declarer_without_a_specifier_is_refused(candidate, tmp_path, monkeypatch):
+    with pytest.raises(ValueError, match="accountable for it"):
+        _qualify_candidate(
+            candidate,
+            tmp_path,
+            monkeypatch,
+            **_declare(compatible_model_specifier=None),
+        )
+
+
+def test_manifest_widened_after_certification_has_no_declaration_to_stand_on(
+    candidate, tmp_path, monkeypatch
+):
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch)
+    _, parent, root = candidate
+    path = output / "release_manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["compatible_model_packages"] = [DECLARED_ENTRY]
+    _write(path, manifest)
+    with pytest.raises(
+        ReleaseContractError, match="must pin exactly the tested version unless"
+    ):
+        enrichment.validate_source_enrichment_candidate(
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            require_compatibility=True,
+            compatibility_wheels=(tmp_path / "country.whl",),
+        )
+
+
+def test_manifest_must_match_the_claim_the_report_declares(
+    candidate, tmp_path, monkeypatch
+):
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    _, parent, root = candidate
+    path = output / "release_manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["compatible_model_packages"] = [
+        {**DECLARED_ENTRY, "specifier": ">=1.999.0,<3"}
+    ]
+    _write(path, manifest)
+    with pytest.raises(ReleaseContractError, match="must match the declared publisher"):
+        enrichment.validate_source_enrichment_candidate(
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            require_compatibility=True,
+            compatibility_wheels=(tmp_path / "country.whl",),
+        )
+
+
+def test_report_claim_widened_after_certification_is_revalidated(
+    candidate, tmp_path, monkeypatch
+):
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    _, parent, root = candidate
+    unbounded = {**DECLARED_ENTRY, "specifier": ">=1.999.0"}
+    report_path = output / enrichment.SOURCE_ENRICHMENT_FILE
+    report = json.loads(report_path.read_text())
+    report["compatibility"]["publisher_claims"]["model"] = unbounded
+    _write(report_path, report)
+    manifest_path = output / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["compatible_model_packages"] = [unbounded]
+    _write(manifest_path, manifest)
+    _refresh(output, enrichment.SOURCE_ENRICHMENT_FILE)
+    with pytest.raises(ReleaseContractError, match="is unbounded above"):
+        enrichment.validate_source_enrichment_candidate(
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            require_compatibility=True,
+            compatibility_wheels=(tmp_path / "country.whl",),
+        )
+
+
+def test_report_claim_that_constrains_nothing_is_refused(
+    candidate, tmp_path, monkeypatch
+):
+    """``,`` parses as an empty specifier set, so the validator refuses it."""
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    _, parent, root = candidate
+    empty = {**DECLARED_ENTRY, "specifier": ","}
+    report_path = output / enrichment.SOURCE_ENRICHMENT_FILE
+    report = json.loads(report_path.read_text())
+    report["compatibility"]["publisher_claims"]["model"] = empty
+    _write(report_path, report)
+    manifest_path = output / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["compatible_model_packages"] = [empty]
+    _write(manifest_path, manifest)
+    _refresh(output, enrichment.SOURCE_ENRICHMENT_FILE)
+    with pytest.raises(ReleaseContractError, match="must constrain the version"):
+        enrichment.validate_source_enrichment_candidate(
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            require_compatibility=True,
+            compatibility_wheels=(tmp_path / "country.whl",),
+        )
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [[], {}, {"bogus": DECLARED_ENTRY}, "model"],
+)
+def test_malformed_publisher_claims_block_certification_readback(
+    candidate, tmp_path, monkeypatch, claims
+):
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    _, parent, root = candidate
+    report_path = output / enrichment.SOURCE_ENRICHMENT_FILE
+    report = json.loads(report_path.read_text())
+    report["compatibility"]["publisher_claims"] = claims
+    _write(report_path, report)
+    _refresh(output, enrichment.SOURCE_ENRICHMENT_FILE)
+    with pytest.raises(ReleaseContractError, match="publisher_claims must map"):
+        enrichment.validate_source_enrichment_candidate(
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            require_compatibility=True,
+            compatibility_wheels=(tmp_path / "country.whl",),
+        )
+
+
+def test_pending_candidate_cannot_declare_a_publisher_claim(candidate):
+    release, _, _ = candidate
+    path = release / enrichment.SOURCE_ENRICHMENT_FILE
+    report = json.loads(path.read_text())
+    report["compatibility"]["publisher_claims"] = {"model": DECLARED_ENTRY}
+    _write(path, report)
+    _refresh(release, enrichment.SOURCE_ENRICHMENT_FILE)
+    with pytest.raises(
+        ReleaseContractError, match="pending source enrichment must not declare"
+    ):
+        _validate(candidate)
+
+
+def test_declared_range_certifies_a_later_patch_for_both_readers(
+    candidate, tmp_path, monkeypatch
+):
+    """The point of the range: the consumers accept a version it covers."""
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    from microcosm.data.loader import _package_certification
+
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    manifest, _ = _certified(output)
+    certification = _package_certification(
+        manifest,
+        field="compatible_model_packages",
+        package_name="policyengine-us",
+        built_field="built_with_model_package",
+        release_id=output.name,
+    )
+    assert certification.specifiers == (">=1.999.0,<2",)
+    assert certification.built_version == "1.999.0"
+
+    def wrapper_specifier_matches(version, specifier):
+        # policyengine.provenance.manifest._specifier_matches, mirrored.
+        return Version(version) in SpecifierSet(specifier)
+
+    claim = manifest["compatible_model_packages"][0]["specifier"]
+    assert wrapper_specifier_matches("1.999.1", claim)
+    assert wrapper_specifier_matches("1.999.0", claim)
+    assert not wrapper_specifier_matches("2.0.0", claim)
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--compatible-model-specifier", DECLARED_RANGE], "declared together"),
+        (["--compatibility-claim-declared-by", DECLARED_BY], "declared together"),
+        (
+            [
+                "--compatible-model-specifier",
+                DECLARED_RANGE,
+                "--compatibility-claim-declared-by",
+                DECLARED_BY,
+            ],
+            "applies to --certify",
+        ),
+    ],
+)
+def test_cli_refuses_a_half_declared_or_uncertified_claim(
+    candidate, capsys, argv, message
+):
+    release, parent, root = candidate
+    with pytest.raises(SystemExit):
+        enrichment.main(
+            [
+                "--release-dir",
+                str(release),
+                "--parent-h5",
+                str(parent),
+                "--artifact-root",
+                str(root),
+                *argv,
+            ]
+        )
+    assert message in capsys.readouterr().err

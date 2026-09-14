@@ -574,11 +574,13 @@ def _check_producer_source_identity(code: Mapping) -> None:
 
 
 def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> str:
-    """Return the bare specifier of ``<package><specifier>``, or raise.
+    """Return the specifier of ``<package><specifier>`` as written, or raise.
 
     Spelling the package name into the claim is deliberate: the operator states
     which package the range is about, and a claim naming the wrong one is a
-    typo the tooling must refuse rather than silently retarget.
+    typo the tooling must refuse rather than silently retarget. The specifier
+    is returned as declared, not re-rendered, so the published claim reads back
+    as the publisher wrote it.
     """
     from packaging.requirements import InvalidRequirement, Requirement
     from packaging.utils import canonicalize_name
@@ -602,7 +604,7 @@ def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> 
             "publisher compatibility claim must be a bare name and specifier, "
             "with no URL, extras or environment marker"
         )
-    return str(parsed.specifier)
+    return requirement.strip()[len(parsed.name) :].strip()
 
 
 def compatibility_claim_entry(
