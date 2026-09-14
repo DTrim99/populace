@@ -2183,7 +2183,10 @@ def test_uk_local_target_surface_places_nation_rows_at_the_region_grain() -> Non
     ]
 
 
-def test_uk_local_target_surface_refuses_a_nation_row_left_at_country_grain() -> None:
+def test_uk_local_target_surface_reconciles_mixed_country_and_region_tiers() -> None:
+    """A nation row left at Chronicle's country grain still parents its own
+    constituencies: each lower leg takes its nearest covering control."""
+
     registry = TargetRegistry(
         [
             _region_tier_control_spec(
@@ -2197,11 +2200,71 @@ def test_uk_local_target_surface_refuses_a_nation_row_left_at_country_grain() ->
         ],
         country="uk",
     )
+    surface, receipt = uk_local_target_surface(
+        registry,
+        bound_national_target_ids=("ons.population.age_0_9_by_region",),
+        period=2025,
+    )
+    age = surface.loc[surface["metric"] == "age/0_10"]
+    assert age["value"].tolist() == pytest.approx([100.0, 40.0])
+    pairs = {
+        group["inconsistency_id"].rsplit(":", 1)[1]
+        for group in receipt["groups"]
+        if group["bridge_id"] == "national_age_0_9_vs_local_age_0_10"
+    }
+    assert pairs == {
+        "country_over_region",
+        "region_over_constituency",
+        "country_over_constituency",
+    }
+    assert {e["parent_geography_id"] for e in receipt["absent_middle_tier_legs"]} == {
+        "W92000004"
+    }
+
+
+def test_voa_region_controls_and_the_scottish_country_control_share_the_surface() -> (
+    None
+):
+    """Vahid's #906 repro: the English VOA band rows at region grain and the
+    Scottish CTAXBASE row at country grain carry one measurement signature;
+    each authority reconciles to the control that covers its leg."""
+
+    rows = [
+        ("country", "S92000003", "scotgov.council_tax_stock.band_a", 40.0),
+        ("region", "E12000007", "voa.council_tax_stock.band_a", 100.0),
+        ("region", "E12000001", "voa.council_tax_stock.band_a", 50.0),
+        ("la", "E09000001", "voa.council_tax_stock.by_area.band_a", 60.0),
+        ("la", "E06000001", "voa.council_tax_stock.by_area.band_a", 20.0),
+        ("la", "S12000033", "voa.council_tax_stock.by_area.band_a", 30.0),
+    ]
+    surface = pd.DataFrame(
+        rows, columns=["grain", "geography_id", "target_id", "value"]
+    )
+    reconciled, receipt = apply_uk_cross_grain_reconciliation(
+        surface,
+        ("scotgov.council_tax_stock.band_a", "voa.council_tax_stock.band_a"),
+    )
+    assert reconciled["value"].tolist() == pytest.approx(
+        [40.0, 100.0, 50.0, 100.0, 50.0, 40.0]
+    )
+    pairs = {
+        group["inconsistency_id"].rsplit(":", 1)[1]: group
+        for group in receipt["groups"]
+    }
+    assert [leg["parent_geography_id"] for leg in pairs["region_over_la"]["legs"]] == [
+        "E12000001",
+        "E12000007",
+    ]
+    assert [leg["parent_geography_id"] for leg in pairs["country_over_la"]["legs"]] == [
+        "S92000003"
+    ]
+    assert receipt["empty_legs_licensed"] == []
+    # Without the Scottish control bound, the Scottish authority has no parent
+    # and the surface refuses rather than borrowing an English region.
     with pytest.raises(ValueError, match="unparented lower-grain leg"):
-        uk_local_target_surface(
-            registry,
-            bound_national_target_ids=("ons.population.age_0_9_by_region",),
-            period=2025,
+        apply_uk_cross_grain_reconciliation(
+            surface.loc[surface["target_id"] != "scotgov.council_tax_stock.band_a"],
+            ("voa.council_tax_stock.band_a",),
         )
 
 

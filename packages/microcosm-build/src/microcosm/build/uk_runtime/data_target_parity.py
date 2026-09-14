@@ -403,7 +403,7 @@ _CONCERN_DECLARATIONS: tuple[dict[str, Any], ...] = (
         "status": "ported_national",
         "classification": "cross_grain_rule",
         "reason": "The English VOA stock rows fan out over the nine English regions and sit at the region grain of the cross-grain rule (country > region > constituency > la); each region is its own leg, so the LA solve reconciles to its region's published stock rather than to a single England row (microcosm#905).",
-        "evidence": "voa.council_tax_stock.band_* references voa.council_tax_stock.band_*@E12000001..E12000009; UK_CROSS_GRAIN_RULE.grain_precedence includes region and parent_geography_legs maps every E12 code to itself; the local crosswalk carries region_code_by_area from the ladder.",
+        "evidence": "voa.council_tax_stock.band_* references voa.council_tax_stock.band_*@E12000001..E12000009; UK_CROSS_GRAIN_RULE declares control_grains (country, region), so the English region rows and the Scottish CTAXBASE country row share the band signature group and each authority takes its nearest covering control (test_uk_ledger_targets::test_voa_region_controls_and_the_scottish_country_control_share_the_surface); parent_geography_legs maps every E12 code to itself; English legs come from the run ladder or the crosswalk's region_code_by_area.",
     },
     {
         "concern_id": "local_council_tax_band_d_rate",

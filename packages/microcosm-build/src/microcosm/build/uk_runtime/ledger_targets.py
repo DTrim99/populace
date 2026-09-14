@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import math
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib import resources as importlib_resources
+from types import MappingProxyType
 from typing import Any
 
 import numpy as np
@@ -82,33 +84,34 @@ _UK_NATION_LEG_BY_PREFIX = {
     "S": "S92000003",
     "N": "N92000002",
 }
-_UK_CROSSWALK_REGION_BY_AREA: dict[str, str] | None = None
 
 
-def _uk_crosswalk_region_by_area() -> dict[str, str]:
-    """Area id -> region-tier code from the committed local-area crosswalk."""
+@functools.lru_cache(maxsize=1)
+def _uk_crosswalk_region_by_area() -> Mapping[str, str]:
+    """Area id -> region-tier code from the committed local-area crosswalk.
 
-    global _UK_CROSSWALK_REGION_BY_AREA
-    if _UK_CROSSWALK_REGION_BY_AREA is None:
-        mapping: dict[str, str] = {}
-        levels = load_uk_local_area_crosswalk().get("levels") or {}
-        for level, payload in levels.items():
-            by_area = payload.get("region_code_by_area") if payload else None
-            if not isinstance(by_area, Mapping) or not by_area:
+    Cached for the process (the resolver runs per surface row); a test that
+    monkeypatches the crosswalk loader clears it with ``cache_clear()``.
+    """
+
+    mapping: dict[str, str] = {}
+    levels = load_uk_local_area_crosswalk().get("levels") or {}
+    for level, payload in levels.items():
+        by_area = payload.get("region_code_by_area") if payload else None
+        if not isinstance(by_area, Mapping) or not by_area:
+            raise ValueError(
+                f"UK local area crosswalk level {level!r} carries no "
+                "region_code_by_area; regenerate it from the ladder "
+                "(tools/generate_uk_local_area_crosswalk.py)."
+            )
+        for area_id, region in by_area.items():
+            previous = mapping.setdefault(str(area_id), str(region))
+            if previous != str(region):
                 raise ValueError(
-                    f"UK local area crosswalk level {level!r} carries no "
-                    "region_code_by_area; regenerate it from the ladder "
-                    "(tools/generate_uk_local_area_crosswalk.py)."
+                    f"UK local area crosswalk maps {area_id!r} to both "
+                    f"{previous!r} and {region!r}."
                 )
-            for area_id, region in by_area.items():
-                previous = mapping.setdefault(str(area_id), str(region))
-                if previous != str(region):
-                    raise ValueError(
-                        f"UK local area crosswalk maps {area_id!r} to both "
-                        f"{previous!r} and {region!r}."
-                    )
-        _UK_CROSSWALK_REGION_BY_AREA = mapping
-    return _UK_CROSSWALK_REGION_BY_AREA
+    return MappingProxyType(mapping)
 
 
 def uk_cross_grain_leg_of_area(
@@ -257,6 +260,9 @@ UK_CROSS_GRAIN_RULE = CrossGrainRule(
     bridges=UK_CROSS_GRAIN_BRIDGES,
     leg_of_area=_uk_cross_grain_leg_of_area,
     parent_geography_legs=UK_CROSS_GRAIN_PARENT_GEOGRAPHY_LEGS,
+    # Country and region rows control the grains below them; a constituency
+    # never parents an authority (they partition households in parallel).
+    control_grains=("country", "region"),
 )
 
 
