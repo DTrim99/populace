@@ -1444,7 +1444,7 @@ def test_fully_bound_household_composition_bridge_reconciles_census_cells():
             ],
             {
                 "grain": "constituency",
-                "geography_id": "E14000001",
+                "geography_id": "E14001073",
                 "target_id": "ons.census.households",
                 "value": 40.0,
             },
