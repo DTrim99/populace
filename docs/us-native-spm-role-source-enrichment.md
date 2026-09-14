@@ -142,6 +142,89 @@ microcosm-publish-release /path/to/certified/releases/RELEASE_ID \
   --preflight-only
 ```
 
+## Declaring a publisher compatibility range
+
+Certification writes `compatible_model_packages` and `compatible_core_packages`
+as exact pins on the versions the loader checks actually ran against. That is
+the default and the safe answer: the bundle claims compatibility with exactly
+what was measured.
+
+The exact model pin makes every country release a swap rather than a widening.
+A consumer pinned to the previous model version loses certification the moment
+a re-certified bundle replaces the published one, and a country patch release
+that changes nothing this lane measures still forces a new certified data
+release even when the H5 bytes are identical. Where the publisher can stand
+behind a range, declare it at certification:
+
+```bash
+python -m microcosm.data.source_enrichment --certify \
+  --release-dir /path/to/new-candidate/releases/RELEASE_ID \
+  --output-dir /path/to/certified/releases/RELEASE_ID \
+  --parent-h5 /path/to/certified/populace_us_2024.h5 \
+  --artifact-root /path/to/new-candidate/artifacts \
+  --compatible-model-specifier 'policyengine-us>=2.0.1,<2.1' \
+  --compatibility-claim-declared-by 'PolicyEngine data release owner, microcosm#NNN' \
+  --compatibility-wheel ...
+```
+
+The claim is recorded in `source_enrichment.json` under
+`compatibility.publisher_claims.model` and in `release_manifest.json` as the
+single `compatible_model_packages` entry, both carrying
+`"basis": "publisher_claim"` and the declarer. The specifier is stored exactly
+as declared. Validation replays the claim at every later gate, publish preflight
+included: the manifest entry must equal what the hash-bound report declares, so
+a manifest widened after certification has no declaration behind it and is
+refused with the same text as before. Omitting the option leaves certification
+byte-identical to an undeclared run.
+
+The tooling refuses a claim that:
+
+- does not parse as a PEP 508 requirement, or carries a URL, extras or an
+  environment marker — it must read `policyengine-us>=2.0.1,<2.1`;
+- names a package other than the built-with model package;
+- excludes the version certification tested, under the same PEP 440 containment
+  the consumers apply (`microcosm.data.loader._package_certification` and
+  policyengine.py's `provenance.manifest._specifier_matches`), so a claim that
+  is accepted here is a claim they will honour;
+- is unbounded above (`>=2.0.1`, `!=2.0.5`), which would outlive the runtime it
+  was measured against — write `>=2.0.1,<2.1` or `~=2.0.1`;
+- arrives without `--compatibility-claim-declared-by`. A wider claim is the
+  publisher's assertion rather than a measurement, so the bundle records who
+  made it.
+
+Only the model range is exposed on the CLI. Core stays pinned exactly: nothing
+in this lane's operating experience calls for a Core range, and the validator
+would require the same declaration machinery for one.
+
+### When a range is appropriate
+
+Declare a range over the model versions whose differences cannot reach what
+certification measured — in practice a **country patch release that changes
+neither the native H5 loader path, the person-role variable, nor the dataset
+pin**. The native loader checks are `native_input_loading_only`; the claim is
+about them and nothing else. Before declaring, read the diff between the tested
+version and the upper bound and confirm it touches none of: the H5/dataset
+loader, `DEFAULT_DATASET`, the `is_spm_independent_minor_role` registration, the
+entity tables this release writes, or the SPM path that consumes them.
+
+### When it is not
+
+- **A minor or major bump** (2.0.x → 2.1, 2.x → 3). Re-certify instead.
+- **Anything the certification did not test.** Native input loading is not
+  numerical acceptance; a range never extends to SPM numerics, canonical model
+  acceptance, or Axiom parity, which root owns separately.
+- **A range used to avoid re-running certification** when the runtime under the
+  upper bound was never installed anywhere. A claim the publisher cannot defend
+  is worse than a new release.
+- **Speculative headroom.** `<2.1` because 2.0.2 is expected is defensible;
+  `<3` because a major bump seems far off is not.
+
+Consumers can tell the two apart. policyengine.py certifies an exact build-time
+match silently, but certifies a publisher claim with a warning naming the claim
+and the version the data was actually built with, and records the basis as
+`legacy_compatible_model_package`. That warning is the intended cost of the
+wider binding.
+
 Certification creates a separate bundle with measured compatibility; it leaves
 the candidate H5 and source evidence unchanged. Both the preflight above and
 the real publisher share local preparation: they invoke the source-enrichment
