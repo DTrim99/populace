@@ -7,9 +7,20 @@ in `CLAUDE.md`.
 
 ## State
 
-In progress. Nothing pushed, no PR, no publication of any kind. This lane
-changes producer/validator source only; it builds, certifies and publishes no
-artifact.
+Pushed as draft PR
+[#928](https://github.com/PolicyEngine/microcosm/pull/928). No publication of
+any kind: this lane changes producer/validator source only, and builds,
+certifies and publishes no artifact.
+
+An adversarial review lane run against this worktree wrote into it while it
+worked: a reviewer checked out `origin/main` copies of the changed files for a
+byte-for-byte default-path comparison, and a `git add -A` in this session
+committed and pushed that reverted tree as `4b0ae3624`, briefly deleting the
+feature from the PR and committing a reviewer's scratch test module. The branch
+was reset to `8f82d0c6a` and the two intended commits reapplied; `git diff
+8f82d0c6a <head>` is now exactly the docs and journal changes, with the feature
+and test files byte-identical to `8f82d0c6a`. Review lanes must run in their own
+worktree, not this one.
 
 ## Problem
 
@@ -40,10 +51,30 @@ bytes are unchanged still needs re-certification.
 
 - Read both gates, the contract layer, both consumers and the 2026-09-12 dry-run
   report that motivated the change.
+- `--compatible-model-specifier` / `--compatibility-claim-declared-by` on the
+  source-enrichment CLI and `certify_source_enrichment`, validated by
+  `parse_compatibility_claim_requirement` (PEP 508, names the built-with
+  package, no URL/extras/marker) and `compatibility_claim_entry` (valid and
+  non-empty PEP 440 set, contains the tested version under the consumers' own
+  containment, bounded above, accountable declarer).
+- The claim recorded in `source_enrichment.json`
+  (`compatibility.publisher_claims.model`) and `release_manifest.json`
+  (`compatible_model_packages[0]`, `basis: publisher_claim`, `declared_by`),
+  cross-checked at every later validation so a manifest widened after
+  certification has no declaration behind it.
+- `contract.py` refuses a `publisher_claim` basis with no declarer, and a
+  declarer with no basis, for every release type.
+- 20 tests across `test_source_enrichment.py` and `test_contract.py`;
+  `packages/microcosm-data/tests/` 550 passed, 2 skipped; `ruff check .` clean;
+  `tools/ci_test_groups.py --verify` ok.
+- Docs: a "Declaring a publisher compatibility range" section in
+  `docs/us-native-spm-role-source-enrichment.md` with when to use a range and
+  when not to, a note in the `microcosm-data` README, and a changelog fragment.
 
 ## Next
 
-- Implement, test, document, push a draft PR. Do not merge; do not publish.
+- Answer the adversarial review, confirm the whole-workspace run and CI, then
+  hand to human review. Do not merge; do not publish.
 
 ---
 
