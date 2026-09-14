@@ -37,6 +37,11 @@ from microcosm.build.logbook_adoption import (
     sha256_argument,
     write_error_receipt,
 )
+from microcosm.build.observation import (
+    ObservedTransform,
+    StageObservation,
+    StageObserver,
+)
 from microcosm.build.plan import StageRecord
 from microcosm.build.staging_cli import (
     add_staging_arguments,
@@ -1007,51 +1012,19 @@ class _SampledGraphRootTransform:
         return dict(hook())
 
 
-class _ObservedGraphTransform:
-    """Report aggregate lifecycle data around one real graph transform."""
+def _staging_stage_observer(telemetry: StagingTelemetryV2) -> StageObserver:
+    """Translate a shared stage observation into staging telemetry."""
 
-    def __init__(
-        self,
-        transform,
-        *,
-        stage_id: str,
-        produced_column_count: int,
-        telemetry: StagingTelemetryV2,
-    ):
-        self.transform = transform
-        self.stage_id = stage_id
-        self.produced_column_count = produced_column_count
-        self.telemetry = telemetry
-
-    def _run(self, runner, frame, *args):
-        started = time.perf_counter()
-        self.telemetry.stage(
-            self.stage_id,
-            event_status="started",
-            entity_row_counts=_entity_row_counts(frame),
-            produced_column_count=0,
+    def observe(observation: StageObservation) -> None:
+        telemetry.stage(
+            observation.stage_id,
+            event_status=observation.status,
+            elapsed_seconds=observation.elapsed_seconds,
+            entity_row_counts=dict(observation.entity_row_counts),
+            produced_column_count=observation.produced_column_count,
         )
-        result = runner(frame, *args)
-        self.telemetry.stage(
-            self.stage_id,
-            event_status="completed",
-            elapsed_seconds=time.perf_counter() - started,
-            entity_row_counts=_entity_row_counts(result),
-            produced_column_count=self.produced_column_count,
-        )
-        return result
 
-    def __call__(self, frame):
-        return self._run(self.transform, frame)
-
-    def run_with_sources(self, frame, sources):
-        runner = getattr(self.transform, "run_with_sources", None)
-        if callable(runner):
-            return self._run(runner, frame, sources)
-        return self._run(self.transform, frame)
-
-    def __getattr__(self, name: str):
-        return getattr(self.transform, name)
+    return observe
 
 
 class _GraphSourceTransform:
@@ -1618,12 +1591,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         implementations["frs_spine"] = sampled_root
         if telemetry is not None:
+            stage_observer = _staging_stage_observer(telemetry)
             implementations = {
-                stage_id: _ObservedGraphTransform(
+                stage_id: ObservedTransform(
                     transform,
                     stage_id=stage_id,
                     produced_column_count=len(stages_by_name[stage_id].outputs),
-                    telemetry=telemetry,
+                    observer=stage_observer,
                 )
                 for stage_id, transform in implementations.items()
             }

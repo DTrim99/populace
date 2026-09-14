@@ -22,13 +22,16 @@ returns it for documentation and the sources diagram.
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal
 
 import pandas as pd
 
+from microcosm.build.observation import (
+    StageObservation,
+    StageObservationRun,
+    StageObserver,
+)
 from microcosm.frame import Frame
 
 __all__ = [
@@ -124,17 +127,6 @@ class StageRecord:
     seconds: float = 0.0
 
 
-@dataclass(frozen=True)
-class StageObservation:
-    """Aggregate-only notification emitted around one stage execution."""
-
-    stage_id: str
-    status: Literal["started", "completed", "failed"]
-    elapsed_seconds: float
-    produced_column_count: int
-    entity_row_counts: Mapping[str, int]
-
-
 class StagePlan:
     """An ordered, validated sequence of :class:`Stage` steps.
 
@@ -192,7 +184,7 @@ class StagePlan:
         frame: Frame,
         *,
         log: Callable[[str], None] = lambda message: None,
-        observer: Callable[[StageObservation], None] | None = None,
+        observer: StageObserver | None = None,
     ) -> tuple[Frame, tuple[StageRecord, ...]]:
         """Execute the plan over ``frame``.
 
@@ -213,18 +205,12 @@ class StagePlan:
         records: list[StageRecord] = []
         current = frame
         for stage in self._stages:
-            started = time.perf_counter()
-            if observer is not None:
-                observer(
-                    StageObservation(
-                        stage_id=stage.name,
-                        status="started",
-                        elapsed_seconds=0.0,
-                        produced_column_count=0,
-                        entity_row_counts=_entity_row_counts(current),
-                    )
-                )
-            try:
+            with StageObservationRun(
+                stage_id=stage.name,
+                input_frame=current,
+                produced_column_count=len(stage.produces),
+                observer=observer,
+            ) as observation:
                 for column in stage.consumes:
                     try:
                         current.column_entity(column)
@@ -250,29 +236,7 @@ class StagePlan:
                             "stage ran."
                         ) from error
                     shares[column] = _nonzero_share(result.table(entity)[column])
-            except Exception:
-                if observer is not None:
-                    observer(
-                        StageObservation(
-                            stage_id=stage.name,
-                            status="failed",
-                            elapsed_seconds=time.perf_counter() - started,
-                            produced_column_count=0,
-                            entity_row_counts=_entity_row_counts(current),
-                        )
-                    )
-                raise
-            elapsed = time.perf_counter() - started
-            if observer is not None:
-                observer(
-                    StageObservation(
-                        stage_id=stage.name,
-                        status="completed",
-                        elapsed_seconds=elapsed,
-                        produced_column_count=len(stage.produces),
-                        entity_row_counts=_entity_row_counts(result),
-                    )
-                )
+                elapsed = observation.complete(result)
             current = result
             record = StageRecord(
                 stage=stage.name,
@@ -288,10 +252,6 @@ class StagePlan:
                 f"{len(stage.produces)} column(s) in {elapsed:.1f}s"
             )
         return current, tuple(records)
-
-
-def _entity_row_counts(frame: Frame) -> dict[str, int]:
-    return {entity: int(len(frame.table(entity))) for entity in frame.entities}
 
 
 def _nonzero_share(column: pd.Series) -> float:

@@ -831,7 +831,7 @@ class StagingTelemetryV2:
         self,
         stage_id: str,
         *,
-        event_status: Literal["started", "completed", "progress"] = "started",
+        event_status: Literal["started", "completed", "failed", "progress"] = "started",
         message: str | None = None,
         force_upload: bool = False,
         **details: Any,

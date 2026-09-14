@@ -15,6 +15,7 @@ import pytest
 
 from microcosm.build.country_spec import country_stage_plan, load_country_spec
 from microcosm.build.logbook import load_spool_rows
+from microcosm.build.observation import StageObservation
 from microcosm.build.source_manifest import SourceManifest, SourceStageSpec
 from microcosm.build.staging_v2 import validate_v2_bundle
 from microcosm.build.uk_runtime import (
@@ -56,6 +57,38 @@ def _load_tool():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_staging_stage_observer_translates_shared_observation() -> None:
+    tool = _load_tool()
+    calls = []
+
+    class RecordingTelemetry:
+        def stage(self, stage_id: str, **payload: object) -> None:
+            calls.append((stage_id, payload))
+
+    observer = tool._staging_stage_observer(RecordingTelemetry())
+    observer(
+        StageObservation(
+            stage_id="frs_spine",
+            status="completed",
+            elapsed_seconds=1.25,
+            produced_column_count=4,
+            entity_row_counts={"household": 2},
+        )
+    )
+
+    assert calls == [
+        (
+            "frs_spine",
+            {
+                "event_status": "completed",
+                "elapsed_seconds": 1.25,
+                "entity_row_counts": {"household": 2},
+                "produced_column_count": 4,
+            },
+        )
+    ]
 
 
 def _write_tab(root: Path, table: str, rows: list[dict[str, object]]) -> None:

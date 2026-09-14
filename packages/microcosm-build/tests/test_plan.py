@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from microcosm.build import DonorSpec, Stage, StagePlan
+from microcosm.build import DonorSpec, ObservedTransform, Stage, StagePlan
 from microcosm.frame import Frame
 
 
@@ -204,3 +204,64 @@ class TestExecution:
         plan = StagePlan([Stage(name="x", transform=lambda frame: frame.person)])
         with pytest.raises(TypeError, match="must return a Frame"):
             plan.run(small_frame)
+
+
+class TestObservedTransform:
+    def test_callable_emits_shared_lifecycle(self, small_frame) -> None:
+        observations = []
+        clock = iter((10.0, 12.5)).__next__
+        transform = ObservedTransform(
+            lambda frame: frame,
+            stage_id="shared",
+            produced_column_count=3,
+            observer=observations.append,
+            clock=clock,
+        )
+
+        assert transform(small_frame) is small_frame
+        assert [item.status for item in observations] == ["started", "completed"]
+        assert observations[-1].elapsed_seconds == 2.5
+        assert observations[-1].produced_column_count == 3
+
+    def test_failure_emits_failed_observation(self, small_frame) -> None:
+        observations = []
+        clock = iter((5.0, 6.0)).__next__
+
+        def fail(frame: Frame) -> Frame:
+            raise RuntimeError("transform failed")
+
+        transform = ObservedTransform(
+            fail,
+            stage_id="shared",
+            produced_column_count=1,
+            observer=observations.append,
+            clock=clock,
+        )
+
+        with pytest.raises(RuntimeError, match="transform failed"):
+            transform(small_frame)
+
+        assert [item.status for item in observations] == ["started", "failed"]
+        assert observations[-1].elapsed_seconds == 1.0
+        assert observations[-1].produced_column_count == 0
+
+    def test_source_aware_call_and_attributes_are_preserved(self, small_frame) -> None:
+        class SourceAwareTransform:
+            evidence = "available"
+
+            def run_with_sources(self, frame: Frame, sources: object) -> Frame:
+                self.sources = sources
+                return frame
+
+        implementation = SourceAwareTransform()
+        transform = ObservedTransform(
+            implementation,
+            stage_id="shared",
+            produced_column_count=0,
+            observer=None,
+        )
+        sources = {"survey": "source.tab"}
+
+        assert transform.run_with_sources(small_frame, sources) is small_frame
+        assert implementation.sources == sources
+        assert transform.evidence == "available"
