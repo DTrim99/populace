@@ -1,3 +1,52 @@
+# Publisher compatibility range at source-enrichment certification
+
+Lane: `max/certify-compatible-model-range-20260914`, off `origin/main` at
+`18271b28d`. Started 2026-09-14. Everything below the `---` rule at the end of
+this section is prior-lane history; see "Root journals are history, not state"
+in `CLAUDE.md`.
+
+## State
+
+In progress. Nothing pushed, no PR, no publication of any kind. This lane
+changes producer/validator source only; it builds, certifies and publishes no
+artifact.
+
+## Problem
+
+`certify_source_enrichment` writes
+`compatible_{model,core}_packages = [{"name": pkg, "specifier": "==<tested version>"}]`
+over whatever the candidate manifest held (`source_enrichment.py:940-942`), and
+`_check_compatibility` then requires exactly that list at every later validation,
+including publish preflight (`source_enrichment.py:610-615`). The contract layer
+(`contract.py::_check_compatible_package_entries`) and both consumers (Microcosm
+`loader.py::_package_certification`, policyengine.py
+`provenance/certification.py::validate_release_manifest`) already accept any PEP
+440 specifier set that contains the built-with version — so the exact pin is a
+producer-tooling choice, not a schema limit. The consequence: each country patch
+release moves the binding rather than widening it, and a data release whose H5
+bytes are unchanged still needs re-certification.
+
+## Plan
+
+1. Add a validated publisher claim at certification time, recorded in both
+   `release_manifest.json` and `source_enrichment.json`, with the default path
+   byte-identical to today.
+2. Relax the certification-time equality gate to "equals the default exact pin,
+   or equals the claim the report records", keeping every other guard.
+3. Tests for accept/reject/default/consumer-read.
+4. Docs: when a range is legitimate and when it is not.
+
+## Done
+
+- Read both gates, the contract layer, both consumers and the 2026-09-12 dry-run
+  report that motivated the change.
+
+## Next
+
+- Implement, test, document, push a draft PR. Do not merge; do not publish.
+
+---
+
 # Amendment 19 — typed opaque artifacts on the graph interface
 
 Lane: `amend-typed-artifacts`, off `origin/main` at `3094bfe84`. Started
