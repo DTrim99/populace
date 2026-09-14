@@ -73,16 +73,22 @@ def _audit(repository: str, reviewers: tuple[str, ...]) -> dict[str, object]:
         raise RuntimeError(
             f"The staging environment is missing reviewer(s): {missing_reviewers}."
         )
+    prevent_self_review = any(
+        row.get("prevent_self_review") is True
+        for row in environment.get("protection_rules", [])
+        if row.get("type") == "required_reviewers"
+    )
+    if not prevent_self_review:
+        raise RuntimeError(
+            "The staging environment must prevent required reviewers from "
+            "approving their own deployment."
+        )
     return {
         "repository": repository,
         "environment": "staging",
         "exists": True,
         "required_reviewers": configured_reviewers,
-        "prevent_self_review": any(
-            row.get("prevent_self_review") is True
-            for row in environment.get("protection_rules", [])
-            if row.get("type") == "required_reviewers"
-        ),
+        "prevent_self_review": prevent_self_review,
         "secret_names": secrets,
         "external_writer_secret_present": False,
     }

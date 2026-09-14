@@ -20,6 +20,7 @@ from microcosm.build.gate_battery import (
     _canonical_json_bytes as canonical_json_bytes,
 )
 from microcosm.build.ledger_artifact import load_ledger_consumer_artifact
+from microcosm.build.staging_v2 import StagingReadBackError
 from microcosm.build.uk_runtime import calibration_run
 from microcosm.build.uk_runtime.calibration_run import (
     UK_CALIBRATION_GATE_SCOPE,
@@ -364,6 +365,73 @@ def test_run_uk_calibration_writes_cross_pinned_outputs(monkeypatch, tmp_path: P
         == signature
     )
     assert result.logbook_spool.exists()
+
+
+def test_readback_failure_updates_build_record_and_failed_attempt(
+    monkeypatch, tmp_path: Path
+):
+    pytest.importorskip("tables")
+    monkeypatch.setattr(
+        calibration_run,
+        "uk_aggregate_admin_totals",
+        lambda frame, manifest: (_admin_anchor_values(), []),
+    )
+    input_h5 = tmp_path / "input.h5"
+    frame = _frame()
+    write_uk_national_frame(frame, input_h5)
+    _write_spine_sidecar(input_h5, frame)
+    paths = _paths(tmp_path)
+    initial_delivery = {
+        "contract_version": 2,
+        "enabled": True,
+        "mode": "local_and_remote",
+        "run_id": "readback-failure",
+        "configured_repository": "policyengine/populace-uk-staging",
+        "upload_attempts": 3,
+        "upload_successes": 0,
+        "read_back": "not_requested",
+        "last_error_code": "UPLOAD_FAILED",
+        "opt_out_reason": None,
+    }
+    failed_delivery = {
+        **initial_delivery,
+        "read_back": "failed",
+        "last_error_code": "READ_BACK_FAILED",
+    }
+
+    def fail_readback() -> None:
+        raise StagingReadBackError("authenticated read-back failed")
+
+    with pytest.raises(StagingReadBackError, match="read-back failed"):
+        run_uk_calibration(
+            paths=paths,
+            input_sha256=_sha(input_h5),
+            ledger_artifact=object(),
+            register_registry=_registry(),
+            band_edge_registry=_registry(),
+            calibration_year=2025,
+            exclusion_receipt={},
+            doctrine=UKNationalSolveDoctrine(epochs=1),
+            doctrine_overrides={},
+            measure_resolver=None,
+            source_pins={
+                "input_h5": {
+                    "sha256": _sha(input_h5),
+                    "size_bytes": input_h5.stat().st_size,
+                }
+            },
+            run_config_extra={"calibration_year": 2025},
+            release_id="readback-failure",
+            staging_delivery=initial_delivery,
+            staging_finalizer=fail_readback,
+            staging_delivery_provider=lambda: failed_delivery,
+        )
+
+    record = json.loads(paths.build_record_json.read_text())
+    assert record["staging_delivery"] == failed_delivery
+    spooled = sorted((tmp_path / "logbook-spool").rglob("*.json"))
+    assert len(spooled) == 1
+    assert json.loads(spooled[0].read_text())["disposition"] == "failed"
 
 
 def test_run_uk_calibration_requires_the_band_edge_register(

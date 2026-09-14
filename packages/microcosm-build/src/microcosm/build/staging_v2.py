@@ -71,14 +71,59 @@ _PROHIBITED_SUFFIXES = {
     ".zip",
 }
 _PROHIBITED_CONTENT_KEYS = {
+    "access_key",
+    "access_token",
+    "api_key",
+    "api_token",
+    "auth_token",
+    "authorization",
     "benunit_id",
+    "credential",
+    "credentials",
+    "env",
+    "environment",
+    "environment_variables",
     "household_id",
+    "password",
+    "passwd",
     "person_id",
     "raw_record",
     "raw_records",
     "row_id",
+    "secret",
+    "secrets",
     "source_value",
     "source_values",
+    "token",
+    "tokens",
+}
+_ROW_COLLECTION_KEYS = {
+    "benunits",
+    "households",
+    "individuals",
+    "people",
+    "persons",
+    "raw_data",
+    "records",
+    "rows",
+    "source_data",
+}
+_INDIVIDUAL_RECORD_KEYS = {
+    "address",
+    "age",
+    "birth_date",
+    "date_of_birth",
+    "email",
+    "first_name",
+    "income",
+    "last_name",
+    "name",
+    "national_insurance_number",
+    "nino",
+    "phone",
+    "postcode",
+    "ssn",
+    "zip_code",
 }
 _MAX_REMOTE_FILE_BYTES = 5 * 1024 * 1024
 
@@ -153,6 +198,13 @@ def _safe_relative_path(value: str, *, label: str) -> str:
     if any(not part or part in {"/", "\\"} for part in path.parts):
         raise StagingContractError(f"{label} contains an invalid path segment.")
     return path.as_posix()
+
+
+def _normalized_content_key(value: object) -> str:
+    """Normalize JSON property names before applying disclosure rules."""
+
+    with_word_boundaries = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(value))
+    return re.sub(r"[^a-z0-9]+", "_", with_word_boundaries.lower()).strip("_")
 
 
 def _schema_identity(name: str) -> dict[str, Any]:
@@ -408,26 +460,62 @@ def validate_staging_delivery(payload: Mapping[str, Any]) -> dict[str, Any]:
     repository = normalized["configured_repository"]
     run_id = normalized["run_id"]
     reason = normalized["opt_out_reason"]
-    if normalized["upload_successes"] > normalized["upload_attempts"]:
+    attempts = normalized["upload_attempts"]
+    successes = normalized["upload_successes"]
+    read_back = normalized["read_back"]
+    error_code = normalized["last_error_code"]
+    if successes > attempts:
         raise StagingContractError("upload_successes cannot exceed upload_attempts.")
     if enabled:
         if mode == "disabled" or run_id is None or reason is not None:
             raise StagingContractError(
                 "Enabled staging has contradictory delivery fields."
             )
-        if mode == "local_and_remote" and not repository:
-            raise StagingContractError(
-                "Remote staging requires a configured repository."
+        if mode == "local_and_remote":
+            if not isinstance(repository, str) or not repository.strip():
+                raise StagingContractError(
+                    "Remote staging requires a configured repository."
+                )
+            if read_back == "passed" and successes == 0:
+                raise StagingContractError(
+                    "Successful read-back requires at least one successful upload."
+                )
+            expected_read_back_error = (
+                "READ_BACK_FAILED" if read_back == "failed" else None
             )
-        if mode == "local_only" and repository is not None:
-            raise StagingContractError("Local-only staging cannot name a repository.")
+            if (
+                read_back in {"passed", "failed"}
+                and error_code != expected_read_back_error
+            ):
+                raise StagingContractError(
+                    "Remote read-back status contradicts last_error_code."
+                )
+            if read_back == "not_requested" and error_code not in {
+                None,
+                "UPLOAD_FAILED",
+            }:
+                raise StagingContractError(
+                    "Remote delivery has an error unrelated to its recorded state."
+                )
+        if mode == "local_only":
+            if repository is not None:
+                raise StagingContractError(
+                    "Local-only staging cannot name a repository."
+                )
+            if attempts or successes or read_back != "not_requested" or error_code:
+                raise StagingContractError(
+                    "Local-only staging cannot report remote delivery activity."
+                )
     elif (
         mode != "disabled"
         or run_id is not None
         or repository is not None
-        or not reason
-        or normalized["upload_attempts"]
-        or normalized["upload_successes"]
+        or not isinstance(reason, str)
+        or not reason.strip()
+        or attempts
+        or successes
+        or read_back != "not_requested"
+        or error_code is not None
     ):
         raise StagingContractError(
             "Disabled staging has contradictory delivery fields."
@@ -496,6 +584,16 @@ class StagingContentPolicy:
     def validate_payload(self, payload: Any) -> None:
         self._reject_sensitive_keys(payload)
 
+    def validate_artifact_payload(self, payload: Any) -> None:
+        """Require reviewed artifacts to use aggregate, non-tabular JSON."""
+
+        if not isinstance(payload, Mapping):
+            raise StagingContentError(
+                "Reviewed staging artifacts must contain a JSON object."
+            )
+        self.validate_payload(payload)
+        self._reject_record_collections(payload)
+
     def validate_remote_file(self, path: str, data: bytes) -> None:
         safe_path = _safe_relative_path(path, label="remote path")
         suffix = PurePosixPath(safe_path).suffix.lower()
@@ -546,20 +644,61 @@ class StagingContentPolicy:
                 "Reviewed staging artifact is not readable."
             ) from exc
         self.validate_remote_file(f"artifacts/{logical_name}.json", data)
+        self.validate_artifact_payload(json.loads(data))
         return data
 
     def _reject_sensitive_keys(self, value: Any) -> None:
         if isinstance(value, Mapping):
+            normalized_items = {
+                _normalized_content_key(key): item for key, item in value.items()
+            }
+            individual_fields = set(normalized_items) & _INDIVIDUAL_RECORD_KEYS
+            if len(individual_fields) >= 2 and any(
+                isinstance(normalized_items[key], (list, tuple))
+                for key in individual_fields
+            ):
+                raise StagingContentError(
+                    "Prohibited columnar individual records in staging content."
+                )
             for key, item in value.items():
-                normalized = str(key).strip().lower()
+                normalized = _normalized_content_key(key)
                 if normalized in _PROHIBITED_CONTENT_KEYS:
                     raise StagingContentError(
-                        f"Prohibited row-level field in staging content: {key!r}."
+                        "Prohibited row-level field or sensitive field in "
+                        f"staging content: {key!r}."
+                    )
+                if normalized in _ROW_COLLECTION_KEYS and isinstance(
+                    item, (Mapping, list, tuple)
+                ):
+                    raise StagingContentError(
+                        f"Prohibited row-level collection in staging content: {key!r}."
                     )
                 self._reject_sensitive_keys(item)
         elif isinstance(value, list):
+            record_keys = {
+                _normalized_content_key(key)
+                for item in value
+                if isinstance(item, Mapping)
+                for key in item
+            }
+            if len(record_keys & _INDIVIDUAL_RECORD_KEYS) >= 2:
+                raise StagingContentError(
+                    "Prohibited repeated individual records in staging content."
+                )
             for item in value:
                 self._reject_sensitive_keys(item)
+
+    def _reject_record_collections(self, value: Any) -> None:
+        if isinstance(value, Mapping):
+            for item in value.values():
+                self._reject_record_collections(item)
+        elif isinstance(value, list):
+            if any(isinstance(item, Mapping) for item in value):
+                raise StagingContentError(
+                    "Prohibited record array in reviewed staging artifact."
+                )
+            for item in value:
+                self._reject_record_collections(item)
 
 
 class StagingTelemetryV2:
@@ -1022,9 +1161,7 @@ class StagingTelemetryV2:
         )
         self._delivery["upload_attempts"] = self._upload_session.attempts
         self._delivery["upload_successes"] = self._upload_session.successes
-        self._consecutive_upload_failures = (
-            self._upload_session.consecutive_failures
-        )
+        self._consecutive_upload_failures = self._upload_session.consecutive_failures
         self._remote_disabled = not self._upload_session.enabled
         if not result.succeeded:
             self._delivery["last_error_code"] = "UPLOAD_FAILED"
@@ -1197,6 +1334,7 @@ def validate_v2_bundle(
                 f"Reviewed staging artifact {logical_name!r} has the wrong digest."
             )
         policy.validate_remote_file(f"{prefix}/{run_id}/{relative}", data)
+        policy.validate_artifact_payload(json.loads(data))
     documents["events"] = events
     return documents
 

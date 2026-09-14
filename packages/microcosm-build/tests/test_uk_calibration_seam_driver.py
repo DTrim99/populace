@@ -234,6 +234,8 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
     }
     assert call["progress_callback"] is None
     assert call["event_callback"] is None
+    assert call["staging_finalizer"] is None
+    assert call["staging_delivery_provider"] is None
     assert call["staging_delivery"] == {
         "contract_version": 2,
         "enabled": False,
@@ -326,15 +328,21 @@ def test_driver_records_local_calibration_stage_coverage(
                 "iteration": 1,
             }
         )
+        delivery = kwargs["staging_delivery"]
+        if kwargs["staging_finalizer"] is not None:
+            kwargs["staging_finalizer"]()
+            delivery = kwargs["staging_delivery_provider"]()
+        record = {
+            "gate_summary": {"uk_target_fit": "passed"},
+            "staging_delivery": delivery,
+        }
+        driver._write_json(kwargs["paths"].build_record_json, record)
         return SimpleNamespace(
             staging_sha256="1" * 64,
             diagnostics_sha256="2" * 64,
             terminal_gate_sha256="3" * 64,
-            build_record_sha256="4" * 64,
-            build_record={
-                "gate_summary": {"uk_target_fit": "passed"},
-                "staging_delivery": kwargs["staging_delivery"],
-            },
+            build_record_sha256=driver._sha256_file(kwargs["paths"].build_record_json),
+            build_record=record,
         )
 
     monkeypatch.setattr(driver, "run_uk_calibration", fake_run)

@@ -134,6 +134,15 @@ def main(argv: list[str] | None = None) -> int:
             if telemetry is not None:
                 telemetry.stage(stage_id, event_status=status, **dict(details))
 
+        def finalize_staging() -> None:
+            assert telemetry is not None
+            telemetry.complete(message="UK calibration staging run completed.")
+            try:
+                if args.staging_read_back:
+                    telemetry.verify_remote()
+            finally:
+                telemetry.validate_local_bundle()
+
         result = run_uk_calibration(
             paths=paths,
             input_sha256=args.input_sha256,
@@ -164,17 +173,13 @@ def main(argv: list[str] | None = None) -> int:
             ),
             event_callback=event_callback if telemetry is not None else None,
             staging_delivery=_staging_delivery(args, telemetry),
+            staging_finalizer=finalize_staging if telemetry is not None else None,
+            staging_delivery_provider=(
+                (lambda: telemetry.delivery_summary) if telemetry is not None else None
+            ),
         )
         build_record_sha256 = result.build_record_sha256
         build_record = dict(result.build_record)
-        if telemetry is not None:
-            telemetry.complete(message="UK calibration staging run completed.")
-            if args.staging_read_back:
-                telemetry.verify_remote()
-            telemetry.validate_local_bundle()
-            build_record["staging_delivery"] = telemetry.delivery_summary
-            _write_json(args.build_record_json, build_record)
-            build_record_sha256 = _sha256_file(args.build_record_json)
         summary = {
             "staging_h5_sha256": result.staging_sha256,
             "diagnostics_sha256": result.diagnostics_sha256,

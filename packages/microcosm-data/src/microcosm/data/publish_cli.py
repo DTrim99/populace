@@ -77,6 +77,7 @@ def _version_2_staging_undelivered(staging: dict[str, object]) -> bool:
     attempts = staging.get("upload_attempts")
     successes = staging.get("upload_successes")
     read_back = staging.get("read_back")
+    error_code = staging.get("last_error_code")
     reason = staging.get("opt_out_reason")
     if (
         not isinstance(enabled, bool)
@@ -88,6 +89,7 @@ def _version_2_staging_undelivered(staging: dict[str, object]) -> bool:
         or successes < 0
         or successes > attempts
         or read_back not in {"not_requested", "passed", "failed"}
+        or (error_code is not None and not isinstance(error_code, str))
     ):
         return True
     if not enabled:
@@ -97,6 +99,8 @@ def _version_2_staging_undelivered(staging: dict[str, object]) -> bool:
             and repository is None
             and attempts == 0
             and successes == 0
+            and read_back == "not_requested"
+            and error_code is None
             and isinstance(reason, str)
             and bool(reason.strip())
         )
@@ -104,7 +108,17 @@ def _version_2_staging_undelivered(staging: dict[str, object]) -> bool:
         return True
     if mode == "local_only":
         return True
-    if mode != "local_and_remote" or not isinstance(repository, str) or not repository:
+    if (
+        mode != "local_and_remote"
+        or not isinstance(repository, str)
+        or not repository.strip()
+    ):
+        return True
+    if read_back == "passed":
+        return successes == 0 or error_code is not None
+    if read_back == "failed":
+        return True
+    if error_code not in {None, "UPLOAD_FAILED"}:
         return True
     return successes == 0
 

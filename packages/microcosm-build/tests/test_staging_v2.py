@@ -169,6 +169,32 @@ def test_typed_artifacts_accept_aggregate_json_and_refuse_population_data(tmp_pa
         )
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"apiToken": "secret-value"},
+        {"credentials": {"username": "operator"}},
+        {"environment": {"HOME": "/licensed/input"}},
+        {"rows": [{"value": 1}]},
+        [{"name": "Example person", "age": 42, "income": 50_000}],
+        {"data": [{"years_old": 42, "earnings": 50_000}]},
+        {"age": [42], "income": [50_000]},
+    ],
+)
+def test_typed_artifacts_reject_sensitive_or_row_level_json(tmp_path, payload):
+    telemetry = _recorder(tmp_path)
+    artifact = tmp_path / "unsafe.json"
+    artifact.write_text(json.dumps(payload))
+
+    with pytest.raises(StagingContentError, match="Prohibited"):
+        telemetry.add_artifact(
+            "unsafe",
+            artifact,
+            artifact_kind="aggregate_diagnostics",
+            classification="aggregate",
+        )
+
+
 def test_failure_uses_sanitized_contract_fields(tmp_path):
     telemetry = _recorder(tmp_path)
     telemetry.stage("input_verification")
@@ -217,6 +243,36 @@ def test_delivery_validation_rejects_contradictions():
             {**local_only, "upload_attempts": 0, "upload_successes": 1}
         )
 
+    invalid_local_states = [
+        {"upload_attempts": 1},
+        {"read_back": "passed"},
+        {"last_error_code": "UPLOAD_FAILED"},
+    ]
+    for overrides in invalid_local_states:
+        with pytest.raises(StagingContractError, match="remote delivery activity"):
+            validate_staging_delivery({**local_only, **overrides})
+
+    disabled = disabled_staging_delivery("--no-staging")
+    for overrides in (
+        {"read_back": "passed"},
+        {"last_error_code": "UPLOAD_FAILED"},
+        {"opt_out_reason": "   "},
+    ):
+        with pytest.raises(StagingContractError, match="Disabled staging"):
+            validate_staging_delivery({**disabled, **overrides})
+
+    remote = {
+        **local_only,
+        "mode": "local_and_remote",
+        "configured_repository": "policyengine/example",
+    }
+    with pytest.raises(StagingContractError, match="configured repository"):
+        validate_staging_delivery({**remote, "configured_repository": "   "})
+    with pytest.raises(StagingContractError, match="Successful read-back"):
+        validate_staging_delivery({**remote, "read_back": "passed"})
+    with pytest.raises(StagingContractError, match="contradicts"):
+        validate_staging_delivery({**remote, "read_back": "failed"})
+
 
 def test_unknown_schema_version_is_incompatible():
     with pytest.raises(StagingContractError, match="Unsupported staging schema"):
@@ -239,7 +295,7 @@ def test_bundle_validation_rejects_shared_document_disagreement(tmp_path, field)
     if field == "sample":
         progress[field] = _sample()
     elif field == "delivery":
-        progress[field]["upload_attempts"] = 1
+        progress[field]["run_id"] = "different-run"
     else:
         progress[field]["error_code"] = "DIFFERENT_FAILURE"
     progress_path.write_text(json.dumps(progress))

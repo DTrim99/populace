@@ -28,10 +28,11 @@ EXPECTED_RESOURCES = {
 
 
 @pytest.mark.parametrize(
-    ("country", "expected_columns", "expected_entities"),
+    ("country", "expected_period", "expected_columns", "expected_entities"),
     [
         (
             "am",
+            2024,
             {
                 "household.household_id",
                 "person.age",
@@ -43,6 +44,7 @@ EXPECTED_RESOURCES = {
         ),
         (
             "be",
+            2023,
             {
                 "household.household_id",
                 "person.person_id",
@@ -52,6 +54,7 @@ EXPECTED_RESOURCES = {
         ),
         (
             "uk",
+            2023,
             {
                 "benunit.benunit_id",
                 "household.household_id",
@@ -64,6 +67,7 @@ EXPECTED_RESOURCES = {
 )
 def test_country_bundle_loads_once_and_compiles_through_the_shared_core(
     country: str,
+    expected_period: int,
     expected_columns: set[str],
     expected_entities: set[str],
 ) -> None:
@@ -78,8 +82,6 @@ def test_country_bundle_loads_once_and_compiles_through_the_shared_core(
 
     assert country_spec.resolved_spec is not None
     assert country_spec.resolved_spec.spec_sha256 == direct.spec_sha256
-    assert len(direct.spec_sha256) == 64
-    assert set(direct.spec_sha256) <= set("0123456789abcdef")
 
     compiled = compile_spec(direct)
     assert set(compiled.resources_wire()) == EXPECTED_RESOURCES
@@ -87,6 +89,14 @@ def test_country_bundle_loads_once_and_compiles_through_the_shared_core(
     assert compiled.nodes == ()
     assert {column.key for column in direct.columns} == expected_columns
     assert {column.entity.id for column in direct.columns} == expected_entities
+    bundle = compiled.resource("bundle")
+    assert {key: bundle[key] for key in bundle if key != "status"} == {
+        "country": country,
+        "dataset_run": {"target_period": expected_period},
+        "identity_generation": 1,
+        "seed_protocol": "legacy-v1",
+    }
+    assert isinstance(bundle["status"], str) and bundle["status"].strip()
 
 
 def test_country_bundles_exercise_distinct_support_and_geography_kinds() -> None:

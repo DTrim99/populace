@@ -267,10 +267,10 @@ def run_uk_calibration(
     release_id: str,
     logbook_prev_row_digest: str | None = None,
     progress_callback: Callable[[dict[str, object]], None] | None = None,
-    event_callback: (
-        Callable[[str, str, Mapping[str, object]], None] | None
-    ) = None,
+    event_callback: (Callable[[str, str, Mapping[str, object]], None] | None) = None,
     staging_delivery: Mapping[str, object] | None = None,
+    staging_finalizer: Callable[[], None] | None = None,
+    staging_delivery_provider: Callable[[], Mapping[str, object]] | None = None,
 ) -> UKCalibrationRunResult:
     """Run the UK national calibration seam and write its sidecars."""
 
@@ -284,6 +284,10 @@ def run_uk_calibration(
         band_edge_registry=band_edge_registry,
         exclusion_receipt=exclusion_receipt,
     )
+    if (staging_finalizer is None) != (staging_delivery_provider is None):
+        raise ValueError(
+            "staging_finalizer and staging_delivery_provider must be supplied together."
+        )
     edge_registry = band_edge_registry
     code_pin = git_code_pin(_REPOSITORY)
     # Predecessor configuration is validated before anything is written: a
@@ -339,6 +343,8 @@ def run_uk_calibration(
             progress_callback=progress_callback,
             event_callback=event_callback,
             staging_delivery=staging_delivery,
+            staging_finalizer=staging_finalizer,
+            staging_delivery_provider=staging_delivery_provider,
         )
     except BaseException as error:
         # Every terminal disposition records a row — successful, failed, or
@@ -470,6 +476,8 @@ def _run_uk_calibration_attempt(
     progress_callback: Callable[[dict[str, object]], None] | None,
     event_callback: Callable[[str, str, Mapping[str, object]], None] | None,
     staging_delivery: Mapping[str, object] | None,
+    staging_finalizer: Callable[[], None] | None,
+    staging_delivery_provider: Callable[[], Mapping[str, object]] | None,
 ) -> UKCalibrationRunResult:
     _notify_run_event(event_callback, "input_loading", "started")
     measured_input_sha = _sha256_file(paths.input_h5)
@@ -647,6 +655,16 @@ def _run_uk_calibration_attempt(
     state.artifact_location = local_artifact_reference(
         paths.staging_h5, repository_hint=_REPOSITORY
     )
+    if staging_finalizer is not None:
+        assert staging_delivery_provider is not None
+        try:
+            staging_finalizer()
+        finally:
+            record["staging_delivery"] = validate_staging_delivery(
+                staging_delivery_provider()
+            )
+            _write_json(paths.build_record_json, record)
+            build_record_sha = _sha256_file(paths.build_record_json)
     spool = record_terminal_attempt(
         state=state,
         started_at=started_at,

@@ -178,6 +178,35 @@ def _version_2_delivery(**overrides) -> dict:
         ),
         (_version_2_delivery(contract_version=999), True),
         (_version_2_delivery(upload_attempts=1, upload_successes=2), True),
+        (
+            _version_2_delivery(
+                upload_attempts=0,
+                upload_successes=0,
+                read_back="passed",
+            ),
+            True,
+        ),
+        (
+            _version_2_delivery(
+                read_back="failed",
+                last_error_code="READ_BACK_FAILED",
+            ),
+            True,
+        ),
+        (
+            _version_2_delivery(
+                enabled=False,
+                mode="disabled",
+                run_id=None,
+                configured_repository=None,
+                upload_attempts=0,
+                upload_successes=0,
+                read_back="passed",
+                opt_out_reason="--no-staging",
+            ),
+            True,
+        ),
+        (_version_2_delivery(last_error_code=["UPLOAD_FAILED"]), True),
         ({"contract_version": 2, "enabled": True}, True),
     ],
 )
@@ -303,9 +332,7 @@ def test_version_2_publication_decisions(
     assert ("refusing to publish" in capsys.readouterr().err) is (expected == 1)
 
 
-def test_version_2_local_only_can_use_explicit_override(
-    tmp_path, capsys, monkeypatch
-):
+def test_version_2_local_only_can_use_explicit_override(tmp_path, capsys, monkeypatch):
     _write_bm(
         tmp_path,
         {

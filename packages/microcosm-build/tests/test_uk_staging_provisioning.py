@@ -131,3 +131,25 @@ def test_github_environment_audit_rejects_writer_secret(
 
     with pytest.raises(RuntimeError, match="unapproved secret"):
         tool._audit("PolicyEngine/microcosm", ())
+
+
+def test_github_environment_audit_requires_self_review_prevention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tool = _load_tool("configure_github_staging_environment")
+    environment = {
+        "protection_rules": [
+            {
+                "type": "required_reviewers",
+                "prevent_self_review": False,
+                "reviewers": [
+                    {"type": "User", "reviewer": {"login": "anth-volk"}},
+                ],
+            }
+        ]
+    }
+    monkeypatch.setattr(tool, "_environment", lambda repository: environment)
+    monkeypatch.setattr(tool, "_secret_names", lambda repository: [])
+
+    with pytest.raises(RuntimeError, match="approving their own deployment"):
+        tool._audit("PolicyEngine/microcosm", ("anth-volk",))
