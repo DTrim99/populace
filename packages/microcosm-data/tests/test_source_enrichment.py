@@ -921,7 +921,9 @@ def test_declared_model_range_is_emitted_verbatim_and_replayed_by_preflight(
     [
         ("policyengine-us>=2.0,<3", "excludes the tested policyengine-us version"),
         ("policyengine-uk>=1.999.0,<2", "declares compatibility for the built-with"),
-        ("policyengine-us>=1.999.0", "is unbounded above"),
+        ("policyengine-us>=1.999.0", "reaches 2.0.0 and beyond"),
+        ("policyengine-us>=1.999.0,!=99999", "reaches 2.0.0 and beyond"),
+        ("policyengine-us>=1.999.0,<99998", "reaches 2.0.0 and beyond"),
         ("policyengine-us", "needs a PEP 440 specifier"),
         ("policyengine-us[us]>=1.999.0,<2", "bare name and specifier"),
         ("policyengine-us>=oops", "is not a PEP 508 requirement"),
@@ -1019,7 +1021,7 @@ def test_report_claim_widened_after_certification_is_revalidated(
     manifest["compatible_model_packages"] = [unbounded]
     _write(manifest_path, manifest)
     _refresh(output, enrichment.SOURCE_ENRICHMENT_FILE)
-    with pytest.raises(ReleaseContractError, match="is unbounded above"):
+    with pytest.raises(ReleaseContractError, match="reaches 2.0.0 and beyond"):
         enrichment.validate_source_enrichment_candidate(
             output,
             parent_h5=parent,
@@ -1057,7 +1059,16 @@ def test_report_claim_that_constrains_nothing_is_refused(
 
 @pytest.mark.parametrize(
     "claims",
-    [[], {}, {"bogus": DECLARED_ENTRY}, "model"],
+    [
+        [],
+        {},
+        {"bogus": DECLARED_ENTRY},
+        "model",
+        # Core is not a field a publisher may widen, so a forged core claim is
+        # refused rather than honoured: origin/main pinned Core unconditionally.
+        {"core": {**DECLARED_ENTRY, "name": "policyengine-core"}},
+        {"model": DECLARED_ENTRY, "core": DECLARED_ENTRY},
+    ],
 )
 def test_malformed_publisher_claims_block_certification_readback(
     candidate, tmp_path, monkeypatch, claims
@@ -1212,3 +1223,60 @@ def test_cli_certify_declares_the_claim_it_was_given(
     manifest, report = _certified(output)
     assert manifest["compatible_model_packages"] == [DECLARED_ENTRY]
     assert report["compatibility"]["publisher_claims"] == {"model": DECLARED_ENTRY}
+
+
+def test_core_stays_pinned_when_the_model_range_is_declared(
+    candidate, tmp_path, monkeypatch
+):
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    manifest, report = _certified(output)
+    assert manifest["compatible_core_packages"] == [
+        {"name": "policyengine-core", "specifier": "==3.99.0"}
+    ]
+    assert set(report["compatibility"]["publisher_claims"]) == {"model"}
+
+
+def test_parenthesised_requirement_records_the_bare_specifier(
+    candidate, tmp_path, monkeypatch
+):
+    output, _ = _qualify_candidate(
+        candidate,
+        tmp_path,
+        monkeypatch,
+        **_declare(compatible_model_specifier="policyengine-us (>=1.999.0,<2)"),
+    )
+    manifest, _ = _certified(output)
+    assert manifest["compatible_model_packages"] == [DECLARED_ENTRY]
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        {"compatible_model_specifier": "policyengine-uk>=1.999.0,<2"},
+        {"compatibility_claim_declared_by": "  "},
+    ],
+)
+def test_an_unsound_claim_costs_no_qualification_run(
+    candidate, tmp_path, monkeypatch, claim
+):
+    """The checks that need no tested version run before the long probe."""
+    from importlib import metadata
+
+    release, parent, root = candidate
+    monkeypatch.setattr(
+        enrichment,
+        "run_native_loader_compatibility",
+        lambda *args, **kwargs: pytest.fail("an unsound claim ran qualification"),
+    )
+    monkeypatch.setattr(metadata, "version", lambda name: "0.1.0")
+    output = tmp_path / "certified" / release.name
+    with pytest.raises(ValueError):
+        enrichment.certify_source_enrichment(
+            release,
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            compatibility_wheels=(tmp_path / "country.whl",),
+            **_declare(**claim),
+        )
+    assert not output.exists()

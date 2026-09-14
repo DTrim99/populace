@@ -171,11 +171,22 @@ The claim is recorded in `source_enrichment.json` under
 `compatibility.publisher_claims.model` and in `release_manifest.json` as the
 single `compatible_model_packages` entry, both carrying
 `"basis": "publisher_claim"` and the declarer. The specifier is stored exactly
-as declared. Validation replays the claim at every later gate, publish preflight
-included: the manifest entry must equal what the hash-bound report declares, so
-a manifest widened after certification has no declaration behind it and is
-refused with the same text as before. Omitting the option leaves certification
-byte-identical to an undeclared run.
+as declared, save that PEP 508's optional parentheses are dropped. Validation
+replays the claim at every later gate, publish preflight included: the manifest
+entry must equal what the report declares, so a `release_manifest.json` widened
+on its own is refused. Omitting the options leaves certification byte-identical
+to an undeclared run — no `basis` key, no `publisher_claims` key.
+
+Only the **model** field may be widened. Core keeps the exact pin it has always
+had, and a `core` key in `publisher_claims` is refused rather than honoured.
+
+This is a record of who claimed what, not a tamper-proof seal. The report's
+SHA256 lives in the manifest's own `artifacts` map, so widening a certified
+bundle by hand takes two coordinated edits plus a hash refresh instead of one —
+the same trust model as before, where the exact pin was equally editable. What
+actually stands between an edited bundle and the Hub is
+`_check_producer_source_identity`, the publish preflight, and the human
+publication decision.
 
 The tooling refuses a claim that:
 
@@ -186,15 +197,12 @@ The tooling refuses a claim that:
   the consumers apply (`microcosm.data.loader._package_certification` and
   policyengine.py's `provenance.manifest._specifier_matches`), so a claim that
   is accepted here is a claim they will honour;
-- is unbounded above (`>=2.0.1`, `!=2.0.5`), which would outlive the runtime it
-  was measured against — write `>=2.0.1,<2.1` or `~=2.0.1`;
+- reaches the next major version (`>=2.0.1`, `!=2.0.5`, `<3.0.1` over a 2.x
+  build), which would outlive the runtime it was measured against — write
+  `>=2.0.1,<2.1`, `~=2.0.1` or `==2.0.*`;
 - arrives without `--compatibility-claim-declared-by`. A wider claim is the
   publisher's assertion rather than a measurement, so the bundle records who
   made it.
-
-Only the model range is exposed on the CLI. Core stays pinned exactly: nothing
-in this lane's operating experience calls for a Core range, and the validator
-would require the same declaration machinery for one.
 
 ### When a range is appropriate
 
@@ -219,16 +227,20 @@ entity tables this release writes, or the SPM path that consumes them.
 - **Speculative headroom.** `<2.1` because 2.0.2 is expected is defensible;
   `<3` because a major bump seems far off is not.
 
-Consumers can tell the two apart, and say so. policyengine.py certifies an
-exact build-time match silently; a version matched only by the claim is
-certified with a warning naming the claim and the version the data was actually
-built with, recorded as basis `compatible_model_packages` when the bundle is
-certified (`provenance/certification.py::validate_release_manifest`) and
-`legacy_compatible_model_package` when a runtime binds the release
-(`provenance/manifest.py::certify_data_release_compatibility`). Measured against
-that code, a manifest declaring `>=2.0.1,<2.1` with `built_with` 2.0.1 accepts
-2.0.1 silently, accepts 2.0.2 with the warning, and refuses 2.0.0 and 2.1.0.
-That warning is the intended cost of the wider binding.
+Consumers record which basis they used. Measured against policyengine.py's
+installed provenance code, a manifest declaring `>=2.0.1,<2.1` over `built_with`
+2.0.1 accepts 2.0.1 on the exact build-time match, accepts 2.0.2 on the claim,
+and refuses 2.0.0 and 2.1.0 — on both paths. They differ in what they say:
+
+- **Bundle certification** (`provenance/certification.py::validate_release_manifest`)
+  returns basis `compatible_model_packages` and a warning naming the claim and
+  the version the data was built with. That warning is the intended cost of the
+  wider binding, and an operator certifying a bundle sees it.
+- **Runtime binding** (`provenance/manifest.py::certify_data_release_compatibility`)
+  returns basis `legacy_compatible_model_package` and warns about nothing —
+  that module issues no warnings at all. A user running the certified bundle on
+  a version the claim covers gets no signal; the recorded basis is the only
+  trace. Do not declare a range expecting the runtime to caveat it for you.
 
 Certification creates a separate bundle with measured compatibility; it leaves
 the candidate H5 and source evidence unchanged. Both the preflight above and

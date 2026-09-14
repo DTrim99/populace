@@ -27,9 +27,10 @@ SOURCE_EVIDENCE_SHA256 = (
 )
 SOURCE_PROVENANCE_FILE = "source_spm_independence_provenance.json"
 COMPATIBILITY_FILE = "source_enrichment_compatibility.json"
-#: A declared range must exclude this version, so "compatible with everything
-#: from here on" cannot be published as a claim.
-UNBOUNDED_CLAIM_PROBE_VERSION = "99999"
+#: The compatibility field a publisher may widen. Core stays pinned exactly to
+#: the tested version, as it always has: no producer can declare a Core range,
+#: so the validator must not honour one either.
+CLAIM_FIELD = "model"
 COMPATIBILITY_PACKAGES = (
     "policyengine-us",
     "policyengine-core",
@@ -604,7 +605,27 @@ def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> 
             "publisher compatibility claim must be a bare name and specifier, "
             "with no URL, extras or environment marker"
         )
-    return requirement.strip()[len(parsed.name) :].strip()
+    specifier = requirement.strip()[len(parsed.name) :].strip()
+    # PEP 508 also allows ``name (>=1,<2)``; the parentheses are grammar, not
+    # part of the specifier the manifest records.
+    if specifier.startswith("(") and specifier.endswith(")"):
+        specifier = specifier[1:-1].strip()
+    return specifier
+
+
+def check_compatibility_claim_declarer(declared_by: object) -> None:
+    """Raise unless a claim names someone accountable for it."""
+    if (
+        not isinstance(declared_by, str)
+        or not declared_by.strip()
+        or declared_by != declared_by.strip()
+        or len(declared_by) > 200
+        or not declared_by.isprintable()
+    ):
+        raise ValueError(
+            "publisher compatibility claim must record who declared it, as "
+            "trimmed printable text of at most 200 characters"
+        )
 
 
 def compatibility_claim_entry(
@@ -623,17 +644,7 @@ def compatibility_claim_entry(
 
     if not isinstance(specifier, str) or not specifier.strip():
         raise ValueError("publisher compatibility claim needs a PEP 440 specifier")
-    if (
-        not isinstance(declared_by, str)
-        or not declared_by.strip()
-        or declared_by != declared_by.strip()
-        or len(declared_by) > 200
-        or not declared_by.isprintable()
-    ):
-        raise ValueError(
-            "publisher compatibility claim must record who declared it, as "
-            "trimmed printable text of at most 200 characters"
-        )
+    check_compatibility_claim_declarer(declared_by)
     try:
         specifier_set = SpecifierSet(specifier)
     except InvalidSpecifier as exc:
@@ -657,11 +668,13 @@ def compatibility_claim_entry(
             f"publisher compatibility claim {specifier!r} excludes the tested "
             f"{package} version {version}; a claim must cover what was measured"
         )
-    if Version(UNBOUNDED_CLAIM_PROBE_VERSION) in specifier_set:
+    next_major = Version(f"{tested.epoch}!{tested.major + 1}.0.0")
+    if next_major in specifier_set:
         raise ValueError(
-            f"publisher compatibility claim {specifier!r} is unbounded above; "
-            "declare an upper bound such as '<2.1' so the claim cannot outlive "
-            "the runtime it was measured against"
+            f"publisher compatibility claim {specifier!r} reaches "
+            f"{next_major} and beyond; a claim measured against {package} "
+            f"{version} must stop below the next major version, as '<2.1' or "
+            "'~=2.0.1' do"
         )
     return {
         "name": package,
@@ -705,16 +718,17 @@ def _check_compatibility(
         _check_release_manifest(manifest, release_dir.name, failures)
         raw_claims = compatibility.get("publisher_claims")
         claims = _mapping(raw_claims)
-        if raw_claims is not None and (
-            not isinstance(raw_claims, Mapping)
-            or not claims
-            or set(claims) - {"model", "core"}
-        ):
+        malformed_claims = raw_claims is not None and (
+            not isinstance(raw_claims, Mapping) or set(claims) != {CLAIM_FIELD}
+        )
+        if malformed_claims:
+            # Say only this. Falling through to the per-package branch below
+            # would add "no publisher compatibility claim was declared", which
+            # is the opposite of what happened.
             failures.append(
-                "publisher_claims must map 'model' and/or 'core' to declared "
-                "compatibility claims"
+                f"publisher_claims must map {CLAIM_FIELD!r} to one declared "
+                "compatibility claim; Core stays pinned to the tested version"
             )
-            claims = {}
         for package, field in (
             ("policyengine-us", "model"),
             ("policyengine-core", "core"),
@@ -726,7 +740,9 @@ def _check_compatibility(
                 failures.append(
                     f"compatibility built-with {package} must match tested runtime"
                 )
-            declared = claims.get(field)
+            if malformed_claims:
+                continue
+            declared = claims.get(field) if field == CLAIM_FIELD else None
             if declared is None:
                 if manifest.get(f"compatible_{field}_packages") != [
                     {"name": package, "specifier": f"=={version}"}
@@ -1066,14 +1082,14 @@ def certify_source_enrichment(
             "a publisher compatibility claim needs both its specifier and the "
             "declarer who is accountable for it"
         )
-    claim_specifier = (
-        # Fail on a misspelled package before the long qualification run.
-        parse_compatibility_claim_requirement(
+    claim_specifier = None
+    if compatible_model_specifier is not None:
+        # Everything checkable without the tested version is checked here, so a
+        # malformed claim costs nothing rather than a whole qualification run.
+        claim_specifier = parse_compatibility_claim_requirement(
             compatible_model_specifier, package="policyengine-us"
         )
-        if compatible_model_specifier is not None
-        else None
-    )
+        check_compatibility_claim_declarer(compatibility_claim_declared_by)
     report = validate_source_enrichment_candidate(
         release_dir, parent_h5=parent_h5, artifact_root=artifact_root
     )
@@ -1083,7 +1099,7 @@ def certify_source_enrichment(
     )
     claims = (
         {
-            "model": compatibility_claim_entry(
+            CLAIM_FIELD: compatibility_claim_entry(
                 claim_specifier,
                 package="policyengine-us",
                 version=receipt["packages"]["policyengine-us"]["version"],
