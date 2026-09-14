@@ -603,7 +603,7 @@ _A16_UNREACHABLE_ROWS = (
 def test_packaged_exclusions_load():
     exclusions = load_uk_calibration_measure_exclusions()
     names = [entry["name"] for entry in exclusions]
-    assert len(names) == len(set(names)) == 47
+    assert len(names) == len(set(names)) == 50
 
     for marker, expected in _PACKAGED_EXCLUSION_CENSUS.items():
         matched = [name for name in names if marker in name]
