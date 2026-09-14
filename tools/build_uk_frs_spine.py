@@ -213,9 +213,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--synthetic-fixture-dir",
         type=Path,
         help=(
-            "Data-only UK spine fixture source for local-only integration testing. "
-            "Requires --smoke and --staging-local-only and cannot be combined with "
-            "licensed input options."
+            "Data-only UK spine fixture source for non-release integration testing. "
+            "Requires --smoke and cannot be combined with licensed input options."
         ),
     )
     parser.add_argument(
@@ -328,10 +327,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                 "--synthetic-fixture-dir cannot be combined with licensed input "
                 f"options: {', '.join(supplied)}."
             )
-        if not args.smoke or not args.staging_local_only:
-            parser.error(
-                "--synthetic-fixture-dir requires --smoke and --staging-local-only."
-            )
+        if not args.smoke:
+            parser.error("--synthetic-fixture-dir requires --smoke.")
     validate_uk_staging_arguments(parser, args)
     return args
 

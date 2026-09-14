@@ -170,6 +170,14 @@ and every pull request to `main`, without a path filter. Its commands live in
 `tools/run_integration_tests.sh`. The test reports total elapsed time and the
 elapsed time for each transformation.
 
+An authorized operator can verify the current remote layout with the same
+synthetic fixture by omitting `--staging-local-only`, adding
+`--staging-read-back`, and supplying unique `--staging-run-id` and
+`--staging-candidate-id` values. The command still requires `--smoke`, so its
+H5 file, sidecar, and aggregate staging records are marked non-release. The H5
+file and fixture source tables remain local because the staging content policy
+permits only the reviewed aggregate JSON files.
+
 An authenticated staging transport check completed on 2026-09-09 using the
 earlier source-family-count interface and the superseded shared-file layout. It
 uploaded version 2 JSON records for `uk-smoke-h0100-s578-20260909T125305Z` to

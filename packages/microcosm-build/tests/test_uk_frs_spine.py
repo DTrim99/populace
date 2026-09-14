@@ -1594,6 +1594,25 @@ def test_driver_accepts_full_fixture_smoke_posture(tmp_path: Path) -> None:
     )
 
 
+def test_driver_accepts_synthetic_fixture_for_remote_smoke(tmp_path: Path) -> None:
+    tool = _load_tool()
+
+    args = tool._parse_args(
+        [
+            "--synthetic-fixture-dir",
+            str(tmp_path / "fixture"),
+            "--spine-h5",
+            str(tmp_path / "spine.h5"),
+            "--smoke",
+            "--staging-read-back",
+        ]
+    )
+
+    assert args.smoke
+    assert args.staging_read_back
+    assert not args.staging_local_only
+
+
 @pytest.mark.parametrize(
     "extra",
     [
@@ -1623,6 +1642,21 @@ def test_driver_refuses_incompatible_smoke_or_sampling_options(
                 "--hmrc-ods",
                 str(tmp_path / "hmrc.ods"),
                 *extra,
+            ]
+        )
+
+
+def test_driver_refuses_synthetic_fixture_without_smoke(tmp_path: Path) -> None:
+    tool = _load_tool()
+
+    with pytest.raises(SystemExit):
+        tool._parse_args(
+            [
+                "--synthetic-fixture-dir",
+                str(tmp_path / "fixture"),
+                "--spine-h5",
+                str(tmp_path / "spine.h5"),
+                "--staging-local-only",
             ]
         )
 
