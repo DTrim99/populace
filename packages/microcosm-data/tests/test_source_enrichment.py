@@ -1156,3 +1156,59 @@ def test_cli_refuses_a_half_declared_or_uncertified_claim(
             ]
         )
     assert message in capsys.readouterr().err
+
+
+def test_cli_certify_declares_the_claim_it_was_given(
+    candidate, tmp_path, monkeypatch, capsys
+):
+    from importlib import metadata
+
+    release, parent, root = candidate
+    monkeypatch.setattr(
+        enrichment,
+        "run_native_loader_compatibility",
+        lambda *args, **kwargs: {
+            "status": "passed",
+            "dataset_sha256": enrichment.sha256_file(root / "populace_us_2024.h5"),
+            "packages": {
+                "policyengine-us": {"version": "1.999.0"},
+                "policyengine-core": {"version": "3.99.0"},
+                "policyengine": {"version": "5.99.0"},
+                "spm-calculator": {"version": "1.0.0"},
+            },
+        },
+    )
+    monkeypatch.setattr(metadata, "version", lambda name: "0.1.0")
+    monkeypatch.setattr(
+        enrichment, "_check_producer_source_identity", lambda code: None
+    )
+    output = tmp_path / "certified" / release.name
+    assert (
+        enrichment.main(
+            [
+                "--certify",
+                "--release-dir",
+                str(release),
+                "--output-dir",
+                str(output),
+                "--parent-h5",
+                str(parent),
+                "--artifact-root",
+                str(root),
+                "--compatibility-wheel",
+                str(tmp_path / "country.whl"),
+                "--compatible-model-specifier",
+                DECLARED_RANGE,
+                "--compatibility-claim-declared-by",
+                DECLARED_BY,
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "certified_bundle": str(output),
+        "published": False,
+    }
+    manifest, report = _certified(output)
+    assert manifest["compatible_model_packages"] == [DECLARED_ENTRY]
+    assert report["compatibility"]["publisher_claims"] == {"model": DECLARED_ENTRY}
