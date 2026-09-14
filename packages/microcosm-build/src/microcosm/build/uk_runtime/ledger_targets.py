@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib import resources as importlib_resources
@@ -111,36 +111,58 @@ def _uk_crosswalk_region_by_area() -> dict[str, str]:
     return _UK_CROSSWALK_REGION_BY_AREA
 
 
-def _uk_cross_grain_leg_of_area(area_code: str) -> str:
-    """The region-tier leg an area belongs to (microcosm#905).
+def uk_cross_grain_leg_of_area(
+    area_region_codes: Mapping[str, str] | None = None,
+) -> Callable[[str], str]:
+    """Build the leg resolver for one run (microcosm#905).
 
     A region-tier code is its own leg. A Welsh, Scottish or Northern Irish
     area maps to its nation by GSS prefix: the tier does not subdivide the
-    nations. An English constituency or authority resolves through the
-    crosswalk's ladder-derived region membership, and an English code the
-    crosswalk does not carry refuses rather than falling back to an
-    ``England`` leg that no control covers.
+    nations. An English constituency or authority resolves through
+    ``area_region_codes`` — the run's ladder-derived membership when the
+    caller has a ladder in hand, otherwise the committed crosswalk's — and an
+    English code the mapping does not carry refuses rather than falling back
+    to an ``England`` leg that no control covers.
     """
 
-    code = str(area_code).strip()
-    if not code:
-        raise ValueError("UK cross-grain area code must not be blank.")
-    if code in UK_REGION_TIER_CODES:
-        return code
-    prefix = code[0].upper()
-    nation = _UK_NATION_LEG_BY_PREFIX.get(prefix)
-    if nation is not None:
-        return nation
-    if prefix != "E":
-        raise ValueError(f"Unknown UK area code prefix {prefix!r} for code {code!r}.")
-    region = _uk_crosswalk_region_by_area().get(code)
-    if region is None:
-        raise ValueError(
-            f"UK cross-grain area code {code!r} is not in the local-area "
-            "crosswalk, so it has no region-tier leg."
+    def leg_of_area(area_code: str) -> str:
+        code = str(area_code).strip()
+        if not code:
+            raise ValueError("UK cross-grain area code must not be blank.")
+        if code in UK_REGION_TIER_CODES:
+            return code
+        prefix = code[0].upper()
+        nation = _UK_NATION_LEG_BY_PREFIX.get(prefix)
+        if nation is not None:
+            return nation
+        if prefix != "E":
+            raise ValueError(
+                f"Unknown UK area code prefix {prefix!r} for code {code!r}."
+            )
+        mapping = (
+            _uk_crosswalk_region_by_area()
+            if area_region_codes is None
+            else area_region_codes
         )
-    return region
+        region = mapping.get(code)
+        if region is None:
+            source = (
+                "the local-area crosswalk"
+                if area_region_codes is None
+                else "the run's ladder membership"
+            )
+            raise ValueError(
+                f"UK cross-grain area code {code!r} is not in {source}, so it "
+                "has no region-tier leg."
+            )
+        return str(region)
 
+    return leg_of_area
+
+
+#: The committed-crosswalk resolver: the standing rule's default, and the one
+#: the leg licences derive from.
+_uk_cross_grain_leg_of_area = uk_cross_grain_leg_of_area()
 
 UK_CROSS_GRAIN_GRAIN_PRECEDENCE = ("country", "region", "constituency", "la")
 UK_CROSS_GRAIN_PARENT_GEOGRAPHY_LEGS: dict[str, tuple[str, ...]] = {
@@ -1389,6 +1411,7 @@ def apply_uk_cross_grain_reconciliation(
     *,
     reviewed_unbound_higher_targets: Mapping[str, Mapping[str, object]] | None = None,
     licensed_empty_legs: Mapping[str, frozenset[str]] | None = None,
+    area_region_codes: Mapping[str, str] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Apply the standing UK rule to a bound mixed-grain target surface.
 
@@ -1404,11 +1427,19 @@ def apply_uk_cross_grain_reconciliation(
         if licensed_empty_legs is None
         else licensed_empty_legs
     )
+    rule = (
+        UK_CROSS_GRAIN_RULE
+        if area_region_codes is None
+        else replace(
+            UK_CROSS_GRAIN_RULE,
+            leg_of_area=uk_cross_grain_leg_of_area(area_region_codes),
+        )
+    )
     return apply_cross_grain_reconciliation(
         local_frame,
         bound_higher_targets,
         _uk_contract_targets(national_only=False),
-        UK_CROSS_GRAIN_RULE,
+        rule,
         reviewed_unbound_higher_targets=reviewed_unbound_higher_targets,
         licensed_empty_legs=licences,
     )
@@ -1715,6 +1746,7 @@ def uk_local_target_surface(
     reviewed_unbound_higher_targets: Mapping[str, Mapping[str, object]] | None = None,
     licensed_empty_legs: Mapping[str, frozenset[str]] | None = None,
     census_household_uprating: Mapping[str, Any] | None = None,
+    area_region_codes: Mapping[str, str] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Assemble and reconcile the present-cell UK local target surface.
 
@@ -1982,6 +2014,7 @@ def uk_local_target_surface(
         bound_control_ids,
         reviewed_unbound_higher_targets=reviewed_unbound_higher_targets,
         licensed_empty_legs=licensed_empty_legs,
+        area_region_codes=area_region_codes,
     )
     receipt["fanout_targets_not_controls"] = fanout_targets_not_controls
 

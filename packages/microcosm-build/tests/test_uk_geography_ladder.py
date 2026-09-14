@@ -700,3 +700,41 @@ def test_region_tier_roster_and_enum_table_are_consistent() -> None:
         "S92000003",
         "N92000002",
     }
+
+
+def test_uk_area_region_codes_reads_the_ladder_in_hand() -> None:
+    from types import SimpleNamespace
+
+    from microcosm.build.uk_runtime.geography_ladder import uk_area_region_codes
+
+    ladder = SimpleNamespace(
+        constituency_code=np.array(
+            ["E14000001", "E14000001", "W07000041", "S14000001"]
+        ),
+        local_authority_code=np.array(
+            ["E09000001", "E09000001", "W06000001", "S12000033"]
+        ),
+        region_code=np.array(["E12000007", "E12000007", "W99999999", "S99999999"]),
+    )
+    assert uk_area_region_codes(ladder) == {
+        "E09000001": "E12000007",
+        "E14000001": "E12000007",
+        "S12000033": "S92000003",
+        "S14000001": "S92000003",
+        "W06000001": "W92000004",
+        "W07000041": "W92000004",
+    }
+    split = SimpleNamespace(
+        constituency_code=np.array(["E14000001", "E14000001"]),
+        local_authority_code=np.array(["E09000001", "E09000001"]),
+        region_code=np.array(["E12000007", "E12000001"]),
+    )
+    with pytest.raises(ValueError, match="must nest"):
+        uk_area_region_codes(split)
+    outside = SimpleNamespace(
+        constituency_code=np.array(["E14000001"]),
+        local_authority_code=np.array(["E09000001"]),
+        region_code=np.array(["E13000001"]),
+    )
+    with pytest.raises(ValueError, match="outside the region tier"):
+        uk_area_region_codes(outside)

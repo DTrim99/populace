@@ -24,6 +24,7 @@ from microcosm.build.uk_runtime.ledger_targets import (
     compile_uk_target_registry,
     materialize_uk_ledger_targets,
     uk_census_household_uprating,
+    uk_cross_grain_leg_of_area,
     uk_ledger_households_total,
     uk_local_target_surface,
     uk_private_rent_mean_to_total,
@@ -2220,3 +2221,47 @@ def test_uk_local_target_surface_refuses_an_unknown_cross_grain_grain() -> None:
             bound_national_target_ids=("ons.population.age_0_9_by_region",),
             period=2025,
         )
+
+
+def test_run_ladder_membership_resolves_legs_the_crosswalk_does_not_know() -> None:
+    """A run supplies its own ladder's area -> tier mapping; the crosswalk is the fallback."""
+
+    run_legs = uk_cross_grain_leg_of_area(
+        {"E14000001": "E12000007", "E06000001": "E12000001"}
+    )
+    assert run_legs("E14000001") == "E12000007"
+    assert run_legs("E06000001") == "E12000001"
+    # Tier codes and nations never consult the mapping.
+    assert run_legs("E12000003") == "E12000003"
+    assert run_legs("W07000041") == "W92000004"
+    with pytest.raises(ValueError, match="run's ladder membership"):
+        run_legs("E14001073")
+    # The default resolver reads the committed crosswalk.
+    assert _uk_cross_grain_leg_of_area("E14001073") == "E12000007"
+    with pytest.raises(ValueError, match="local-area crosswalk"):
+        _uk_cross_grain_leg_of_area("E14000001")
+
+    national_id = "ons.population.age_0_9_by_region"
+    surface = pd.DataFrame(
+        [
+            {
+                "grain": "region",
+                "geography_id": "E12000007",
+                "target_id": national_id,
+                "value": 100.0,
+            },
+            {
+                "grain": "constituency",
+                "geography_id": "E14000001",
+                "target_id": "ons.age.0_10",
+                "value": 60.0,
+            },
+        ]
+    )
+    reconciled, receipt = apply_uk_cross_grain_reconciliation(
+        surface, (national_id,), area_region_codes={"E14000001": "E12000007"}
+    )
+    assert reconciled["value"].tolist() == pytest.approx([100.0, 100.0])
+    assert receipt["groups"][0]["legs"][0]["parent_geography_id"] == "E12000007"
+    with pytest.raises(ValueError, match="local-area crosswalk"):
+        apply_uk_cross_grain_reconciliation(surface, (national_id,))
