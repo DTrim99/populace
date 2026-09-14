@@ -90,6 +90,7 @@ did: no `basis` key, no `publisher_claims` key.
 | check | result |
 |---|---|
 | `uv run pytest packages/microcosm-data/tests/` | 565 passed, 2 skipped |
+| new tests | 46 (`test_source_enrichment.py` 51 → 92, `test_contract.py` 236 → 241) |
 | `uv run ruff check .` | clean |
 | `python3 tools/ci_test_groups.py --verify` | `verification=ok` |
 | default-path byte comparison vs `origin/main` | structurally identical |
