@@ -10,7 +10,7 @@
    "target_weight_rule": "family_equal",
    "learning_rate": 0.02
   },
-  "measure_exclusions": "packaged register (50 entries)",
+  "measure_exclusions": "packaged register at the branch point a256c880 (50 entries: the 47 on main after #903 retired three ons.household_composition.* entries, plus those three, still present at a256c880) \u2014 the three band-H region-cell exclusions signed on 2026-09-14 did not exist yet, which is why the candidate arm carried 545 targets (595 - 50) and the terminal gate blocked on the band-H cells; under the HEAD register the baseline arm would carry 377 (424 - 47) and the candidate 542 (595 - 53).",
   "baseline": "PR #904 head a256c880 register (424 references, 374 after exclusions), run from the same code line with the same overrides",
   "candidate": "this branch (595 references, 545 after exclusions)",
   "run_date": "2026-09-11"
@@ -167,8 +167,9 @@
  "reading": [
   "Every ONS region cell and 78 of 81 VOA cells fit within 5%; the tier binds as published.",
   "The three band-H cells at -100% (North East, North West, Yorkshire and the Humber) have no band-H household on the spine (spine-m carried 170 band-H households from 49 raw FRS households, none in those regions; microcosm#762 A14), the class already signed for the local band-H family; they need a reviewed measure exclusion or a spine vintage with broader band-H support (microcosm#796).",
-  "Common-row fit is unchanged within run noise (332->329 within 5%, 16->15 within 25%); hmrc/self_employment_income_income_band_20_000_to_30_000 sits at the 25% bound (+23.6% -> +25.0%) and obr.fuel_duties_cars moves -14.9% -> -23.9% while staying inside its reviewed target-fit exclusion, which the gate now reports as stale; both belong to the #890/PR-S lane.",
-  "The baseline run refused to stage for want of MICROCOSM_UK_TERMINAL_GATE_SIGNING_KEY (an unsigned full-scale run under the #904 round-2 runner); its solve and diagnostics completed."
+  "Common-row fit is unchanged within run noise (332->329 within 5%, 16->15 within 25%); hmrc/self_employment_income_income_band_20_000_to_30_000 sits at the 25% bound (+23.6% -> +25.0%) and obr.fuel_duties_cars moves -14.9% -> -23.9%, inside the 25% bound (#904 retired its reviewed target-fit exclusion; the gate message about a stale exclusion in this run reflects the a256c880 register); both rows belong to the #890/PR-S lane.",
+  "The baseline run refused to stage for want of MICROCOSM_UK_TERMINAL_GATE_SIGNING_KEY (an unsigned full-scale run under the #904 round-2 runner); its solve and diagnostics completed.",
+  "Register vintage: see arm.measure_exclusions \u2014 the runs predate the band-H signing and the #903 retirements, so their exclusion counts are not reproducible from HEAD."
  ],
  "region_cell_rows": [
   {

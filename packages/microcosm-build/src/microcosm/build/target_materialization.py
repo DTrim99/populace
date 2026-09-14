@@ -666,6 +666,13 @@ def _with_geography_predicate(
             f"{name!r}: a geography predicate cannot scope a provider binding "
             f"of kind {binding['kind']!r}; providers do not read filters."
         )
+    map_to = predicate.get("map_to")
+    entity = getattr(spec, "entity", None)
+    if map_to is not None and entity and str(map_to) != str(entity):
+        raise ValueError(
+            f"{name!r}: metadata.geography_predicate projects to {map_to!r} but "
+            f"the reference measures {entity!r}; the mask would misalign."
+        )
     return {
         **binding,
         "filters": [*binding.get("filters", ()), dict(predicate)],

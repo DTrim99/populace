@@ -1177,3 +1177,26 @@ def test_geography_predicate_refuses_provider_bindings():
     }
     with pytest.raises(ValueError, match="cannot scope a provider binding"):
         materialize_target_bindings(adapter, registry, contract, period=2025)
+
+
+def test_geography_predicate_must_project_to_the_reference_entity():
+    adapter = StubAdapter()
+    adapter.tables["person"]["region"] = np.array(["LONDON", "LONDON", "WALES"])
+    registry = _geography_predicate_registry(
+        json.dumps(
+            {
+                "entity": "household",
+                "variable": "region",
+                "operator": "==",
+                "value": "LONDON",
+                "reduce": "any",
+                "map_to": "household",
+            }
+        )
+    )
+    # The reference measures persons; a predicate projected to households
+    # would produce a mask of the wrong length, so it refuses up front.
+    with pytest.raises(ValueError, match="projects to 'household'"):
+        materialize_target_bindings(
+            adapter, registry, _ADULT_INCOME_CONTRACT, period=2025
+        )

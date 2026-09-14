@@ -42,7 +42,7 @@ outside the intended policy area, and record the value moves in the changelog
 fragment.
 
 Two-level (country + region) contract targets fan out over the region tier
-(`UK_REGION_TIER` in `uk_runtime/geography_ladder.py`), one reference per area
+(`UK_REGION_TIER` in `microcosm.calibrate.geography_constants`), one reference per area
 (microcosm#905); their cells resolve Chronicle's region- and country-stamped
 facts, so a re-pin must carry all twelve areas or the national generator
 refuses. The cross-grain legs of English constituencies and authorities come
