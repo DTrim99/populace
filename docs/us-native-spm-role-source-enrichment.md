@@ -219,11 +219,16 @@ entity tables this release writes, or the SPM path that consumes them.
 - **Speculative headroom.** `<2.1` because 2.0.2 is expected is defensible;
   `<3` because a major bump seems far off is not.
 
-Consumers can tell the two apart. policyengine.py certifies an exact build-time
-match silently, but certifies a publisher claim with a warning naming the claim
-and the version the data was actually built with, and records the basis as
-`legacy_compatible_model_package`. That warning is the intended cost of the
-wider binding.
+Consumers can tell the two apart, and say so. policyengine.py certifies an
+exact build-time match silently; a version matched only by the claim is
+certified with a warning naming the claim and the version the data was actually
+built with, recorded as basis `compatible_model_packages` when the bundle is
+certified (`provenance/certification.py::validate_release_manifest`) and
+`legacy_compatible_model_package` when a runtime binds the release
+(`provenance/manifest.py::certify_data_release_compatibility`). Measured against
+that code, a manifest declaring `>=2.0.1,<2.1` with `built_with` 2.0.1 accepts
+2.0.1 silently, accepts 2.0.2 with the warning, and refuses 2.0.0 and 2.1.0.
+That warning is the intended cost of the wider binding.
 
 Certification creates a separate bundle with measured compatibility; it leaves
 the candidate H5 and source evidence unchanged. Both the preflight above and
