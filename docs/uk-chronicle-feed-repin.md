@@ -49,4 +49,7 @@ History: the `ec7169b` re-pin (#887/#900) moved census household targets onto
 the same Chronicle compile path as every other bound UK local family; the
 `c6f9361` re-pin (#890) added the chronicle #254/#255 and #257/#258 transport
 and energy packages and unified the national and local pins into this one
-declaration.
+declaration; the `474a0ae` re-pin (#904, chronicle #263) moved the rows to
+`chronicle.consumer_fact.v2`, which carries the dimension and value labels the
+schema-8 target hierarchy completes from (141,400 rows, including chronicle #260's
+Universal Credit packages).

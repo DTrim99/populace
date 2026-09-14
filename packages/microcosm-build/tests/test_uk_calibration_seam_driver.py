@@ -265,7 +265,7 @@ def test_driver_refuses_unpinned_national_manifest(manifest_sha256):
     driver = _load_driver_module()
     with pytest.raises(SystemExit, match="manifest"):
         driver._check_committed_ledger_feed_pin(
-            "45bda3ae730d4ae3fa059d9e03304e902f7f6e74c5099355ef937625ca03b72b",
+            driver.load_uk_chronicle_feed().facts_sha256,
             manifest_sha256=manifest_sha256,
             allow_unpinned_feed=False,
         )

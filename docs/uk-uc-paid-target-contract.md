@@ -15,7 +15,7 @@ reported child count. The pinned complete UK artifact comes from
 131,450 facts validate. The packaged `uk/chronicle_feed.json` records
 the facts, manifest and schema hashes. National calibration checks both artifact
 digests before compiling targets; since #890 the local surfaces restate the same
-pin (the artifact has since moved to `c6f9361`, see `uk/chronicle_feed.json`).
+pin (the artifact has since moved on, see `uk/chronicle_feed.json`).
 
 | Target group | Source operation | Model counterpart |
 |---|---|---|

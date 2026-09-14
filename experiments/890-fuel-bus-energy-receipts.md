@@ -224,4 +224,59 @@ rebase. Two consequences for this PR:
   `obr.fuel_duties` entry); the UK spec digest re-pinned at the end; `test_uk_terminal_gates`
   and the target-fit register are main's (empty register).
 
+### Part I — re-pin to chronicle `474a0ae` (2026-09-14, chronicle #263 labels; rebase onto main `15ebde80`)
+
+María merged chronicle #263 (closing #261): consumer facts now carry `dimension_labels` and
+`dimension_value_labels` and are stamped `chronicle.consumer_fact.v2` (an id Microcosm already
+accepted); the artifact keys stay in the ledger epoch. The UK consumer artifact was rebuilt at
+`474a0ae` (141,400 rows: the c6f9361 rows plus chronicle #259/#260's nine Universal Credit
+packages; 141,400 of 141,400 rows carry `dimension_labels`) and pinned in `uk/chronicle_feed.json`
+(facts `bb12d77a…`, manifest `c649b7fe…`, consumer-fact schema `6a42e4a5…`), with a copy under
+`data/ukds/acceptance/chronicle-uk-artifact-474a0ae/`.
+
+- National surface: the generator runs again on main's hierarchy code and regenerates the
+  references and membership byte-identical to the round-2 surface apart from the feed label
+  (424 active, 7 deferred, 7 signed out; 438 candidates, 0 value or period moves), and its
+  hierarchy lookups equal the hand-completed ones of Part H for all 196 targets. The nine
+  vendored resources regenerate from the new pin (rows unchanged, headers move).
+- Local surface: every local-level fact (constituency, local authority) is identical between
+  the two artifacts (109,693 of 109,693 rows by key, value, period and concept), so the local
+  references, membership and parity receipts hold their values and only the membership's feed
+  label moves. The local generator itself cannot run yet: main's hierarchy completion labels a
+  fact's geography from `geography.name` or Microcosm's geography catalog, Chronicle emits no
+  geography name, and the catalog carries the UK, GB, country and (since Part H) region codes
+  only, so every constituency and local-authority reference is refused
+  (`hmrc.self_employment_income.amount@E14001063`: "no display label and is not present in
+  Microcosm's authoritative geography catalog"). The same refusal applies to the local runtime
+  compile on main. Per `docs/calibration-target-hierarchy.md` geography labels are Chronicle's
+  (`geography.name`), with the catalog as the fallback for shared codes, so the fix is filed as
+  chronicle#266 (emit `geography.name` from the publisher's area label, which the same fact
+  already carries in `layout.groupby_value_label`) and tracked on this side as microcosm#920;
+  not part of this PR.
+- Runtime compile on the pinned feed: `compile_uk_target_registry` compiles 424 / 0 unsupported
+  again (Part H had 0 / 424).
+
+### Part J — round-3 baseline on spine-r (474a0ae feed, main `15ebde80` surface)
+
+spine-p cannot host the post-#903 surface (its ten ONS household-composition rows bind on
+`ons_household_type`, the `frs_relationships` stage column spine-p predates; the spine-p attempt
+`pr-t-round3-spine-p/` stopped at measure resolution), so round 3 runs on #903's twin spine-r
+(`data/ukds/acceptance/791-relationships/spine-r/spine-r.h5`, sha `921612e8…`), 1,500 epochs,
+`family_equal`, 377 targets solved (424 compiled − 47 measure exclusions):
+
+- `pr-t-round3-spine-r/` (`uk-frs-calibration-attempt-20260914T115335Z-ec8910d9`): loss 0.01146,
+  95.76% within 10%, ESS 10,342. Every #890 row inside the 25% bound: bus fares England −46.6% →
+  −0.1%, London −72.3% → +0.1%; support England −28.9% → −0.1%, London −72.7% → +0.0%;
+  `obr.fuel_duties_cars` −41.1% → −15.6% (frame GBP 12.15bn); rail support −71.9% → −0.0%;
+  ONS 04.5 +0.2% → −0.1%; Scotland fares −63.0% → −0.2%, support −54.4% → +0.1%; Wales support
+  −10.4% → +0.1%; NI fares −65.3% → −0.2%; NI public transport support +66.5% → −0.6%. The ten
+  #903 composition cells sit within ±4.6%.
+- The terminal battery blocked on one row outside #890's scope:
+  `hmrc/self_employment_income_income_band_20_000_to_30_000@2025` at +25.8%. On #903's own
+  spine-r calibration (`791-relationships/calibration-r/`, 367 targets, loss 0.0114) the same
+  cell was +24.1% and the 30–40k cell +22.4%, i.e. already at the fence; with the ten #890 rows
+  added the 20–30k cell crosses it and the 30–40k cell eases to +16.6%. This is a spine-r SPI
+  band-cell posture for María to rule on (dated reviewed exclusion under her name, or a lever),
+  not a defect of the #890 binding; no entry is added here.
+
 ORR FY2024 for the rail ruling: table 7270 total government support GBP 21.62bn (bound); table 7271 all sources GBP 11.86bn, of which Department for Transport GBP 9.47bn.
