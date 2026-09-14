@@ -12,7 +12,7 @@ from pathlib import Path
 from huggingface_hub import HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
-from microcosm.build.staging_v2 import DEFAULT_UK_STAGING_REPO
+from microcosm.build.uk_runtime.staging import UK_STAGING_REPOSITORY
 
 
 def _settings(api: HfApi, repo_id: str) -> dict[str, object]:
@@ -108,7 +108,10 @@ def _verify_write(api: HfApi, repo_id: str) -> dict[str, object]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo-id", default=DEFAULT_UK_STAGING_REPO)
+    parser.add_argument(
+        "--repo-id",
+        default=UK_STAGING_REPOSITORY.default_repo_id,
+    )
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--verify-access", action="store_true")
     parser.add_argument("--verify-write", action="store_true")

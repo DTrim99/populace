@@ -56,6 +56,16 @@ Version 1 fixtures describe current US output and remain fixed during the UK
 implementation. Version 2 fixtures include successful spine, calibration,
 sanitized failure, delivery-failure, and incompatible-version cases.
 
+The implementation separates versioned file serialization from country
+configuration. `microcosm.build.staging_storage` owns repository access and
+the repeated-upload failure policy used by both version 1 and version 2.
+`microcosm.build.staging_cli` adds and validates common command-line options
+from a supplied repository configuration. The UK repository identifier and
+environment-variable name live in `microcosm.build.uk_runtime.staging`; the
+shared modules contain no UK repository or environment defaults. The two
+serializers remain separate because version 1 and version 2 intentionally
+write different files.
+
 Regenerate and verify the canonical version 2 bytes with:
 
 ```bash

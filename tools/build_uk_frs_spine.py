@@ -39,8 +39,8 @@ from microcosm.build.logbook_adoption import (
 )
 from microcosm.build.plan import StageRecord
 from microcosm.build.staging_cli import (
-    add_uk_staging_arguments,
-    validate_uk_staging_arguments,
+    add_staging_arguments,
+    validate_staging_arguments,
 )
 from microcosm.build.staging_v2 import (
     StagingTelemetryV2,
@@ -112,6 +112,7 @@ from microcosm.build.uk_runtime.spi_spine import (
     UKSPIIncomeSpineStageTransform,
     UKSPISupportChannelStageTransform,
 )
+from microcosm.build.uk_runtime.staging import UK_STAGING_REPOSITORY
 from microcosm.build.uk_runtime.student_loans import UKStudentLoansStageTransform
 from microcosm.build.uk_runtime.take_up_contract import load_uk_take_up_contract
 from microcosm.build.uk_runtime.uc_capital_coherence import (
@@ -287,7 +288,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=sha256_argument,
         help="Optional current Logbook chain head.",
     )
-    add_uk_staging_arguments(parser)
+    add_staging_arguments(parser, repository=UK_STAGING_REPOSITORY)
     args = parser.parse_args(argv)
     if args.sample_seed < 0:
         parser.error("sample seed must be a non-negative integer.")
@@ -329,7 +330,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             )
         if not args.smoke:
             parser.error("--synthetic-fixture-dir requires --smoke.")
-    validate_uk_staging_arguments(parser, args)
+    validate_staging_arguments(parser, args)
     return args
 
 

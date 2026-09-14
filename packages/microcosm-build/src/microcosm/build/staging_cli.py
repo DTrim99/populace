@@ -1,4 +1,4 @@
-"""Shared command-line options for UK staging telemetry version 2."""
+"""Country-neutral command-line options for staging telemetry."""
 
 from __future__ import annotations
 
@@ -7,17 +7,17 @@ import math
 import os
 from pathlib import Path
 
-from microcosm.build.staging_v2 import DEFAULT_UK_STAGING_REPO
+from microcosm.build.staging_storage import StagingRepositoryConfig
 
-__all__ = ["add_uk_staging_arguments", "validate_uk_staging_arguments"]
-
-
-def _environment_default(name: str, fallback: str) -> str:
-    return os.environ[name] if name in os.environ else fallback
+__all__ = ["add_staging_arguments", "validate_staging_arguments"]
 
 
-def add_uk_staging_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the common version 2 staging controls to a UK build parser."""
+def add_staging_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    repository: StagingRepositoryConfig,
+) -> None:
+    """Add staging controls using defaults supplied by a country module."""
 
     parser.add_argument(
         "--staging-dir",
@@ -26,9 +26,7 @@ def add_uk_staging_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--staging-repo-id",
-        default=_environment_default(
-            "POPULACE_UK_STAGING_REPO_ID", DEFAULT_UK_STAGING_REPO
-        ),
+        default=repository.repo_id(os.environ),
         help=(
             "Access-controlled Hugging Face dataset repository for best-effort "
             "telemetry delivery."
@@ -66,10 +64,10 @@ def add_uk_staging_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def validate_uk_staging_arguments(
+def validate_staging_arguments(
     parser: argparse.ArgumentParser, args: argparse.Namespace
 ) -> None:
-    """Reject contradictory or incomplete UK staging configuration."""
+    """Reject contradictory or incomplete staging configuration."""
 
     interval = args.staging_upload_interval_seconds
     if not math.isfinite(interval) or interval < 0.0:

@@ -7,7 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from microcosm.build.staging_cli import add_uk_staging_arguments
+from microcosm.build.staging_cli import add_staging_arguments
+from microcosm.build.staging_storage import (
+    BestEffortUploadSession,
+    StagingRepositoryConfig,
+)
 from microcosm.build.staging_v2 import (
     CALIBRATION_PROGRESS_SCHEMA,
     EVENT_SCHEMA,
@@ -38,13 +42,18 @@ class Clock:
 
 
 class MemoryApi:
-    def __init__(self, root: Path) -> None:
+    def __init__(
+        self,
+        root: Path,
+        repo_id: str = "policyengine/populace-uk-staging",
+    ) -> None:
         self.root = root
+        self.repo_id = repo_id
         self.files: dict[str, bytes] = {}
         self.downloaded: list[str] = []
 
     def upload_file(self, *, path_or_fileobj, path_in_repo, repo_id, repo_type):
-        assert repo_id == "policyengine/populace-uk-staging"
+        assert repo_id == self.repo_id
         assert repo_type == "dataset"
         self.files[path_in_repo] = Path(path_or_fileobj).read_bytes()
 
@@ -244,6 +253,8 @@ def test_identifiers_and_paths_cannot_escape_contract_root(tmp_path):
         _recorder(tmp_path, run_id="../outside")
     with pytest.raises(StagingContractError, match="Local-only"):
         _recorder(tmp_path, repo_id="policyengine/example")
+    with pytest.raises(StagingContractError, match="repository identifier"):
+        _recorder(tmp_path, delivery_mode="local_and_remote")
 
 
 def test_remote_failures_are_best_effort_and_preserve_repository(tmp_path, capsys):
@@ -284,6 +295,7 @@ def test_remote_read_back_validates_the_written_run(tmp_path):
 
     telemetry.verify_remote()
 
+    assert isinstance(telemetry._upload_session, BestEffortUploadSession)
     assert telemetry.delivery_summary["read_back"] == "passed"
     assert telemetry.uploads_succeeded > 0
     assert "runs/uk-smoke-5-42/run_manifest.json" in api.files
@@ -584,11 +596,37 @@ def test_version_2_storage_prefix_is_fixed_to_runs(tmp_path):
         validate_v2_bundle(tmp_path, telemetry.run_id, path_prefix="candidate-runs")
 
 
-def test_version_2_cli_does_not_offer_a_storage_prefix_override():
+def test_version_2_accepts_explicit_configuration_for_another_country(tmp_path):
+    repo_id = "example/populace-ca-staging"
+    api = MemoryApi(tmp_path, repo_id=repo_id)
+    telemetry = _recorder(
+        tmp_path,
+        country_code="CA",
+        delivery_mode="local_and_remote",
+        repo_id=repo_id,
+        api=api,
+        upload_interval_seconds=0,
+    )
+
+    telemetry.complete()
+
+    manifest = telemetry.validate_local_bundle()["run_manifest"]
+    assert manifest["country_code"] == "CA"
+    assert manifest["delivery"]["configured_repository"] == repo_id
+    assert api.files
+
+
+def test_version_2_cli_uses_country_owned_repository_configuration(monkeypatch):
+    repository = StagingRepositoryConfig(
+        default_repo_id="example/default-staging",
+        repo_id_environment_variable="EXAMPLE_STAGING_REPO_ID",
+    )
+    monkeypatch.setenv("EXAMPLE_STAGING_REPO_ID", "example/configured-staging")
     parser = argparse.ArgumentParser()
-    add_uk_staging_arguments(parser)
+    add_staging_arguments(parser, repository=repository)
 
     args = parser.parse_args([])
+    assert args.staging_repo_id == "example/configured-staging"
     assert not hasattr(args, "staging_prefix")
     with pytest.raises(SystemExit):
         parser.parse_args(["--staging-prefix", "candidate-runs"])

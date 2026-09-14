@@ -1,8 +1,8 @@
-"""Version 2 staging telemetry contract and storage.
+"""Version 2 staging telemetry file contract.
 
 Version 1 remains implemented by :mod:`microcosm.build.staging`.  This module
-defines a separate repository-file contract for country-neutral staging data
-and applies the additional content restrictions required for UK source data.
+defines a separate country-neutral repository-file contract. Country modules
+supply repository configuration and identify the country in each run record.
 """
 
 from __future__ import annotations
@@ -21,8 +21,12 @@ from typing import Any, Literal
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from microcosm.build.staging_storage import (
+    BestEffortUploadSession,
+    HuggingFaceDatasetStorage,
+)
+
 STAGING_CONTRACT_VERSION = 2
-DEFAULT_UK_STAGING_REPO = "policyengine/populace-uk-staging"
 DEFAULT_STAGING_PREFIX = "runs"
 
 RUN_MANIFEST_SCHEMA = "microcosm.staging.run-manifest"
@@ -84,7 +88,7 @@ class StagingContractError(ValueError):
 
 
 class StagingContentError(StagingContractError):
-    """A file is not permitted in the UK staging repository."""
+    """A file is not permitted in a staging repository."""
 
 
 class StagingReadBackError(StagingContractError):
@@ -484,7 +488,7 @@ def validate_v2_document(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
-class UKStagingContentPolicy:
+class StagingContentPolicy:
     """Validate every remote file before a transport operation."""
 
     max_file_bytes: int = _MAX_REMOTE_FILE_BYTES
@@ -558,50 +562,6 @@ class UKStagingContentPolicy:
                 self._reject_sensitive_keys(item)
 
 
-@dataclass
-class HuggingFaceDatasetStorage:
-    """Small transport wrapper for one access-controlled dataset repository."""
-
-    repo_id: str
-    api: Any = None
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.repo_id, str) or not self.repo_id.strip():
-            raise StagingContractError(
-                "Remote staging requires a repository identifier."
-            )
-        self.repo_id = self.repo_id.strip()
-
-    def _api(self) -> Any:
-        if self.api is None:
-            from huggingface_hub import HfApi
-
-            self.api = HfApi()
-        return self.api
-
-    def upload(self, local_path: Path, path_in_repo: str) -> None:
-        self._api().upload_file(
-            path_or_fileobj=str(local_path),
-            path_in_repo=path_in_repo,
-            repo_id=self.repo_id,
-            repo_type="dataset",
-        )
-
-    def download(self, path_in_repo: str) -> bytes:
-        api = self._api()
-        download = getattr(api, "hf_hub_download", None)
-        if download is None:
-            from huggingface_hub import hf_hub_download as download
-
-        local = download(
-            repo_id=self.repo_id,
-            filename=path_in_repo,
-            repo_type="dataset",
-            force_download=True,
-        )
-        return Path(local).read_bytes()
-
-
 class StagingTelemetryV2:
     """Record, validate, persist, and optionally upload telemetry version 2."""
 
@@ -618,12 +578,12 @@ class StagingTelemetryV2:
         release_id: str | None = None,
         run_kind: str = "build",
         delivery_mode: DeliveryMode = "local_and_remote",
-        repo_id: str | None = DEFAULT_UK_STAGING_REPO,
+        repo_id: str | None = None,
         upload_interval_seconds: float = 30.0,
         api: Any = None,
         clock: Callable[[], str] = _utc_now,
         monotonic: Callable[[], float] = time.monotonic,
-        content_policy: UKStagingContentPolicy | None = None,
+        content_policy: StagingContentPolicy | None = None,
     ) -> None:
         self.run_id = _safe_identifier(run_id, label="run_id")
         self.candidate_id = _safe_identifier(candidate_id, label="candidate_id")
@@ -659,11 +619,14 @@ class StagingTelemetryV2:
         self.upload_interval_seconds = max(0.0, float(upload_interval_seconds))
         self._clock = clock
         self._monotonic = monotonic
-        self._content_policy = content_policy or UKStagingContentPolicy()
+        self._content_policy = content_policy or StagingContentPolicy()
         self._transport = (
             HuggingFaceDatasetStorage(self.repo_id, api=api)
             if self.delivery_mode == "local_and_remote" and self.repo_id
             else None
+        )
+        self._upload_session = (
+            BestEffortUploadSession(self._transport) if self._transport else None
         )
         self.started_at = self._clock()
         self.updated_at = self.started_at
@@ -915,7 +878,11 @@ class StagingTelemetryV2:
         self._maybe_upload(force=True)
 
     def validate_local_bundle(self) -> dict[str, Any]:
-        return validate_v2_bundle(self.local_dir, self.run_id)
+        return validate_v2_bundle(
+            self.local_dir,
+            self.run_id,
+            content_policy=self._content_policy,
+        )
 
     def _append_event(
         self,
@@ -1044,30 +1011,34 @@ class StagingTelemetryV2:
         *,
         count_delivery: bool,
     ) -> bool:
+        if self._upload_session is None:
+            return False
         data = local_path.read_bytes()
         self._content_policy.validate_remote_file(remote_path, data)
-        if count_delivery:
-            self._delivery["upload_attempts"] += 1
-        try:
-            self._transport.upload(local_path, remote_path)
-        except Exception:
-            self._consecutive_upload_failures += 1
+        result = self._upload_session.upload(
+            local_path,
+            remote_path,
+            count=count_delivery,
+        )
+        self._delivery["upload_attempts"] = self._upload_session.attempts
+        self._delivery["upload_successes"] = self._upload_session.successes
+        self._consecutive_upload_failures = (
+            self._upload_session.consecutive_failures
+        )
+        self._remote_disabled = not self._upload_session.enabled
+        if not result.succeeded:
             self._delivery["last_error_code"] = "UPLOAD_FAILED"
             print(
                 f"warning: staging upload failed for {remote_path}",
                 file=sys.stderr,
             )
-            if self._consecutive_upload_failures >= 3:
-                self._remote_disabled = True
+            if result.became_disabled:
                 print(
                     "warning: pausing remote staging writes after three "
                     "consecutive failures; local telemetry continues.",
                     file=sys.stderr,
                 )
         else:
-            self._consecutive_upload_failures = 0
-            if count_delivery:
-                self._delivery["upload_successes"] += 1
             self._delivery["last_error_code"] = None
             return True
         return False
@@ -1108,6 +1079,8 @@ class StagingTelemetryV2:
 def validate_v2_bundle(
     local_dir: Path | str,
     run_id: str,
+    *,
+    content_policy: StagingContentPolicy | None = None,
 ) -> dict[str, Any]:
     """Validate a complete locally stored version 2 bundle."""
 
@@ -1195,7 +1168,7 @@ def validate_v2_bundle(
         if calibration["candidate_id"] != manifest["candidate_id"]:
             raise StagingContractError("Bundle disagrees on candidate_id.")
         documents["calibration_progress"] = calibration
-    policy = UKStagingContentPolicy()
+    policy = content_policy or StagingContentPolicy()
     artifact_names: set[str] = set()
     artifact_paths: set[str] = set()
     for artifact in manifest["artifacts"]:

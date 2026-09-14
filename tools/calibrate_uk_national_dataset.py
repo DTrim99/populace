@@ -23,8 +23,8 @@ from typing import Any
 
 from microcosm.build.ledger_artifact import load_ledger_consumer_artifact
 from microcosm.build.staging_cli import (
-    add_uk_staging_arguments,
-    validate_uk_staging_arguments,
+    add_staging_arguments,
+    validate_staging_arguments,
 )
 from microcosm.build.staging_v2 import (
     StagingTelemetryV2,
@@ -47,6 +47,7 @@ from microcosm.build.uk_runtime.measure_simulation import (
 )
 from microcosm.build.uk_runtime.national_doctrine import uk_doctrine_with_overrides
 from microcosm.build.uk_runtime.release_identity import UK_NATIONAL_RELEASE_ID
+from microcosm.build.uk_runtime.staging import UK_STAGING_REPOSITORY
 from microcosm.calibrate import TargetRegistry
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -221,7 +222,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--target-weight-rule")
     parser.add_argument("--learning-rate", type=float)
     parser.add_argument("--target-loss-cap", type=float)
-    add_uk_staging_arguments(parser)
+    add_staging_arguments(parser, repository=UK_STAGING_REPOSITORY)
     args = parser.parse_args(argv)
     args.terminal_gate_json = args.terminal_gate_json or args.staging_h5.with_suffix(
         ".terminal_gates.json"
@@ -264,7 +265,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             ),
         }
     )
-    validate_uk_staging_arguments(parser, args)
+    validate_staging_arguments(parser, args)
     return args
 
 

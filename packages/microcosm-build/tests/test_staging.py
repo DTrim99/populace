@@ -3,6 +3,7 @@ from pathlib import Path
 
 import microcosm.build.staging as staging_module
 from microcosm.build.staging import StagingTelemetry
+from microcosm.build.staging_storage import BestEffortUploadSession
 
 V1_FIXTURE = Path(__file__).parent / "fixtures" / "staging" / "v1"
 
@@ -60,6 +61,7 @@ def test_staging_telemetry_uploads_repo_paths(tmp_path) -> None:
     )
     telemetry.stage("target_compilation", force_upload=True)
 
+    assert isinstance(telemetry._upload_session, BestEffortUploadSession)
     uploaded_paths = {upload[1] for upload in api.uploads}
     assert "runs/run-b/progress.json" in uploaded_paths
     assert "runs/run-b/run_manifest.json" in uploaded_paths
