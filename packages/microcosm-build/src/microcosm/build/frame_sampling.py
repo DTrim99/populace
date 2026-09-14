@@ -32,7 +32,6 @@ from microcosm.frame import CONSERVE_MASS, Frame, MassChange
 
 __all__ = [
     "EXACT_COUNT_RULE",
-    "STRATIFIED_COUNT_RULE",
     "ids_sha256",
     "normalize_sampled_household_mass",
     "sample_frame_households",
@@ -42,7 +41,6 @@ __all__ = [
 
 #: The deterministic per-group request rule, declared in every receipt.
 EXACT_COUNT_RULE = "floor(fraction * eligible)"
-STRATIFIED_COUNT_RULE = "one-per-stratum then largest-remainder allocation"
 
 _MASS_RTOL = 1e-9
 
@@ -110,8 +108,7 @@ def _aligned_int_array(
 def sample_frame_households(
     frame: Frame,
     *,
-    fraction: float | None = None,
-    count: int | None = None,
+    fraction: float,
     seed: int,
     source_name: str,
     unit_ids: pd.Series | np.ndarray | None = None,
@@ -122,19 +119,15 @@ def sample_frame_households(
 ) -> tuple[Frame, dict[str, object]]:
     """Draw one seeded, whole-unit household sample with a receipt.
 
-    Fractional selection follows ``floor(fraction * eligible)`` within each
-    stratum. Exact-count selection retains one unit per stratum and distributes
-    the remaining request proportionally using deterministic largest
-    remainders. Selection
+    The realized count follows the deterministic exact-count rule
+    ``floor(fraction * eligible)``, applied per stratum group.  Selection
     operates on the sorted unit-id inventory so equal frames produce equal
     samples regardless of incidental row order, and whole lineages enter the
     sample together via :meth:`Frame.select`.
 
     Args:
         frame: The source frame carrying typed household weights.
-        fraction: Optional sampling fraction in ``(0, 1]``.
-        count: Optional exact sampling-unit count. Exactly one of ``fraction``
-            and ``count`` must be supplied.
+        fraction: Sampling fraction in ``(0, 1]``.
         seed: Non-negative integer seed for the selection RNG.
         source_name: Label used in receipts-adjacent error messages.
         unit_ids: Optional per-household-row sampling-unit key.  When absent,
@@ -169,16 +162,7 @@ def sample_frame_households(
 
     if not isinstance(frame, Frame):
         raise TypeError(f"{source_name} must be a Frame, got {type(frame).__name__}.")
-    if (fraction is None) == (count is None):
-        raise ValueError(
-            f"{source_name} requires exactly one of sample fraction or unit count."
-        )
-    if fraction is not None:
-        validate_sample_fraction(fraction, label=f"{source_name} sample")
-    if isinstance(count, bool) or (count is not None and (not isinstance(count, int) or count < 1)):
-        raise ValueError(
-            f"{source_name} sample unit count must be a positive integer; got {count!r}."
-        )
+    validate_sample_fraction(fraction, label=f"{source_name} sample")
     validate_sample_seed(seed, label=f"{source_name} sample")
 
     household = frame.table("household")
@@ -244,27 +228,9 @@ def sample_frame_households(
         group_keys = [None]
 
     eligible_units = int(sum(len(groups[key]) for key in group_keys))
-    if count is not None:
-        if count > eligible_units:
-            raise ValueError(
-                f"{source_name} sample unit count {count} exceeds the "
-                f"eligible inventory of {eligible_units}."
-            )
-        if count < len(group_keys):
-            raise ValueError(
-                f"{source_name} sample unit count {count} cannot retain one "
-                f"unit from each of {len(group_keys)} strata."
-            )
-        requested_by_group = _allocate_count_by_group(
-            groups, group_keys=group_keys, count=count
-        )
-        exact_count_rule = STRATIFIED_COUNT_RULE
-    else:
-        assert fraction is not None
-        requested_by_group = {
-            key: int(math.floor(fraction * len(groups[key]))) for key in group_keys
-        }
-        exact_count_rule = EXACT_COUNT_RULE
+    requested_by_group = {
+        key: int(math.floor(fraction * len(groups[key]))) for key in group_keys
+    }
     requested_units = int(sum(requested_by_group.values()))
     if requested_units < 1:
         raise ValueError(
@@ -327,7 +293,7 @@ def sample_frame_households(
         )
 
     receipt: dict[str, object] = {
-        "fraction": float(fraction) if fraction is not None else None,
+        "fraction": float(fraction),
         "seed": int(seed),
         "eligible_household_count": eligible_households,
     }
@@ -343,7 +309,7 @@ def sample_frame_households(
     receipt.update(
         {
             "realized_household_count": int(len(realized_ids)),
-            "exact_count_rule": exact_count_rule,
+            "exact_count_rule": EXACT_COUNT_RULE,
             "selected_household_ids_sha256": ids_sha256(selected_household_ids),
             "incoming_household_mass": incoming_mass,
             "sampled_household_mass": float(sampled.weights_for("household").total),
@@ -384,37 +350,6 @@ def sample_frame_households(
             "forced_unit_ids_sha256": ids_sha256(forced_array),
         }
     return sampled, receipt
-
-
-def _allocate_count_by_group(
-    groups: dict[object, np.ndarray],
-    *,
-    group_keys: list[object],
-    count: int,
-) -> dict[object, int]:
-    """Allocate an exact request while retaining every declared stratum."""
-
-    requested = {key: 1 for key in group_keys}
-    remaining = count - len(group_keys)
-    if remaining == 0:
-        return requested
-    capacities = {key: len(groups[key]) - 1 for key in group_keys}
-    total_capacity = sum(capacities.values())
-    raw = {
-        key: remaining * capacities[key] / total_capacity if total_capacity else 0.0
-        for key in group_keys
-    }
-    allocated = {key: int(math.floor(raw[key])) for key in group_keys}
-    remainder = remaining - sum(allocated.values())
-    order = sorted(
-        group_keys,
-        key=lambda key: (-(raw[key] - allocated[key]), str(key)),
-    )
-    for key in order[:remainder]:
-        allocated[key] += 1
-    for key in group_keys:
-        requested[key] += allocated[key]
-    return requested
 
 
 def normalize_sampled_household_mass(
