@@ -175,13 +175,17 @@ claim was declared.
 - **`contract.py`'s basis check is a shape check, not authorisation.** A
   manifest of any release type may carry `basis: publisher_claim` with a
   declarer; only the source-enrichment validator ties it to a declaration.
-- **One workspace test fails locally and is not mine.**
-  `test_release_target_parity.py::TestRegeneration::test_committed_artifacts_match_regeneration`
-  fails identically on a clean `origin/main` worktree at `18271b28d`
-  (`LedgerHierarchyMetadataError`: Chronicle fact
+- **Two workspace tests fail locally and are not mine.** Both are in
+  `packages/microcosm-build/tests/test_release_target_parity.py`:
+  `TestRegeneration::test_committed_artifacts_match_regeneration` and
+  `TestRegeneration::test_gate_passes_on_real_compiled_registry`. Measured a
+  second time on 2026-09-14 by running that file in a detached `origin/main`
+  worktree at `18271b28d` and in this one: `2 failed, 35 passed` in both, same
+  `LedgerHierarchyMetadataError` (Chronicle fact
   `arch.aggregate_fact.v2:01eb46de220addab5ce4827d`, dimension
-  `bea_nipa.series_code`, no non-empty label) while main's own CI for that
-  commit was green — a local feed/environment condition.
+  `bea_nipa.series_code`, no non-empty label), while main's own CI for that
+  commit was green — a local feed/environment condition. The first session
+  recorded one failing test here; the count was wrong, the diagnosis was not.
 - **`source_enrichment.py` and `contract.py` are both in
   `PRODUCER_SOURCE_FILES`.** Once this merges, a candidate whose build receipt
   recorded the pre-merge hashes can no longer be published from a post-merge
