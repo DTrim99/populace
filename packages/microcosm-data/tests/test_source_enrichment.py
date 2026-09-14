@@ -926,6 +926,14 @@ def test_declared_model_range_is_emitted_verbatim_and_replayed_by_preflight(
         ("policyengine-us>=1.999.0,<99998", "reaches 2.0.0 and beyond"),
         ("policyengine-us", "needs a PEP 440 specifier"),
         ("policyengine-us[us]>=1.999.0,<2", "bare name and specifier"),
+        (
+            'policyengine-us>=1.999.0,<2; python_version>"3"',
+            "bare name and specifier",
+        ),
+        (
+            "policyengine-us@https://example.invalid/pe.whl",
+            "bare name and specifier",
+        ),
         ("policyengine-us>=oops", "is not a PEP 508 requirement"),
     ],
 )
@@ -1280,3 +1288,76 @@ def test_an_unsound_claim_costs_no_qualification_run(
             **_declare(**claim),
         )
     assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    "forged",
+    [
+        {**DECLARED_ENTRY, "note": "approved verbally"},
+        {**DECLARED_ENTRY, "name": "policyengine_us"},
+        {k: v for k, v in DECLARED_ENTRY.items() if k != "basis"},
+    ],
+)
+def test_declared_claim_carries_only_the_validated_fields(
+    candidate, tmp_path, monkeypatch, forged
+):
+    """A report entry the validator cannot rebuild exactly is refused."""
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    _, parent, root = candidate
+    report_path = output / enrichment.SOURCE_ENRICHMENT_FILE
+    report = json.loads(report_path.read_text())
+    report["compatibility"]["publisher_claims"]["model"] = forged
+    _write(report_path, report)
+    # The manifest keeps the canonical entry, so only the report-shape guard
+    # can refuse this: the manifest-vs-report comparison is satisfied.
+    _refresh(output, enrichment.SOURCE_ENRICHMENT_FILE)
+    assert json.loads((output / "release_manifest.json").read_text())[
+        "compatible_model_packages"
+    ] == [DECLARED_ENTRY]
+    with pytest.raises(ReleaseContractError, match="must record only"):
+        enrichment.validate_source_enrichment_candidate(
+            output,
+            parent_h5=parent,
+            artifact_root=root,
+            require_compatibility=True,
+            compatibility_wheels=(tmp_path / "country.whl",),
+        )
+
+
+def test_producer_validation_is_not_the_tamper_control(
+    candidate, tmp_path, monkeypatch
+):
+    """A coordinated report+manifest edit validates, and that is not the guard.
+
+    The report's only integrity anchor is its ``artifacts`` entry in the very
+    manifest it authenticates, so an editor who rewrites both and restamps the
+    hash produces a bundle this validator accepts — exactly as, before publisher
+    claims existed, one who rewrote the exact pin did. What stands between an
+    edited bundle and the Hub is :func:`_check_producer_source_identity`, the
+    publish preflight, and the human publication decision. Pinned here so a
+    later reader does not mistake the cross-check for a seal.
+    """
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch)
+    _, parent, root = candidate
+    widened = {
+        "name": "policyengine-us",
+        "specifier": ">=1.999.0,<2",
+        "basis": enrichment.PUBLISHER_CLAIM_BASIS,
+        "declared_by": "nobody who ran certification",
+    }
+    report_path = output / enrichment.SOURCE_ENRICHMENT_FILE
+    report = json.loads(report_path.read_text())
+    report["compatibility"]["publisher_claims"] = {"model": widened}
+    _write(report_path, report)
+    manifest_path = output / "release_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["compatible_model_packages"] = [widened]
+    _write(manifest_path, manifest)
+    _refresh(output, enrichment.SOURCE_ENRICHMENT_FILE)
+    enrichment.validate_source_enrichment_candidate(
+        output,
+        parent_h5=parent,
+        artifact_root=root,
+        require_compatibility=True,
+        compatibility_wheels=(tmp_path / "country.whl",),
+    )
