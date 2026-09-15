@@ -1811,6 +1811,7 @@ def test_driver_records_sampled_spine_sidecar(
 def test_driver_marks_full_fixture_smoke_outputs_non_release(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    pytest.importorskip("tables")
     h5py = pytest.importorskip("h5py")
     raw_dir = tmp_path / "raw"
     stage = _write_fixture(raw_dir)
