@@ -1388,8 +1388,9 @@ def test_recertifying_without_the_flag_warns_that_it_narrows_the_claim(
 ):
     """A declared range must not vanish into an exact pin without a word."""
     declared, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
-    with pytest.warns(RuntimeWarning, match="narrows the policyengine-us"):
+    with pytest.warns(RuntimeWarning, match="narrows the policyengine-us") as caught:
         narrowed = _recertify(declared, candidate, tmp_path, monkeypatch, "recertified")
+    assert REMEDIATION in _narrowing_warning(caught, "policyengine-us")
     manifest, report = _certified(narrowed)
     assert manifest["compatible_model_packages"] == [
         {"name": "policyengine-us", "specifier": "==1.999.0"}
@@ -1403,6 +1404,47 @@ def test_recertifying_without_the_flag_warns_that_it_narrows_the_claim(
             "first_version_no_longer_covered": "1.999.1",
         }
     }
+
+
+REMEDIATION = "Pass --compatible-model-specifier"
+
+
+def _narrowing_warning(caught, package):
+    """The one narrowing warning ``caught`` holds for ``package``."""
+    messages = [
+        str(entry.message)
+        for entry in caught
+        if f"the {package} compatibility" in str(entry.message)
+    ]
+    assert len(messages) == 1, messages
+    return messages[0]
+
+
+def test_the_flags_remediation_is_offered_only_when_the_flags_were_missing(
+    candidate, tmp_path, monkeypatch
+):
+    """Advice to pass the flags is noise to the run that just passed them.
+
+    Re-certifying with a tighter range — dropping a patch release found bad
+    after the fact — is a legitimate narrowing, and the warning naming what it
+    gives up is the point. The remediation belongs to the run that forgot the
+    options, not the one that used them.
+    """
+    wider, _ = _qualify_candidate(
+        candidate,
+        tmp_path,
+        monkeypatch,
+        **_declare(compatible_model_specifier="policyengine-us>=1.998.0,<2"),
+    )
+    with pytest.warns(RuntimeWarning) as forgot:
+        _recertify(wider, candidate, tmp_path, monkeypatch, "reverted")
+    assert REMEDIATION in _narrowing_warning(forgot, "policyengine-us")
+
+    with pytest.warns(RuntimeWarning) as retightened:
+        _recertify(wider, candidate, tmp_path, monkeypatch, "tightened", **_declare())
+    message = _narrowing_warning(retightened, "policyengine-us")
+    assert "1.998.0" in message
+    assert REMEDIATION not in message
 
 
 def test_recertifying_with_the_same_range_narrows_nothing(

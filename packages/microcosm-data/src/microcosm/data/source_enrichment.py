@@ -1327,7 +1327,10 @@ def certify_source_enrichment(
                 + (
                     " Pass --compatible-model-specifier with "
                     "--compatibility-claim-declared-by to keep a declared range."
-                    if field == CLAIM_FIELD
+                    # Only the run that forgot them needs telling. Re-certifying
+                    # with a tighter range is a deliberate narrowing, still
+                    # worth naming, but its operator already passed the flags.
+                    if field == CLAIM_FIELD and claim_specifier is None
                     else ""
                 ),
                 RuntimeWarning,
