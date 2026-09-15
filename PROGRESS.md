@@ -147,10 +147,10 @@ each with a test that fails before and passes after.
   exclude a `2.0.1rc1` build while `>=2.0.1rc1,<2.1` and `==2.0.*` reach it and
   pass all three probes. A characterization test pins all five outcomes; it
   passes before and after.
-- `packages/microcosm-data/tests/` 599 passed, 2 skipped; the two named files
-  367 passed; `ruff check` and `ruff format --check` clean on
+- `packages/microcosm-data/tests/` 611 passed, 2 skipped; the two named files
+  379 passed; `ruff check` and `ruff format --check` clean on
   `packages/microcosm-data` and on every changed `.py`; repo-wide `ruff check`
-  clean; `tools/ci_test_groups.py --verify` ok. Pushed as `54908cb26`.
+  clean; `tools/ci_test_groups.py --verify` ok.
 
 ### Third adversarial pass
 
