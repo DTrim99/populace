@@ -567,7 +567,14 @@ def validate_v2_document(payload: Mapping[str, Any]) -> dict[str, Any]:
             raise StagingContractError(
                 "non_release must be true exactly when release_id is absent."
             )
-        validate_staging_delivery(normalized["delivery"])
+        delivery = validate_staging_delivery(normalized["delivery"])
+        if (
+            normalized["status"] == "running"
+            and delivery["read_back"] != "not_requested"
+        ):
+            raise StagingContractError(
+                "Running staging runs cannot report completed remote read-back."
+            )
         if normalized["status"] == "failed" and normalized["failure"] is None:
             raise StagingContractError("Failed runs require sanitized failure data.")
         if normalized["status"] != "failed" and normalized["failure"] is not None:
@@ -815,6 +822,7 @@ class StagingTelemetryV2:
         return validate_staging_delivery(dict(self._delivery))
 
     def set_sample(self, sample: Mapping[str, Any]) -> None:
+        self._require_running("set sampling evidence")
         normalized = _jsonable(sample)
         validator = Draft202012Validator(_SAMPLE_SCHEMA)
         errors = sorted(
@@ -836,8 +844,7 @@ class StagingTelemetryV2:
         force_upload: bool = False,
         **details: Any,
     ) -> None:
-        if self.status != "running":
-            raise StagingContractError("Cannot add a stage to a finished staging run.")
+        self._require_running("add a stage event")
         stage_id = _safe_identifier(stage_id, label="stage_id")
         safe_details = _jsonable(details)
         self._content_policy.validate_payload(safe_details)
@@ -858,8 +865,7 @@ class StagingTelemetryV2:
     def calibration_progress(self, event: Mapping[str, Any]) -> None:
         if event.get("kind") != "calibration_epoch":
             return
-        if self.status != "running":
-            raise StagingContractError("Cannot add calibration data to a finished run.")
+        self._require_running("add calibration progress")
         timestamp = self._clock()
         row = {
             "timestamp": timestamp,
@@ -897,6 +903,7 @@ class StagingTelemetryV2:
         classification: str,
         force_upload: bool = True,
     ) -> dict[str, Any]:
+        self._require_running("add an artifact")
         source_path = Path(source)
         data = self._content_policy.validate_artifact(
             logical_name=logical_name,
@@ -935,6 +942,7 @@ class StagingTelemetryV2:
         error_code: str = "BUILD_FAILED",
         local_diagnostic_reference: str | None = None,
     ) -> None:
+        self._require_running("record a failure")
         error_code = error_code.strip().upper()
         if not re.fullmatch(r"[A-Z0-9_]+", error_code):
             raise StagingContractError("error_code must contain only A-Z, 0-9, and _.")
@@ -966,8 +974,7 @@ class StagingTelemetryV2:
         self._maybe_upload(force=True)
 
     def complete(self, *, message: str = "Staging run completed.") -> None:
-        if self.status != "running":
-            raise StagingContractError("Cannot complete a finished staging run.")
+        self._require_running("complete the run")
         self.status = "completed"
         self.current_stage = "complete"
         self.updated_at = self._clock()
@@ -984,6 +991,11 @@ class StagingTelemetryV2:
         self._maybe_upload(force=True)
 
     def verify_remote(self) -> None:
+        if self.status == "running":
+            raise StagingContractError(
+                "Authenticated remote read-back requires a completed or failed "
+                "staging run."
+            )
         if self._transport is None:
             raise StagingReadBackError("Remote read-back requires remote staging mode.")
         self._maybe_upload(force=True)
@@ -1015,6 +1027,13 @@ class StagingTelemetryV2:
         # best effort because read-back has already established that the core
         # run files are present and valid.
         self._maybe_upload(force=True)
+
+    def _require_running(self, action: str) -> None:
+        if self.status != "running":
+            raise StagingContractError(
+                f"Cannot {action} when staging run status is {self.status!r}; "
+                "content changes require status 'running'."
+            )
 
     def validate_local_bundle(self) -> dict[str, Any]:
         return validate_v2_bundle(

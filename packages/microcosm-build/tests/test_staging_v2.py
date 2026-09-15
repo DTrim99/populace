@@ -284,6 +284,24 @@ def test_unknown_schema_version_is_incompatible():
         )
 
 
+def test_running_document_cannot_report_completed_remote_read_back(tmp_path):
+    api = MemoryApi(tmp_path)
+    telemetry = _recorder(
+        tmp_path,
+        delivery_mode="local_and_remote",
+        repo_id="policyengine/populace-uk-staging",
+        api=api,
+        upload_interval_seconds=0,
+    )
+    telemetry.complete()
+    telemetry.verify_remote()
+    manifest = telemetry.validate_local_bundle()["run_manifest"]
+    manifest["status"] = "running"
+
+    with pytest.raises(StagingContractError, match="Running staging runs"):
+        validate_v2_document(manifest)
+
+
 @pytest.mark.parametrize("field", ["sample", "delivery", "failure"])
 def test_bundle_validation_rejects_shared_document_disagreement(tmp_path, field):
     telemetry = _recorder(tmp_path)
@@ -358,6 +376,58 @@ def test_remote_read_back_validates_the_written_run(tmp_path):
     assert all(path.startswith("runs/uk-smoke-5-42/") for path in api.files)
     remote_manifest = json.loads(api.files["runs/uk-smoke-5-42/run_manifest.json"])
     assert remote_manifest["delivery"]["read_back"] == "passed"
+
+
+def test_remote_read_back_requires_a_final_run_status(tmp_path):
+    api = MemoryApi(tmp_path)
+    telemetry = _recorder(
+        tmp_path,
+        delivery_mode="local_and_remote",
+        repo_id="policyengine/populace-uk-staging",
+        api=api,
+        upload_interval_seconds=0,
+    )
+
+    with pytest.raises(StagingContractError, match="completed or failed"):
+        telemetry.verify_remote()
+
+    assert telemetry.delivery_summary["read_back"] == "not_requested"
+    assert api.files == {}
+    assert api.downloaded == []
+
+
+@pytest.mark.parametrize("final_status", ["completed", "failed"])
+def test_finalized_run_rejects_content_changes(tmp_path, final_status):
+    telemetry = _recorder(tmp_path)
+    artifact = tmp_path / "aggregate.json"
+    artifact.write_text(json.dumps({"target_count": 3}))
+    if final_status == "completed":
+        telemetry.complete()
+    else:
+        telemetry.fail(RuntimeError("build failed"))
+    expected_bundle = telemetry.validate_local_bundle()
+
+    mutations = [
+        lambda: telemetry.set_sample(_sample()),
+        lambda: telemetry.stage("later_stage"),
+        lambda: telemetry.calibration_progress(
+            {"kind": "calibration_epoch", "epoch": 1}
+        ),
+        lambda: telemetry.add_artifact(
+            "aggregate-diagnostics",
+            artifact,
+            artifact_kind="aggregate_diagnostics",
+            classification="aggregate",
+        ),
+        lambda: telemetry.complete(),
+        lambda: telemetry.fail(RuntimeError("later failure")),
+    ]
+    for mutate in mutations:
+        with pytest.raises(StagingContractError, match="status"):
+            mutate()
+
+    assert telemetry.validate_local_bundle() == expected_bundle
+    assert not (telemetry.run_dir / "artifacts").exists()
 
 
 @pytest.mark.parametrize(
