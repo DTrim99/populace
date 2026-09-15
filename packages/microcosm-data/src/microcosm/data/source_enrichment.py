@@ -864,6 +864,23 @@ def _narrowing_notice(field, package, lost, *, offer_flags):
     return notice
 
 
+def _narrowed_claims(report) -> dict:
+    """Return the narrowing ``report`` records, or ``{}``.
+
+    One tolerance for every verdict that reports the record: certification and
+    validation have the report in hand, publication reads it off disk, and a
+    bundle they disagreed about would be reported by some of them and not
+    others. Anything missing or unexpected reads as no record.
+    """
+    compatibility = report.get("compatibility") if isinstance(report, Mapping) else None
+    narrowed = (
+        compatibility.get("narrowed_claims")
+        if isinstance(compatibility, Mapping)
+        else None
+    )
+    return dict(narrowed) if isinstance(narrowed, Mapping) else {}
+
+
 def recorded_narrowed_claims(release_dir) -> dict:
     """Return the compatibility narrowing ``release_dir`` records, or ``{}``.
 
@@ -872,22 +889,15 @@ def recorded_narrowed_claims(release_dir) -> dict:
     reaches one terminal; this is how a later gate reads the record back and
     reports it to whoever is standing in front of the next one.
 
-    Anything missing or unexpected reads as no record. This surfaces something
-    the validators have already accepted or refused on their own terms; it is a
-    reporting path, not a gate, and must not turn a valid bundle into an error.
+    This surfaces something the validators have already accepted or refused on
+    their own terms; it is a reporting path, not a gate, and must not turn a
+    valid bundle into an error — an unreadable bundle reads as no record.
     """
-    path = Path(release_dir) / SOURCE_ENRICHMENT_FILE
     try:
-        report = json.loads(path.read_text())
+        report = json.loads((Path(release_dir) / SOURCE_ENRICHMENT_FILE).read_text())
     except (OSError, ValueError):
         return {}
-    compatibility = report.get("compatibility") if isinstance(report, Mapping) else None
-    narrowed = (
-        compatibility.get("narrowed_claims")
-        if isinstance(compatibility, Mapping)
-        else None
-    )
-    return dict(narrowed) if isinstance(narrowed, Mapping) else {}
+    return _narrowed_claims(report)
 
 
 def _check_compatibility(
@@ -1468,7 +1478,14 @@ def main(argv: list[str] | None = None) -> int:
                 compatible_model_specifier=args.compatible_model_specifier,
                 compatibility_claim_declared_by=(args.compatibility_claim_declared_by),
             )
-            print(json.dumps({"certified_bundle": str(result), "published": False}))
+            certified = {"certified_bundle": str(result), "published": False}
+            # The run that narrowed a claim already warned about it. Say it in
+            # the verdict too: the warning is the signal this reporting path
+            # exists because it cannot be relied on.
+            narrowed = recorded_narrowed_claims(result)
+            if narrowed:
+                certified["narrowed_claims"] = narrowed
+            print(json.dumps(certified))
         else:
             report = validate_source_enrichment_candidate(
                 args.release_dir,
@@ -1484,7 +1501,7 @@ def main(argv: list[str] | None = None) -> int:
             # Certification's narrowing warning reaches one terminal. The
             # record it leaves behind reaches every later gate, so say so here
             # rather than reporting only that the bundle is valid.
-            narrowed = report["compatibility"].get("narrowed_claims")
+            narrowed = _narrowed_claims(report)
             if narrowed:
                 validated["narrowed_claims"] = narrowed
             print(json.dumps(validated))

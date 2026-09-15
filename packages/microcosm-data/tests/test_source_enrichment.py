@@ -1421,6 +1421,75 @@ def test_cli_certify_declares_the_claim_it_was_given(
     assert report["compatibility"]["publisher_claims"] == {"model": DECLARED_ENTRY}
 
 
+def test_the_certify_cli_reports_a_narrowing_it_just_caused(
+    candidate, tmp_path, monkeypatch, capsys
+):
+    """The run that narrows says so in its verdict, not only in a warning.
+
+    Its `RuntimeWarning` is the live signal, and it is the one thing this
+    reporting path cannot rely on: stderr under CI, or nothing at all under
+    `PYTHONWARNINGS=ignore`. All three verdicts carry the record, so whatever
+    captures stdout has it too.
+    """
+    _, parent, root = candidate
+    declared, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    capsys.readouterr()
+    output = tmp_path / "recertified-cli" / declared.name
+    with pytest.warns(RuntimeWarning, match="narrows the policyengine-us"):
+        assert (
+            enrichment.main(
+                [
+                    "--certify",
+                    "--release-dir",
+                    str(declared),
+                    "--output-dir",
+                    str(output),
+                    "--parent-h5",
+                    str(parent),
+                    "--artifact-root",
+                    str(root),
+                    "--compatibility-wheel",
+                    str(tmp_path / "country.whl"),
+                ]
+            )
+            == 0
+        )
+    assert json.loads(capsys.readouterr().out) == {
+        "certified_bundle": str(output),
+        "published": False,
+        "narrowed_claims": NARROWED_RECORD,
+    }
+
+
+@pytest.mark.parametrize(
+    ("report", "expected"),
+    [
+        ([], {}),
+        ("not a mapping", {}),
+        ({}, {}),
+        ({"compatibility": 3}, {}),
+        ({"compatibility": {}}, {}),
+        ({"compatibility": {"narrowed_claims": [1, 2]}}, {}),
+        ({"compatibility": {"narrowed_claims": "model"}}, {}),
+        ({"compatibility": {"narrowed_claims": {"model": {}}}}, {"model": {}}),
+    ],
+)
+def test_both_narrowing_readers_agree_on_what_counts_as_a_record(
+    tmp_path, report, expected
+):
+    """One tolerance, so the three verdicts cannot disagree about one bundle.
+
+    The validation path has the report in hand and the publisher paths read it
+    off disk; if they applied different rules, a malformed record would show up
+    in one verdict and not the others.
+    """
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / enrichment.SOURCE_ENRICHMENT_FILE).write_text(json.dumps(report))
+    assert enrichment._narrowed_claims(report) == expected
+    assert enrichment.recorded_narrowed_claims(bundle) == expected
+
+
 def test_core_stays_pinned_when_the_model_range_is_declared(
     candidate, tmp_path, monkeypatch
 ):
