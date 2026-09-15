@@ -234,6 +234,16 @@ The tooling refuses a claim that:
   publisher's assertion rather than a measurement, so the bundle records who
   made it.
 
+A **prerelease** built-with version narrows the options, for an ordering reason
+rather than an exclusion one. `packaging` matches prereleases by default,
+following PEP 440's recommendation, but a prerelease sorts below its own
+release: over a `2.0.1rc1` build both `>=2.0.1,<2.1` and `~=2.0.1` exclude the
+very version certification tested, and the containment check refuses them. A
+range has to name the prerelease in its lower bound (`>=2.0.1rc1,<2.1`) or match
+the series with a prefix (`==2.0.*`); both pass all three boundedness probes.
+Declaring nothing leaves the exact `==2.0.1rc1` pin, which is the honest option
+for a runtime still in prerelease anyway.
+
 Where the tooling draws its line and where practice should draw one are not the
 same place: the guard bounds a claim at the next major version, so `>=2.0.1,<3`
 is accepted, while the recommended range stops at the next minor

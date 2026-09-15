@@ -1060,6 +1060,47 @@ def test_a_lower_bound_is_probed_within_the_tested_version_epoch():
     )
 
 
+@pytest.mark.parametrize(
+    ("specifier", "accepted"),
+    [
+        # A prerelease sorts below its own release, so the ranges written the
+        # usual way exclude the build they were written for. Not a prerelease
+        # exclusion: `packaging` matches prereleases by default, following
+        # PEP 440's recommendation, and `SpecifierSet.contains` says so.
+        (">=2.0.1,<2.1", False),
+        ("~=2.0.1", False),
+        # Naming the prerelease, or matching the series with a prefix, works.
+        (">=2.0.1rc1,<2.1", True),
+        ("==2.0.*", True),
+        # And the default pin certification writes with no options always does.
+        ("==2.0.1rc1", True),
+    ],
+)
+def test_a_prerelease_build_takes_a_range_only_if_the_range_reaches_it(
+    specifier, accepted
+):
+    """Characterization: what a claim over a prerelease build can say.
+
+    Pins the behaviour the runbook now describes. Both outcomes are ordering,
+    not a prerelease rule, so a `packaging` release that changed either would
+    fail here rather than silently rewrite the runbook.
+    """
+
+    def claim():
+        return enrichment.compatibility_claim_entry(
+            specifier,
+            package="policyengine-us",
+            version="2.0.1rc1",
+            declared_by=DECLARED_BY,
+        )
+
+    if accepted:
+        assert claim()["specifier"] == specifier
+    else:
+        with pytest.raises(ValueError, match="excludes the tested"):
+            claim()
+
+
 @pytest.mark.parametrize("declared_by", [None, "   ", "x" * 201, "two\nlines"])
 def test_claim_must_record_an_accountable_declarer(
     candidate, tmp_path, monkeypatch, declared_by
