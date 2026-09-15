@@ -107,13 +107,46 @@ each with a test that fails before and passes after.
 
 ### Done
 
-- (in progress)
+- **M1.** A third boundedness probe in `compatibility_claim_entry` asks whether
+  the claim still admits `Version(f"{tested.epoch}!0")`. Measured first:
+  `Version("0") in SpecifierSet("<2.1")` is `True`, and `False` for
+  `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` and `>=2.0.1,<3`; the epoch form
+  `Version("1!0")` is in `<1!2.1` and not in `>=1!2.0.1,<1!2.1`. `<2.1` and
+  `<=2.0.5` moved from the accepted parameters to the refused ones, a
+  certification-level `policyengine-us<2` case was added, and the next-major
+  error text now cites `'>=2.0.1,<2.1'` instead of the `'<2.1'` the new probe
+  refuses. Four tests failed before, pass after.
+- **L1.** `recorded_narrowed_claims` reads the record back, and both validation
+  (`python -m microcosm.data.source_enrichment` without `--certify`) and
+  `microcosm-publish-release --preflight-only` print `narrowed_claims` beside
+  their verdict when a bundle carries one. It reports rather than gates: an
+  absent or malformed record reads as no record. Two tests failed before.
+- **L2.** The "pass the flags" suffix is gated on `claim_specifier is None`.
+  Both branches tested through a re-certification that tightens a declared
+  range (`>=1.998.0,<2` → `>=1.999.0,<2`): warns, no suffix.
+- **L3.** Message construction moved to `_narrowing_notice`; Core reads "moves
+  the policyengine-core compatibility pin". The Core branch turns out to be
+  unreachable through `certify_source_enrichment` — the input gate re-runs the
+  loader qualification and requires the recorded receipt to equal the runtime,
+  so a moved Core version is refused first. Both the wording and that wall are
+  now pinned by tests.
+- **I2.** The review's premise was wrong and the docs say the accurate thing
+  instead. Installed `packaging` 26.2 matches prereleases by default
+  (`SpecifierSet.contains` documents it; `Version("2.1.0rc1") in
+  SpecifierSet(">=2.0.1,<2.2")` is `True`). The real constraint is ordering: a
+  prerelease sorts below its own release, so `>=2.0.1,<2.1` and `~=2.0.1`
+  exclude a `2.0.1rc1` build while `>=2.0.1rc1,<2.1` and `==2.0.*` reach it and
+  pass all three probes. A characterization test pins all five outcomes; it
+  passes before and after.
+- `packages/microcosm-data/tests/` 599 passed, 2 skipped; the two named files
+  367 passed; `ruff check` and `ruff format --check` clean on
+  `packages/microcosm-data` and on every changed `.py`; repo-wide `ruff check`
+  clean; `tools/ci_test_groups.py --verify` ok. Pushed as `54908cb26`.
 
 ### Next
 
-- Run the two named test files, ruff check and ruff format --check; push; append
-  a "Second pass, part two" paragraph to the PR body. Do not merge; do not mark
-  ready.
+- PR CI on `54908cb26`, and an independent adversarial pass over the five
+  changes. Do not merge; do not mark ready.
 
 ## Next
 
