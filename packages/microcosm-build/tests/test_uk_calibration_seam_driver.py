@@ -190,6 +190,7 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
             self.kwargs = kwargs
 
     monkeypatch.setattr(driver, "UKMeasureResolver", FakeResolver)
+
     def fake_run(**kwargs):
         calls.append(kwargs)
         return SimpleNamespace(
@@ -275,7 +276,7 @@ def test_driver_records_local_calibration_stage_coverage(
 ) -> None:
     driver = _load_driver_module()
     registry = _registry()
-    pin = driver.load_uk_national_chronicle_feed()
+    pin = driver.load_uk_chronicle_feed()
     artifact = SimpleNamespace(
         path=tmp_path / "ledger",
         facts=({"fact": 1},),
