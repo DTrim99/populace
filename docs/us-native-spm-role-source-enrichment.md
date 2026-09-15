@@ -177,6 +177,13 @@ entry must equal what the report declares, so a `release_manifest.json` widened
 on its own is refused. Omitting the options leaves certification byte-identical
 to an undeclared run — no `basis` key, no `publisher_claims` key.
 
+Certification rewrites `compatible_model_packages` from these options every
+time, so re-certifying a bundle that already declares a range without passing
+them again reverts it to the exact pin. That is not silent: the run warns,
+naming the lowest version the old claim covered and the new one does not, and
+records the same under `compatibility.narrowed_claims` in the certified report.
+Pass the options again to keep the range.
+
 Only the **model** field may be widened. Core keeps the exact pin it has always
 had, and a `core` key in `publisher_claims` is refused rather than honoured.
 

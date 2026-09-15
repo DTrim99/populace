@@ -12,6 +12,7 @@ import csv
 import hashlib
 import json
 import re
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -719,6 +720,94 @@ def compatibility_claim_entry(
     }
 
 
+def _claim_probe_versions(specifier_sets, tested):
+    """Return versions to compare two claims over, lowest first.
+
+    A finite search set, not an enumeration of PEP 440: every version the
+    specifiers name, each of those and the tested version bumped by one micro,
+    one minor and one major, plus one far-future release. A version found in
+    here that one claim covers and the other does not is a real difference; not
+    finding one is not proof that none exists.
+    """
+    from packaging.version import InvalidVersion, Version
+
+    named = [tested]
+    for specifier_set in specifier_sets:
+        for specifier in specifier_set:
+            try:
+                named.append(Version(specifier.version.split("*")[0].rstrip(".")))
+            except InvalidVersion:
+                continue
+    probes = {Version(f"{tested.epoch}!{_FAR_FUTURE_PROBE_MAJOR}.0.0")}
+    for version in named:
+        epoch, major, minor, micro = (
+            version.epoch,
+            version.major,
+            version.minor,
+            version.micro,
+        )
+        probes.update(
+            {
+                version,
+                Version(f"{epoch}!{major}.{minor}.{micro + 1}"),
+                Version(f"{epoch}!{major}.{minor + 1}.0"),
+                Version(f"{epoch}!{major + 1}.0.0"),
+            }
+        )
+    return sorted(probes)
+
+
+def _claim_coverage_lost(previous, *, package, specifier, version):
+    """Return what re-emitting ``specifier`` stops covering, or ``None``.
+
+    ``previous`` is the ``compatible_*_packages`` list the bundle being
+    certified already carried. Re-certifying without the claim flags rewrites
+    that list from the flags, which turns a declared range back into an exact
+    pin; this names the lowest probe version the old entries covered and the new
+    one does not, so the caller can say what is being given up.
+    """
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+    from packaging.utils import canonicalize_name
+    from packaging.version import InvalidVersion, Version
+
+    if not isinstance(previous, list):
+        return None
+    declared = []
+    for entry in previous:
+        if not isinstance(entry, Mapping):
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str) or canonicalize_name(name) != canonicalize_name(
+            package
+        ):
+            continue
+        text = entry.get("specifier")
+        if not isinstance(text, str):
+            continue
+        try:
+            declared.append((text, SpecifierSet(text)))
+        except InvalidSpecifier:
+            continue
+    if not declared:
+        return None
+    try:
+        emitted = SpecifierSet(specifier)
+        tested = Version(version)
+    except (InvalidSpecifier, InvalidVersion):
+        return None
+    sets = [candidate for _, candidate in declared] + [emitted]
+    for probe in _claim_probe_versions(sets, tested):
+        if probe not in emitted and any(
+            probe in candidate for _, candidate in declared
+        ):
+            return {
+                "previous_specifiers": [text for text, _ in declared],
+                "emitted_specifier": specifier,
+                "first_version_no_longer_covered": str(probe),
+            }
+    return None
+
+
 def _check_compatibility(
     release_dir,
     manifest,
@@ -1100,6 +1189,10 @@ def certify_source_enrichment(
     ``compatibility_claim_declared_by``. The claim never replaces the measured
     runtime: ``build.built_with_model_package`` still names the exact version
     certification tested, and the range must contain it.
+
+    Certifying a bundle that already declares a wider range, without passing
+    the flags again, warns and records ``compatibility.narrowed_claims`` rather
+    than quietly reverting it to the exact pin.
     """
     import shutil
     import tempfile
@@ -1156,6 +1249,42 @@ def certify_source_enrichment(
                 json.dumps(value, indent=2, sort_keys=True) + "\n"
             )
 
+        manifest = json.loads((staged / "release_manifest.json").read_text())
+        emitted, narrowed = {}, {}
+        for package, field in (
+            ("policyengine-us", "model"),
+            ("policyengine-core", "core"),
+        ):
+            version = receipt["packages"][package]["version"]
+            entry = claims.get(field, {"name": package, "specifier": f"=={version}"})
+            emitted[field] = (package, version, entry)
+            # The compatible list below is rewritten from the flags, so
+            # re-certifying a declared bundle without them silently reverts it
+            # to an exact pin. Say so, in the terminal and in the bundle.
+            lost = _claim_coverage_lost(
+                manifest.get(f"compatible_{field}_packages"),
+                package=package,
+                specifier=entry["specifier"],
+                version=version,
+            )
+            if lost is None:
+                continue
+            narrowed[field] = lost
+            warnings.warn(
+                f"certification narrows the {package} compatibility claim this "
+                f"bundle already carried: "
+                f"{', '.join(lost['previous_specifiers'])} covered "
+                f"{lost['first_version_no_longer_covered']} and the "
+                f"{entry['specifier']} this run emits does not."
+                + (
+                    " Pass --compatible-model-specifier with "
+                    "--compatibility-claim-declared-by to keep a declared range."
+                    if field == CLAIM_FIELD
+                    else ""
+                ),
+                RuntimeWarning,
+                stacklevel=2,
+            )
         write(COMPATIBILITY_FILE, receipt)
         report["compatibility"] = {
             "status": "passed",
@@ -1166,20 +1295,15 @@ def certify_source_enrichment(
             # Absent by default, so an undeclared bundle keeps the bytes it
             # has always had.
             report["compatibility"]["publisher_claims"] = claims
+        if narrowed:
+            report["compatibility"]["narrowed_claims"] = narrowed
         write(SOURCE_ENRICHMENT_FILE, report)
-        manifest = json.loads((staged / "release_manifest.json").read_text())
-        for package, field in (
-            ("policyengine-us", "model"),
-            ("policyengine-core", "core"),
-        ):
-            version = receipt["packages"][package]["version"]
+        for field, (package, version, entry) in emitted.items():
             manifest["build"][f"built_with_{field}_package"] = {
                 "name": package,
                 "version": version,
             }
-            manifest[f"compatible_{field}_packages"] = [
-                claims.get(field, {"name": package, "specifier": f"=={version}"})
-            ]
+            manifest[f"compatible_{field}_packages"] = [entry]
         manifest["data_package"] = {
             "name": "microcosm-data",
             "version": metadata.version("microcosm-data"),

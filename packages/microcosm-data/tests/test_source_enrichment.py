@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import warnings
 
 import h5py
 import numpy as np
@@ -1277,6 +1278,68 @@ def test_parenthesised_requirement_records_the_bare_specifier(
     assert manifest["compatible_model_packages"] == [DECLARED_ENTRY]
 
 
+def _recertify(source, candidate, tmp_path, monkeypatch, name, **claim):
+    """Certify an already-certified bundle again, as a re-release would."""
+    _, parent, root = candidate
+    output = tmp_path / name / source.name
+    enrichment.certify_source_enrichment(
+        source,
+        output,
+        parent_h5=parent,
+        artifact_root=root,
+        compatibility_wheels=(tmp_path / "country.whl",),
+        **claim,
+    )
+    return output
+
+
+def test_recertifying_without_the_flag_warns_that_it_narrows_the_claim(
+    candidate, tmp_path, monkeypatch
+):
+    """A declared range must not vanish into an exact pin without a word."""
+    declared, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    with pytest.warns(RuntimeWarning, match="narrows the policyengine-us"):
+        narrowed = _recertify(declared, candidate, tmp_path, monkeypatch, "recertified")
+    manifest, report = _certified(narrowed)
+    assert manifest["compatible_model_packages"] == [
+        {"name": "policyengine-us", "specifier": "==1.999.0"}
+    ]
+    # Recorded in the bundle too, so the narrowing survives the terminal that
+    # printed the warning.
+    assert report["compatibility"]["narrowed_claims"] == {
+        "model": {
+            "previous_specifiers": [">=1.999.0,<2"],
+            "emitted_specifier": "==1.999.0",
+            "first_version_no_longer_covered": "1.999.1",
+        }
+    }
+
+
+def test_recertifying_with_the_same_range_narrows_nothing(
+    candidate, tmp_path, monkeypatch
+):
+    declared, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        again = _recertify(
+            declared, candidate, tmp_path, monkeypatch, "recertified", **_declare()
+        )
+    assert not [entry for entry in caught if "narrows" in str(entry.message)]
+    manifest, report = _certified(again)
+    assert manifest["compatible_model_packages"] == [DECLARED_ENTRY]
+    assert "narrowed_claims" not in report["compatibility"]
+
+
+def test_first_certification_narrows_nothing(candidate, tmp_path, monkeypatch):
+    """A pending candidate declares no compatibility, so there is none to lose."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch)
+    assert not [entry for entry in caught if "narrows" in str(entry.message)]
+    _, report = _certified(output)
+    assert "narrowed_claims" not in report["compatibility"]
+
+
 @pytest.mark.parametrize(
     "claim",
     [
@@ -1302,7 +1365,9 @@ def test_an_unsound_claim_costs_no_qualification_run(
     monkeypatch.setattr(
         enrichment,
         "validate_source_enrichment_candidate",
-        lambda *args, **kwargs: pytest.fail("an unsound claim ran candidate validation"),
+        lambda *args, **kwargs: pytest.fail(
+            "an unsound claim ran candidate validation"
+        ),
     )
     monkeypatch.setattr(metadata, "version", lambda name: "0.1.0")
     output = tmp_path / "certified" / release.name
