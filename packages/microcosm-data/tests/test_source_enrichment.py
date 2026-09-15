@@ -952,6 +952,23 @@ def test_certification_refuses_an_unsound_claim(
         )
 
 
+@pytest.mark.parametrize("specifier", [None, "", "   ", ","])
+def test_a_report_claim_without_a_usable_specifier_is_refused(specifier):
+    """The entry builder shares the parser's rules, reached from the report side.
+
+    A claim read back out of a certified report never passes through
+    :func:`parse_compatibility_claim_requirement`, so the one specifier
+    validator has to hold on this path too.
+    """
+    with pytest.raises(ValueError, match="needs a PEP 440 specifier|must constrain"):
+        enrichment.compatibility_claim_entry(
+            specifier,
+            package="policyengine-us",
+            version="1.999.0",
+            declared_by=DECLARED_BY,
+        )
+
+
 @pytest.mark.parametrize("declared_by", [None, "   ", "x" * 201, "two\nlines"])
 def test_claim_must_record_an_accountable_declarer(
     candidate, tmp_path, monkeypatch, declared_by
@@ -1265,6 +1282,9 @@ def test_parenthesised_requirement_records_the_bare_specifier(
     [
         {"compatible_model_specifier": "policyengine-uk>=1.999.0,<2"},
         {"compatibility_claim_declared_by": "  "},
+        # A bare package name carries no specifier at all, which is checkable
+        # without the tested version and so must be refused at the door.
+        {"compatible_model_specifier": "policyengine-us"},
     ],
 )
 def test_an_unsound_claim_costs_no_qualification_run(
@@ -1278,6 +1298,11 @@ def test_an_unsound_claim_costs_no_qualification_run(
         enrichment,
         "run_native_loader_compatibility",
         lambda *args, **kwargs: pytest.fail("an unsound claim ran qualification"),
+    )
+    monkeypatch.setattr(
+        enrichment,
+        "validate_source_enrichment_candidate",
+        lambda *args, **kwargs: pytest.fail("an unsound claim ran candidate validation"),
     )
     monkeypatch.setattr(metadata, "version", lambda name: "0.1.0")
     output = tmp_path / "certified" / release.name

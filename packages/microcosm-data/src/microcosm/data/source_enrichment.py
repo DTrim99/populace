@@ -578,6 +578,32 @@ def _check_producer_source_identity(code: Mapping) -> None:
             )
 
 
+def _claim_specifier_set(specifier: object):
+    """Return the PEP 440 set ``specifier`` denotes, or raise ``ValueError``.
+
+    One copy of the specifier rules for both callers, so the requirement parser
+    refuses at the door exactly what the entry builder would refuse after a
+    qualification run.
+    """
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
+    if not isinstance(specifier, str) or not specifier.strip():
+        raise ValueError("publisher compatibility claim needs a PEP 440 specifier")
+    try:
+        specifier_set = SpecifierSet(specifier)
+    except InvalidSpecifier as exc:
+        raise ValueError(
+            f"publisher compatibility claim {specifier!r} is not a valid PEP 440 "
+            "specifier set"
+        ) from exc
+    if not tuple(specifier_set):
+        raise ValueError(
+            "publisher compatibility claim must constrain the version; an empty "
+            "specifier claims every release"
+        )
+    return specifier_set
+
+
 def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> str:
     """Return the specifier of ``<package><specifier>`` as written, or raise.
 
@@ -586,6 +612,11 @@ def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> 
     typo the tooling must refuse rather than silently retarget. The specifier
     is returned as declared, not re-rendered, so the published claim reads back
     as the publisher wrote it.
+
+    A bare name, or anything else that does not constrain the version, is
+    refused here rather than after qualification: ``policyengine-us`` used to
+    parse to ``""`` and cost the caller a whole native-loader run before the
+    entry builder rejected it.
     """
     from packaging.requirements import InvalidRequirement, Requirement
     from packaging.utils import canonicalize_name
@@ -614,6 +645,7 @@ def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> 
     # part of the specifier the manifest records.
     if specifier.startswith("(") and specifier.endswith(")"):
         specifier = specifier[1:-1].strip()
+    _claim_specifier_set(specifier)
     return specifier
 
 
@@ -643,24 +675,10 @@ def compatibility_claim_entry(
     function accepts is a claim they will honour, and one they would refuse for
     the tested version is refused here instead of at load time.
     """
-    from packaging.specifiers import InvalidSpecifier, SpecifierSet
     from packaging.version import InvalidVersion, Version
 
-    if not isinstance(specifier, str) or not specifier.strip():
-        raise ValueError("publisher compatibility claim needs a PEP 440 specifier")
+    specifier_set = _claim_specifier_set(specifier)
     check_compatibility_claim_declarer(declared_by)
-    try:
-        specifier_set = SpecifierSet(specifier)
-    except InvalidSpecifier as exc:
-        raise ValueError(
-            f"publisher compatibility claim {specifier!r} is not a valid PEP 440 "
-            "specifier set"
-        ) from exc
-    if not tuple(specifier_set):
-        raise ValueError(
-            "publisher compatibility claim must constrain the version; an empty "
-            "specifier claims every release"
-        )
     try:
         tested = Version(version)
     except InvalidVersion as exc:
