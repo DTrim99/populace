@@ -1682,6 +1682,41 @@ def test_publish_preflight_surfaces_a_recorded_narrowing(
     assert _preflight(declared) == {"valid": True, "published": False}
 
 
+def test_publication_says_on_stderr_what_the_preflight_says_in_json(
+    candidate, tmp_path, monkeypatch, capsys
+):
+    """Publication is reachable without ever running the preflight.
+
+    `tools/publish_release.sh` passes its arguments straight through, so the
+    runbook's "remove --preflight-only" step is a habit rather than a gate. The
+    JSON verdict belongs to whatever parses stdout; the operator reading the
+    terminal gets the same record on stderr, on both paths.
+    """
+    from microcosm.data import publish_cli
+
+    _, parent, root = candidate
+    narrowed, declared = _narrowed_bundle(candidate, tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        publish_cli, "publish_release", lambda *args, **kwargs: {"published": True}
+    )
+    tail = [
+        "--parent-h5",
+        str(parent),
+        "--artifact-root",
+        str(root),
+        "--compatibility-wheel",
+        str(tmp_path / "country.whl"),
+    ]
+    assert publish_main([str(narrowed), *tail]) == 0
+    published = capsys.readouterr()
+    assert json.loads(published.out) == {"published": True}
+    assert "compatibility narrowing" in published.err
+    assert ">=1.999.0,<2" in published.err
+
+    assert publish_main([str(declared), *tail]) == 0
+    assert "narrowing" not in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "claim",
     [

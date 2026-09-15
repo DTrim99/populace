@@ -189,7 +189,9 @@ The record outlives the terminal that printed the warning. Validation
 preflight (`microcosm-publish-release --preflight-only`) both print
 `narrowed_claims` beside their verdict whenever the bundle carries one, so an
 operator publishing days later reads what an earlier run gave up rather than
-just `passed`. A bundle that gave nothing up prints no such key.
+just `passed`. Publication says the same on stderr, because reaching it does
+not require running the preflight first — `tools/publish_release.sh` passes its
+arguments straight through. A bundle that gave nothing up prints neither.
 
 Only the **model** field may be widened. Core keeps the exact pin it has always
 had, and a `core` key in `publisher_claims` is refused rather than honoured.
