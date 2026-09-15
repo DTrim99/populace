@@ -157,6 +157,64 @@ parenthesised PEP 508 spelling no longer lands parentheses in the recorded
 specifier; and a malformed `publisher_claims` no longer also reports that no
 claim was declared.
 
+## Second pass, part two
+
+A second adversarial review of head `7cb8eae6e` confirmed the six fixes above
+and left five items. All five are in. Two of them did not survive contact with
+measurement, and the code and runbook follow the measurement rather than the
+review.
+
+1. **The guard bounded a claim above and never below.** `<2.1` over a 2.0.1
+   build contains the tested version, fires neither existing probe, and
+   publishes — after which a consumer on 0.9.0 reads the manifest as certified,
+   for a model predating the native-input loader path this lane measures.
+   Measured before fixing: `Version("0") in SpecifierSet("<2.1")` is `True`, and
+   `False` for `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` and `>=2.0.1,<3`. A third
+   probe at `Version(f"{tested.epoch}!0")` now refuses it, epoch-aware for the
+   same reason as the two above: `Version("1!0")` is in `<1!2.1` and not in
+   `>=1!2.0.1,<1!2.1`, while epoch-0 `Version("0")` is in neither. `<2.1` and
+   `<=2.0.5` moved to the refused parameters and the next-major error text no
+   longer offers `'<2.1'` as a good claim. The known residue is unchanged and
+   still documented: `>=2.0.1,!=3.0.0,!=99999.0.0` names all three probe
+   versions and passes.
+2. **`compatibility.narrowed_claims` was written and read by nothing.** It is
+   now read back by `recorded_narrowed_claims` and printed beside the verdict
+   by validation and by `microcosm-publish-release --preflight-only`, and on
+   stderr by publication as well — publication does not require the preflight
+   first, since `tools/publish_release.sh` passes its arguments straight
+   through. It reports rather than gates: an absent or malformed record reads
+   as no record and never turns a valid bundle into an error.
+3. **The "pass the flags" remediation fired even when the flags were passed.**
+   Gated on the claim being absent this run. Re-certifying with a tighter range
+   still warns — that is the point of the warning — without advising the
+   operator to pass options they just passed.
+4. **Core's narrowing branch is unreachable, not merely misworded.** The review
+   asked for the wording, which is now "moves the policyengine-core
+   compatibility pin". Trying to write an end-to-end test for it showed why
+   none exists: `certify_source_enrichment` validates the input bundle first,
+   and `_check_compatibility` re-runs the loader qualification and requires the
+   recorded receipt to equal the current runtime, so a moved Core version is
+   refused (`compatibility receipt differs from actual native loader
+   tests/runtime`) before the emitted pin could differ from the carried one.
+   The branch stays as defence in depth; the wall in front of it is now pinned
+   by a test, and the wording by a unit test through `_narrowing_notice`.
+5. **The prerelease item's premise was wrong.** The review held that PEP 440
+   containment excludes prereleases by default, so a prerelease built-with
+   version could take no range at all. Installed `packaging` 26.2 does the
+   opposite: `SpecifierSet.contains` documents that with the default
+   `prereleases=None` it follows PEP 440's recommendation and matches
+   prereleases, and `Version("2.1.0rc1") in SpecifierSet(">=2.0.1,<2.2")` is
+   `True`. The real constraint is ordering — a prerelease sorts below its own
+   release — so over a `2.0.1rc1` build `>=2.0.1,<2.1` and `~=2.0.1` are refused
+   for excluding the tested version, while `>=2.0.1rc1,<2.1` and `==2.0.*` are
+   accepted and pass all three probes. The runbook says that, and a
+   characterization test pins all five outcomes so a `packaging` release that
+   moved either would fail rather than quietly rewrite the runbook.
+
+Every item but the fifth has a test that failed before the change and passes
+after. The fifth is doc-only; its test is a characterization test that passes on
+both sides and is labelled as one.
+
 ## What I could not verify, and residual limits
 
 - **This is a record of who claimed what, not a seal.** The report's only
