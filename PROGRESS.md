@@ -87,6 +87,34 @@ was to confirm the branch rather than extend it. Done here:
   the PR body and docs, and a blast-radius sweep for anything that reads
   `compatible_model_packages`.
 
+## Third session, 2026-09-14 — second-pass review, part two
+
+The second-pass review (`review-928-r2.md`, written against `7cb8eae6e`)
+confirmed the six earlier fixes and left five items. This session applies them,
+each with a test that fails before and passes after.
+
+- **M1** — the boundedness guard bounds a claim above and never below, so
+  `policyengine-us<2.1` over a 2.0.1 build is accepted and certifies a consumer
+  running 0.9.0. Add a lower-bound probe.
+- **L1** — `compatibility.narrowed_claims` is written and never read; surface it
+  in the validation/preflight output.
+- **L2** — the "pass the flags" remediation suffix fires even when the flags
+  were passed this run; gate it on the claim being absent.
+- **L3** — the narrowing loop calls a Core pin change a narrowed "claim",
+  although no producer can declare a Core range; reword.
+- **I2** — doc only: a prerelease built-with version cannot carry a range, so
+  the exact default pin is the only option there.
+
+### Done
+
+- (in progress)
+
+### Next
+
+- Run the two named test files, ruff check and ruff format --check; push; append
+  a "Second pass, part two" paragraph to the PR body. Do not merge; do not mark
+  ready.
+
 ## Next
 
 - Whole-workspace run and PR CI to finish; hand to human review. Do not merge;
