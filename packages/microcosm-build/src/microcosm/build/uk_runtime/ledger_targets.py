@@ -260,8 +260,10 @@ UK_CROSS_GRAIN_RULE = CrossGrainRule(
     bridges=UK_CROSS_GRAIN_BRIDGES,
     leg_of_area=_uk_cross_grain_leg_of_area,
     parent_geography_legs=UK_CROSS_GRAIN_PARENT_GEOGRAPHY_LEGS,
-    # Country and region rows control the grains below them; a constituency
-    # never parents an authority (they partition households in parallel).
+    # Country and region rows control the grains below them. With no
+    # control-tier row in a group the operator keeps the standing
+    # single-winner rule, so a local-only family still reconciles authorities
+    # to constituencies over their legs, as it did before the region tier.
     control_grains=("country", "region"),
 )
 
@@ -791,8 +793,29 @@ def load_uk_local_target_reference_membership() -> dict[str, Any]:
 
 def _uk_licensed_empty_legs_from_membership(
     membership: Mapping[str, Any],
+    *,
+    leg_of_area: Callable[[str], str] | None = None,
 ) -> dict[str, frozenset[str]]:
-    """Derive wholly deferred target legs from committed membership rosters."""
+    """Derive wholly deferred target legs from committed membership rosters.
+
+    ``leg_of_area`` is the resolver the surface reconciles with, so a licence
+    is read on the same legs the run assigns; the default is the committed
+    crosswalk's resolver, the standing rule's own.
+    """
+
+    resolve = _uk_cross_grain_leg_of_area if leg_of_area is None else leg_of_area
+
+    def place(area_id: str) -> str | None:
+        # Under the committed-crosswalk resolver an unplaceable roster area is
+        # a register defect and refuses. Under a run's own resolver it is an
+        # area the run's ladder does not carry, so it can sit on no surface
+        # row and its licence is moot: skip it rather than refuse.
+        try:
+            return resolve(area_id)
+        except ValueError:
+            if leg_of_area is None:
+                raise
+            return None
 
     areas_by_level = membership.get("areas_by_geography_level")
     if not isinstance(areas_by_level, Mapping):
@@ -812,7 +835,9 @@ def _uk_licensed_empty_legs_from_membership(
                     "UK local target membership rosters must not contain blank "
                     "area ids."
                 )
-            leg = _uk_cross_grain_leg_of_area(area_id)
+            leg = place(area_id)
+            if leg is None:
+                continue
             roster_by_level_leg.setdefault((str(geography_level), leg), set()).add(
                 area_id
             )
@@ -840,7 +865,9 @@ def _uk_licensed_empty_legs_from_membership(
             )
         for raw_area_id in raw_area_ids:
             area_id = str(raw_area_id).strip()
-            leg = _uk_cross_grain_leg_of_area(area_id)
+            leg = place(area_id)
+            if leg is None:
+                continue
             roster = roster_by_level_leg.get((geography_level, leg), set())
             if area_id not in roster:
                 raise ValueError(
@@ -1426,9 +1453,14 @@ def apply_uk_cross_grain_reconciliation(
     cannot be bypassed.
     """
 
+    leg_of_area = (
+        _uk_cross_grain_leg_of_area
+        if area_region_codes is None
+        else uk_cross_grain_leg_of_area(area_region_codes)
+    )
     licences = (
         _uk_licensed_empty_legs_from_membership(
-            load_uk_local_target_reference_membership()
+            load_uk_local_target_reference_membership(), leg_of_area=leg_of_area
         )
         if licensed_empty_legs is None
         else licensed_empty_legs
@@ -1436,10 +1468,7 @@ def apply_uk_cross_grain_reconciliation(
     rule = (
         UK_CROSS_GRAIN_RULE
         if area_region_codes is None
-        else replace(
-            UK_CROSS_GRAIN_RULE,
-            leg_of_area=uk_cross_grain_leg_of_area(area_region_codes),
-        )
+        else replace(UK_CROSS_GRAIN_RULE, leg_of_area=leg_of_area)
     )
     return apply_cross_grain_reconciliation(
         local_frame,
