@@ -703,8 +703,8 @@ def compatibility_claim_entry(
         raise ValueError(
             f"publisher compatibility claim {specifier!r} reaches "
             f"{next_major} and beyond; a claim measured against {package} "
-            f"{version} must stop below the next major version, as '<2.1' or "
-            "'~=2.0.1' do"
+            f"{version} must stop below the next major version, as "
+            "'>=2.0.1,<2.1' or '~=2.0.1' do"
         )
     # A range that punches a hole at exactly the next major ('>=2.0.1,!=3.0.0')
     # passes the probe above while still certifying 4.x and 5.x, so probe far
@@ -718,6 +718,21 @@ def compatibility_claim_entry(
             f"{far_future}; a claim measured against {package} {version} must "
             f"stop below {next_major} with an upper bound, not by excluding "
             "single versions from an open range"
+        )
+    # Bounding a claim above says nothing about how far below it reaches. A
+    # bare '<2.1' contains the tested version and neither probe above, yet
+    # certifies every release the package ever made — including ones predating
+    # the native-input loader path this qualification measures. Probe the
+    # bottom of the tested version's own epoch for the same reason the probes
+    # above carry it: an epoch-bearing claim is open below within its epoch,
+    # and an epoch-0 zero would sit outside it.
+    no_lower_bound = Version(f"{tested.epoch}!0")
+    if no_lower_bound in specifier_set:
+        raise ValueError(
+            f"publisher compatibility claim {specifier!r} admits "
+            f"{no_lower_bound}, far below the tested {package} version "
+            f"{version}; a claim must also state a lower bound, as "
+            "'>=2.0.1,<2.1' does"
         )
     return {
         "name": package,
@@ -1355,7 +1370,8 @@ def main(argv: list[str] | None = None) -> int:
             "declare a publisher model compatibility range instead of the "
             "default exact pin, as a PEP 508 requirement naming the built-with "
             "package, e.g. 'policyengine-us>=2.0.1,<2.1'. The range must "
-            "contain the version certification tested and be bounded above. "
+            "contain the version certification tested and be bounded above "
+            "and below. "
             "Requires --compatibility-claim-declared-by."
         ),
     )

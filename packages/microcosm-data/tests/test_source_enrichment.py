@@ -928,6 +928,9 @@ def test_declared_model_range_is_emitted_verbatim_and_replayed_by_preflight(
         # Excluding exactly the next major walks past that probe while still
         # certifying every release after it, which the far-future probe catches.
         ("policyengine-us>=1.999.0,!=2.0.0", "still admits 99999.0.0"),
+        # Bounded above and open below: it covers the tested version and every
+        # release that ever preceded it, back to the first.
+        ("policyengine-us<2", "must also state a lower bound"),
         ("policyengine-us", "needs a PEP 440 specifier"),
         ("policyengine-us[us]>=1.999.0,<2", "bare name and specifier"),
         (
@@ -990,7 +993,9 @@ def test_a_whole_major_range_is_accepted_on_purpose():
     }
 
 
-@pytest.mark.parametrize("specifier", ["<2.1", ">=2.0.1,<2.1", "~=2.0.1", "==2.0.*"])
+@pytest.mark.parametrize(
+    "specifier", [">=2.0.1,<2.1", "~=2.0.1", "==2.0.*", ">=2.0.1,<3"]
+)
 def test_a_bounded_claim_over_a_2_0_1_build_is_accepted(specifier):
     assert (
         enrichment.compatibility_claim_entry(
@@ -1010,16 +1015,49 @@ def test_a_bounded_claim_over_a_2_0_1_build_is_accepted(specifier):
         ">=2.0.1,<3.0.1",
         # Excludes the next major by name, and certifies 4.x and 5.x anyway.
         ">=2.0.1,!=3.0.0",
+        # Bounded above, open below: it certifies every release back to the
+        # first one ever made, including versions predating the loader path
+        # certification measures.
+        "<2.1",
+        "<=2.0.5",
     ],
 )
 def test_an_unbounded_claim_over_a_2_0_1_build_is_refused(specifier):
-    with pytest.raises(ValueError, match="reaches 3.0.0|still admits 99999.0.0"):
+    with pytest.raises(
+        ValueError,
+        match="reaches 3.0.0|still admits 99999.0.0|must also state a lower bound",
+    ):
         enrichment.compatibility_claim_entry(
             specifier,
             package="policyengine-us",
             version="2.0.1",
             declared_by=DECLARED_BY,
         )
+
+
+def test_a_lower_bound_is_probed_within_the_tested_version_epoch():
+    """The lower-bound probe is built at the tested epoch, like the upper ones.
+
+    A claim written for a `1!` release is open below within its own epoch, and
+    `Version("0")` — epoch 0 — is not in it. The probe therefore has to carry
+    the tested version's epoch or it would pass every epoch-bearing claim.
+    """
+    with pytest.raises(ValueError, match="must also state a lower bound"):
+        enrichment.compatibility_claim_entry(
+            "<1!2.1",
+            package="policyengine-us",
+            version="1!2.0.1",
+            declared_by=DECLARED_BY,
+        )
+    assert (
+        enrichment.compatibility_claim_entry(
+            ">=1!2.0.1,<1!2.1",
+            package="policyengine-us",
+            version="1!2.0.1",
+            declared_by=DECLARED_BY,
+        )["specifier"]
+        == ">=1!2.0.1,<1!2.1"
+    )
 
 
 @pytest.mark.parametrize("declared_by", [None, "   ", "x" * 201, "two\nlines"])

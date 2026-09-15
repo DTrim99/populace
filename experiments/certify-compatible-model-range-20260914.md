@@ -55,12 +55,16 @@ The specifier value must:
 6. stop below the next major version after the tested one — for a 2.0.1 build,
    anything matching 3.0.0 is refused, so `>=2.0.1`, `!=2.0.5`, `>=2.0.1,<99998`
    and `>=2.0.1,<3.0.1` are all refused while `>=2.0.1,<2.1`, `~=2.0.1`,
-   `==2.0.*` and `>=2.0.1,<3` are accepted.
+   `==2.0.*` and `>=2.0.1,<3` are accepted;
+7. state a lower bound as well — a range open below certifies every release the
+   package ever made, so `<2.1` and `<=2.0.5` are refused although both are
+   bounded above. Probed by asking whether the set still admits `0` at the
+   tested version's epoch, which none of the four accepted forms above does.
 
 The declarer must be trimmed printable text of at most 200 characters. Both
 options are required together and only with `--certify`. Rules 1–4 and the
-declarer are checked **before** the qualification run; 5 and 6 need the tested
-version and run after it.
+declarer are checked **before** the qualification run; 5, 6 and 7 need the
+tested version and run after it.
 
 ### What is recorded
 

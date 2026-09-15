@@ -204,15 +204,19 @@ The tooling refuses a claim that:
   the consumers apply (`microcosm.data.loader._package_certification` and
   policyengine.py's `provenance.manifest._specifier_matches`), so a claim that
   is accepted here is a claim they will honour;
-- fails either boundedness probe. Over a 2.0.1 build the guard asks whether the
-  range still admits the next major version, `3.0.0`, and whether it still
-  admits a far-future `99999.0.0`. `>=2.0.1`, `!=2.0.5` and `>=2.0.1,<3.0.1`
-  fail the first; `>=2.0.1,!=3.0.0`, which excludes the next major by name while
-  still certifying 4.x, fails the second. Write a real upper bound instead:
-  `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` or `>=2.0.1,<3`. Two probes bound a
-  claim; they do not prove one is bounded. A specifier contrived to exclude both
-  probe versions while admitting others above the tested major would pass, so
-  declare an upper bound rather than a hole-punched open range;
+- fails any of the three boundedness probes. Over a 2.0.1 build the guard asks
+  whether the range still admits the next major version, `3.0.0`; whether it
+  still admits a far-future `99999.0.0`; and whether it still admits `0`, the
+  bottom of the tested version's epoch. `>=2.0.1`, `!=2.0.5` and
+  `>=2.0.1,<3.0.1` fail the first; `>=2.0.1,!=3.0.0`, which excludes the next
+  major by name while still certifying 4.x, fails the second; `<2.1` and
+  `<=2.0.5`, bounded above but open below, fail the third — a bare `<2.1`
+  certifies every release the package ever made, including ones predating the
+  native-input loader path this qualification measures. State both bounds:
+  `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` or `>=2.0.1,<3`. Probes bound a claim;
+  they do not prove one is bounded. A specifier contrived to exclude all three
+  probe versions while admitting others outside the tested major would pass, so
+  declare real bounds rather than a hole-punched open range;
 - arrives without `--compatibility-claim-declared-by`. A wider claim is the
   publisher's assertion rather than a measurement, so the bundle records who
   made it.
@@ -242,8 +246,8 @@ entity tables this release writes, or the SPM path that consumes them.
 - **A range used to avoid re-running certification** when the runtime under the
   upper bound was never installed anywhere. A claim the publisher cannot defend
   is worse than a new release.
-- **Speculative headroom.** `<2.1` because 2.0.2 is expected is defensible;
-  `<3` because a major bump seems far off is not.
+- **Speculative headroom.** `>=2.0.1,<2.1` because 2.0.2 is expected is
+  defensible; `>=2.0.1,<3` because a major bump seems far off is not.
 
 Consumers record which basis they used. Measured against policyengine.py's
 installed provenance code, a manifest declaring `>=2.0.1,<2.1` over `built_with`
