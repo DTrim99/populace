@@ -217,6 +217,11 @@ The tooling refuses a claim that:
   publisher's assertion rather than a measurement, so the bundle records who
   made it.
 
+Where the tooling draws its line and where practice should draw one are not the
+same place: the guard bounds a claim at the next major version, so `>=2.0.1,<3`
+is accepted, while the recommended range stops at the next minor
+(`>=2.0.1,<2.1`) — the span a publisher can actually read the diff for.
+
 ### When a range is appropriate
 
 Declare a range over the model versions whose differences cannot reach what

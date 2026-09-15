@@ -970,6 +970,58 @@ def test_a_report_claim_without_a_usable_specifier_is_refused(specifier):
         )
 
 
+def test_a_whole_major_range_is_accepted_on_purpose():
+    """`>=2.0.1,<3` is bounded at the next major, and the guard allows it.
+
+    Not an oversight and not a probe that missed: the tooling's line is the next
+    major version, while the runbook recommends bounding at the next minor. A
+    reader who finds this range certified is looking at a deliberate ceiling.
+    """
+    assert enrichment.compatibility_claim_entry(
+        ">=2.0.1,<3",
+        package="policyengine-us",
+        version="2.0.1",
+        declared_by=DECLARED_BY,
+    ) == {
+        "name": "policyengine-us",
+        "specifier": ">=2.0.1,<3",
+        "basis": enrichment.PUBLISHER_CLAIM_BASIS,
+        "declared_by": DECLARED_BY,
+    }
+
+
+@pytest.mark.parametrize("specifier", ["<2.1", ">=2.0.1,<2.1", "~=2.0.1", "==2.0.*"])
+def test_a_bounded_claim_over_a_2_0_1_build_is_accepted(specifier):
+    assert (
+        enrichment.compatibility_claim_entry(
+            specifier,
+            package="policyengine-us",
+            version="2.0.1",
+            declared_by=DECLARED_BY,
+        )["specifier"]
+        == specifier
+    )
+
+
+@pytest.mark.parametrize(
+    "specifier",
+    [
+        ">=2.0.1",
+        ">=2.0.1,<3.0.1",
+        # Excludes the next major by name, and certifies 4.x and 5.x anyway.
+        ">=2.0.1,!=3.0.0",
+    ],
+)
+def test_an_unbounded_claim_over_a_2_0_1_build_is_refused(specifier):
+    with pytest.raises(ValueError, match="reaches 3.0.0|still admits 99999.0.0"):
+        enrichment.compatibility_claim_entry(
+            specifier,
+            package="policyengine-us",
+            version="2.0.1",
+            declared_by=DECLARED_BY,
+        )
+
+
 @pytest.mark.parametrize("declared_by", [None, "   ", "x" * 201, "two\nlines"])
 def test_claim_must_record_an_accountable_declarer(
     candidate, tmp_path, monkeypatch, declared_by
