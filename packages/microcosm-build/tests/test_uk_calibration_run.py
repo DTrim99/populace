@@ -303,7 +303,13 @@ def test_run_uk_calibration_writes_cross_pinned_outputs(monkeypatch, tmp_path: P
     }
     assert {
         "input_loading",
+        "calibration_input_validation",
         "measure_resolution",
+        "target_materialization",
+        "solver_preparation",
+        "solver_execution",
+        "calibration_result_validation",
+        "calibration_evidence_construction",
         "calibration",
         "diagnostics",
         "release_check_evaluation",

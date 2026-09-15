@@ -6,6 +6,7 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -153,3 +154,59 @@ def test_github_environment_audit_requires_self_review_prevention(
 
     with pytest.raises(RuntimeError, match="approving their own deployment"):
         tool._audit("PolicyEngine/microcosm", ("anth-volk",))
+
+
+@pytest.mark.parametrize("status_code", [401, 403, 404])
+def test_hugging_face_access_audit_accepts_anonymous_denial(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+) -> None:
+    tool = _load_tool("provision_uk_staging_repository")
+    response = httpx.Response(
+        status_code,
+        request=httpx.Request("GET", "https://huggingface.co/api/datasets/example"),
+    )
+    error = tool.HfHubHTTPError("anonymous access denied", response=response)
+
+    class AnonymousApi:
+        def repo_info(self, **kwargs):
+            raise error
+
+    monkeypatch.setattr(tool, "HfApi", lambda *, token: AnonymousApi())
+    approved_api = SimpleNamespace(
+        repo_info=lambda **kwargs: SimpleNamespace(private=True)
+    )
+
+    assert tool._verify_access(approved_api, "policyengine/example") == {
+        "anonymous_access_refused": True,
+        "approved_access_succeeded": True,
+    }
+
+
+@pytest.mark.parametrize("status_code", [429, 500, 503])
+def test_hugging_face_access_audit_propagates_transient_http_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+) -> None:
+    tool = _load_tool("provision_uk_staging_repository")
+    response = httpx.Response(
+        status_code,
+        request=httpx.Request("GET", "https://huggingface.co/api/datasets/example"),
+    )
+    error = tool.HfHubHTTPError("temporary Hugging Face error", response=response)
+
+    class AnonymousApi:
+        def repo_info(self, **kwargs):
+            raise error
+
+    monkeypatch.setattr(tool, "HfApi", lambda *, token: AnonymousApi())
+    approved_api = SimpleNamespace(
+        repo_info=lambda **kwargs: pytest.fail(
+            "authenticated verification must not run after a transient error"
+        )
+    )
+
+    with pytest.raises(tool.HfHubHTTPError) as raised:
+        tool._verify_access(approved_api, "policyengine/example")
+
+    assert raised.value is error

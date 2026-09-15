@@ -67,7 +67,10 @@ def _verify_access(api: HfApi, repo_id: str) -> dict[str, object]:
     anonymous_refused = False
     try:
         HfApi(token=False).repo_info(repo_id=repo_id, repo_type="dataset")
-    except HfHubHTTPError:
+    except HfHubHTTPError as error:
+        status_code = error.response.status_code
+        if status_code == 429 or 500 <= status_code <= 599:
+            raise
         anonymous_refused = True
     if not anonymous_refused:
         raise RuntimeError(

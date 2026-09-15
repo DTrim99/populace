@@ -5,7 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from microcosm.build import DonorSpec, ObservedTransform, Stage, StagePlan
+from microcosm.build import (
+    DonorSpec,
+    ObservedTransform,
+    Stage,
+    StageEventRun,
+    StagePlan,
+)
 from microcosm.frame import Frame
 
 
@@ -265,3 +271,46 @@ class TestObservedTransform:
         assert transform.run_with_sources(small_frame, sources) is small_frame
         assert implementation.sources == sources
         assert transform.evidence == "available"
+
+
+class TestStageEventRun:
+    def test_completion_emits_elapsed_time_and_details(self) -> None:
+        events = []
+        clock = iter((10.0, 12.5)).__next__
+
+        with StageEventRun(
+            stage_id="solver_execution",
+            observer=lambda stage_id, status, details: events.append(
+                (stage_id, status, dict(details))
+            ),
+            clock=clock,
+        ) as operation:
+            operation.complete(target_count=3)
+
+        assert events == [
+            ("solver_execution", "started", {"elapsed_seconds": 0.0}),
+            (
+                "solver_execution",
+                "completed",
+                {"target_count": 3, "elapsed_seconds": 2.5},
+            ),
+        ]
+
+    def test_exception_emits_failed_operation(self) -> None:
+        events = []
+        clock = iter((5.0, 6.0)).__next__
+
+        with pytest.raises(RuntimeError, match="solver failed"):
+            with StageEventRun(
+                stage_id="solver_execution",
+                observer=lambda stage_id, status, details: events.append(
+                    (stage_id, status, dict(details))
+                ),
+                clock=clock,
+            ):
+                raise RuntimeError("solver failed")
+
+        assert events == [
+            ("solver_execution", "started", {"elapsed_seconds": 0.0}),
+            ("solver_execution", "failed", {"elapsed_seconds": 1.0}),
+        ]

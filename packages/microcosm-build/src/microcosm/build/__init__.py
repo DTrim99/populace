@@ -163,6 +163,9 @@ from microcosm.build.monetary_targets import (  # noqa: E402 - after compat gate
 )
 from microcosm.build.observation import (  # noqa: E402 - after the compat gate
     ObservedTransform,
+    StageEventObserver,
+    StageEventRun,
+    StageEventStatus,
     StageObservation,
     StageObservationRun,
     StageObserver,
@@ -216,6 +219,9 @@ __all__ = [
     "ReleaseContractManifest",
     "ResolvedCountrySpec",
     "Stage",
+    "StageEventObserver",
+    "StageEventRun",
+    "StageEventStatus",
     "StageObservation",
     "StagePlan",
     "StageRecord",
