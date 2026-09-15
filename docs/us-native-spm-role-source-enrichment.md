@@ -260,6 +260,26 @@ and refuses 2.0.0 and 2.1.0 — on both paths. They differ in what they say:
   a version the claim covers gets no signal; the recorded basis is the only
   trace. Do not declare a range expecting the runtime to caveat it for you.
 
+The range relaxes consumer-side certification only. It changes nothing about
+the publisher's own gates: `--preflight-only` and the real publisher both re-run
+the native-loader qualification in the current environment and require the
+recomputed receipt to equal the one the bundle records, and that receipt names
+the exact versions certification tested. A publish preflight therefore still
+runs with the exact `built_with` model and Core versions installed, with the
+four matching wheels to hand. A declared range never lets the publisher replay
+a bundle against a runtime it did not measure.
+
+### Follow-on: the other release types still pin exactly
+
+This option exists on the source-enrichment lane only. The calibration release
+assemblers — `tools/assemble_uk_release_dir.py`,
+`tools/assemble_uk_dense_release_dir.py` and
+`tools/build_us_fiscal_refresh_release.py` — each write
+`compatible_model_packages` as `==<measured runtime version>` with no way to
+declare a range, so a UK national, UK dense or US fiscal-refresh release stays
+an exact swap for its consumers. Widening any of them is a separate change with
+its own review.
+
 Certification creates a separate bundle with measured compatibility; it leaves
 the candidate H5 and source evidence unchanged. Both the preflight above and
 the real publisher share local preparation: they invoke the source-enrichment
