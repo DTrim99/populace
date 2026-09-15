@@ -2328,3 +2328,141 @@ def test_run_ladder_membership_resolves_legs_the_crosswalk_does_not_know() -> No
     assert receipt["groups"][0]["legs"][0]["parent_geography_id"] == "E12000007"
     with pytest.raises(ValueError, match="local-area crosswalk"):
         apply_uk_cross_grain_reconciliation(surface, (national_id,))
+
+
+_COMPOSITION_IDS = (
+    "ons.household_composition.lone_households_under_65",
+    "ons.household_composition.lone_households_over_65",
+    "ons.household_composition.unrelated_adult_households",
+    "ons.household_composition.couple_no_children_households",
+    "ons.household_composition.couple_under_3_children_households",
+    "ons.household_composition.couple_3_plus_children_households",
+    "ons.household_composition.couple_non_dependent_children_only_households",
+    "ons.household_composition.lone_parent_dependent_children_households",
+    "ons.household_composition.lone_parent_non_dependent_children_households",
+    "ons.household_composition.multi_family_households",
+)
+
+
+def _stock_total_spec(
+    area: str, value: float, *, target_id: str, ledger_level: str, region_grain: bool
+) -> TargetSpec:
+    metadata = {
+        "contract_target_id": target_id,
+        "ledger_geography_level": ledger_level,
+        "ledger_geography_id": area,
+    }
+    if region_grain:
+        metadata["cross_grain_grain"] = "region"
+    name = f"{target_id}@{area}" if region_grain else target_id
+    return TargetSpec(
+        name=name,
+        entity="household",
+        value=value,
+        measure=name,
+        period=2025,
+        source="synthetic stock total",
+        family="council_tax_stock",
+        metadata=metadata,
+    )
+
+
+def test_household_composition_partition_and_stock_totals_reconcile_together() -> None:
+    """Vahid's #906 round-2 surface: the ten composition rows (a UK partition),
+    the English VOA stock totals at region grain and the Scottish CTAXBASE
+    total at country grain all count households with no band filter. They
+    must not fall into one signature group, or two country controls meet on
+    the Scottish leg and the UK partition would rescale England's stock."""
+
+    specs = [
+        _national_control_spec(
+            f"composition-{index}",
+            value=10.0,
+            target_id=target_id,
+            geography_level="country",
+            geography_id="K02000001",
+        )
+        for index, target_id in enumerate(_COMPOSITION_IDS)
+    ]
+    specs.extend(
+        [
+            _stock_total_spec(
+                "E12000007",
+                100.0,
+                target_id="voa.council_tax_stock.total",
+                ledger_level="region",
+                region_grain=True,
+            ),
+            _stock_total_spec(
+                "E12000001",
+                50.0,
+                target_id="voa.council_tax_stock.total",
+                ledger_level="region",
+                region_grain=True,
+            ),
+            _stock_total_spec(
+                "S92000003",
+                40.0,
+                target_id="scotgov.council_tax_stock.total",
+                ledger_level="country",
+                region_grain=False,
+            ),
+            _household_spec("E14001073", "constituency", 60.0),
+            _household_spec("W07000041", "constituency", 30.0),
+        ]
+    )
+    surface, receipt = uk_local_target_surface(
+        TargetRegistry(specs, country="uk"),
+        bound_national_target_ids=(
+            *_COMPOSITION_IDS,
+            "voa.council_tax_stock.total",
+            "scotgov.council_tax_stock.total",
+        ),
+        period=2025,
+    )
+    # The composition partition (100 households UK-wide) still parents the
+    # census cells; the stock totals never enter that group.
+    households = surface.loc[surface["metric"] == "households", "value"].tolist()
+    assert households == pytest.approx([100.0 * 60.0 / 90.0, 100.0 * 30.0 / 90.0])
+    group_ids = {group["inconsistency_id"] for group in receipt["groups"]}
+    assert all(
+        "uk.household.count" in gid or "national_household" in gid for gid in group_ids
+    )
+    stock_groups = [
+        group
+        for group in receipt["groups"]
+        if any(
+            "council_tax_stock" in target_id
+            for leg in group["legs"]
+            for target_id in leg["higher_target_ids"]
+        )
+    ]
+    assert stock_groups == []
+
+
+def test_leg_licences_follow_the_resolver_the_surface_reconciles_with() -> None:
+    """A run ladder that places a synthetic English authority in London yields
+    a London licence; the committed-crosswalk resolver refuses that code."""
+
+    membership = {
+        "areas_by_geography_level": {"local_authority": ["E06099999", "S12000005"]},
+        "signed_deferrals": [
+            {
+                "target_id": "voa.council_tax_stock.by_area.band_a",
+                "geography_level": "local_authority",
+                "area_ids": ["E06099999"],
+            }
+        ],
+    }
+    run_legs = uk_cross_grain_leg_of_area({"E06099999": "E12000007"})
+    assert _uk_licensed_empty_legs_from_membership(
+        membership, leg_of_area=run_legs
+    ) == {"voa.council_tax_stock.by_area.band_a": frozenset({"E12000007"})}
+    with pytest.raises(ValueError, match="local-area crosswalk"):
+        _uk_licensed_empty_legs_from_membership(membership)
+    # A roster area the run's ladder does not carry can sit on no surface row:
+    # it is skipped under the run resolver, never a refusal.
+    partial = uk_cross_grain_leg_of_area({"E06099998": "E12000001"})
+    assert (
+        _uk_licensed_empty_legs_from_membership(membership, leg_of_area=partial) == {}
+    )

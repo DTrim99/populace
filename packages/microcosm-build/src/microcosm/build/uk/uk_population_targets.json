@@ -11028,7 +11028,23 @@
       ],
       "measurement": {
         "entity": "household",
-        "concept": "uk.household.count"
+        "concept": "uk.household.count",
+        "filters": [
+          {
+            "concept": "uk.housing.council_tax_band",
+            "operator": "in",
+            "value": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "E",
+              "F",
+              "G",
+              "H"
+            ]
+          }
+        ]
       },
       "bindings": {
         "policyengine": {
@@ -11070,7 +11086,23 @@
       ],
       "measurement": {
         "entity": "household",
-        "concept": "uk.household.count"
+        "concept": "uk.household.count",
+        "filters": [
+          {
+            "concept": "uk.housing.council_tax_band",
+            "operator": "in",
+            "value": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "E",
+              "F",
+              "G",
+              "H"
+            ]
+          }
+        ]
       },
       "bindings": {
         "policyengine": {
