@@ -184,6 +184,13 @@ naming the lowest version the old claim covered and the new one does not, and
 records the same under `compatibility.narrowed_claims` in the certified report.
 Pass the options again to keep the range.
 
+The record outlives the terminal that printed the warning. Validation
+(`python -m microcosm.data.source_enrichment` without `--certify`) and publish
+preflight (`microcosm-publish-release --preflight-only`) both print
+`narrowed_claims` beside their verdict whenever the bundle carries one, so an
+operator publishing days later reads what an earlier run gave up rather than
+just `passed`. A bundle that gave nothing up prints no such key.
+
 Only the **model** field may be widened. Core keeps the exact pin it has always
 had, and a `core` key in `publisher_claims` is refused rather than honoured.
 

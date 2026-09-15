@@ -830,6 +830,32 @@ def _claim_coverage_lost(previous, *, package, specifier, version):
     return None
 
 
+def recorded_narrowed_claims(release_dir) -> dict:
+    """Return the compatibility narrowing ``release_dir`` records, or ``{}``.
+
+    Certification warns when re-emitting a bundle takes coverage away, and
+    records the same under ``compatibility.narrowed_claims``. That warning
+    reaches one terminal; this is how a later gate reads the record back and
+    reports it to whoever is standing in front of the next one.
+
+    Anything missing or unexpected reads as no record. This surfaces something
+    the validators have already accepted or refused on their own terms; it is a
+    reporting path, not a gate, and must not turn a valid bundle into an error.
+    """
+    path = Path(release_dir) / SOURCE_ENRICHMENT_FILE
+    try:
+        report = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    compatibility = report.get("compatibility") if isinstance(report, Mapping) else None
+    narrowed = (
+        compatibility.get("narrowed_claims")
+        if isinstance(compatibility, Mapping)
+        else None
+    )
+    return dict(narrowed) if isinstance(narrowed, Mapping) else {}
+
+
 def _check_compatibility(
     release_dir,
     manifest,
@@ -1419,11 +1445,17 @@ def main(argv: list[str] | None = None) -> int:
                 require_compatibility=args.require_compatibility,
                 compatibility_wheels=tuple(args.compatibility_wheel),
             )
-            print(
-                json.dumps(
-                    {"valid": True, "compatibility": report["compatibility"]["status"]}
-                )
-            )
+            validated = {
+                "valid": True,
+                "compatibility": report["compatibility"]["status"],
+            }
+            # Certification's narrowing warning reaches one terminal. The
+            # record it leaves behind reaches every later gate, so say so here
+            # rather than reporting only that the bundle is valid.
+            narrowed = report["compatibility"].get("narrowed_claims")
+            if narrowed:
+                validated["narrowed_claims"] = narrowed
+            print(json.dumps(validated))
     except (ValueError, OSError, ImportError, KeyError, TypeError) as exc:
         print(str(exc), file=sys.stderr)
         return 1

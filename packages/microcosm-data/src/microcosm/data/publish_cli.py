@@ -212,8 +212,17 @@ def main(argv: list[str] | None = None) -> int:
         evidence=args.evidence,
     )
     if args.preflight_only:
+        from microcosm.data.source_enrichment import recorded_narrowed_claims
+
         prepare_release(Path(args.release_dir), **preparation_options)
-        print(json.dumps({"valid": True, "published": False}))
+        preflight = {"valid": True, "published": False}
+        # A re-certification that reverted a declared compatibility range to
+        # the exact pin warned in the terminal that ran it, days and an
+        # operator ago. This is where the next one finds out.
+        narrowed = recorded_narrowed_claims(Path(args.release_dir))
+        if narrowed:
+            preflight["narrowed_claims"] = narrowed
+        print(json.dumps(preflight))
         return 0
 
     pointer = publish_release(

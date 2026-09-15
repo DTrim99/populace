@@ -1430,6 +1430,102 @@ def test_first_certification_narrows_nothing(candidate, tmp_path, monkeypatch):
     assert "narrowed_claims" not in report["compatibility"]
 
 
+NARROWED_RECORD = {
+    "model": {
+        "previous_specifiers": [">=1.999.0,<2"],
+        "emitted_specifier": "==1.999.0",
+        "first_version_no_longer_covered": "1.999.1",
+    }
+}
+
+
+def _narrowed_bundle(candidate, tmp_path, monkeypatch):
+    """A certified bundle whose report records a narrowing, and a clean one."""
+    declared, _ = _qualify_candidate(candidate, tmp_path, monkeypatch, **_declare())
+    with pytest.warns(RuntimeWarning, match="narrows the policyengine-us"):
+        narrowed = _recertify(declared, candidate, tmp_path, monkeypatch, "recertified")
+    return narrowed, declared
+
+
+def test_validation_output_surfaces_a_recorded_narrowing(
+    candidate, tmp_path, monkeypatch, capsys
+):
+    """The record has to reach someone after the terminal that printed it.
+
+    `certify_source_enrichment` warns on stderr, where CI noise or
+    `PYTHONWARNINGS=ignore` buries it, and records `narrowed_claims` in the
+    bundle. Validation is the next gate a later operator runs, so it reads the
+    record back instead of reporting only `passed`.
+    """
+    _, parent, root = candidate
+    narrowed, declared = _narrowed_bundle(candidate, tmp_path, monkeypatch)
+
+    def _validate(bundle):
+        assert (
+            enrichment.main(
+                [
+                    "--release-dir",
+                    str(bundle),
+                    "--parent-h5",
+                    str(parent),
+                    "--artifact-root",
+                    str(root),
+                ]
+            )
+            == 0
+        )
+        return json.loads(capsys.readouterr().out)
+
+    assert _validate(narrowed) == {
+        "valid": True,
+        "compatibility": "passed",
+        "narrowed_claims": NARROWED_RECORD,
+    }
+    # A bundle that gave nothing up says nothing, so the key's presence is the
+    # signal rather than an empty object every run has to read past.
+    assert _validate(declared) == {"valid": True, "compatibility": "passed"}
+
+
+def test_publish_preflight_surfaces_a_recorded_narrowing(
+    candidate, tmp_path, monkeypatch, capsys
+):
+    """The publisher's own preflight is where the later operator actually is."""
+    import microcosm.data.release as release_module
+
+    monkeypatch.setattr(
+        release_module,
+        "_hf_api",
+        lambda: pytest.fail("successful preflight constructed a Hub client"),
+    )
+    _, parent, root = candidate
+    narrowed, declared = _narrowed_bundle(candidate, tmp_path, monkeypatch)
+
+    def _preflight(bundle):
+        assert (
+            publish_main(
+                [
+                    str(bundle),
+                    "--parent-h5",
+                    str(parent),
+                    "--artifact-root",
+                    str(root),
+                    "--compatibility-wheel",
+                    str(tmp_path / "country.whl"),
+                    "--preflight-only",
+                ]
+            )
+            == 0
+        )
+        return json.loads(capsys.readouterr().out)
+
+    assert _preflight(narrowed) == {
+        "valid": True,
+        "published": False,
+        "narrowed_claims": NARROWED_RECORD,
+    }
+    assert _preflight(declared) == {"valid": True, "published": False}
+
+
 @pytest.mark.parametrize(
     "claim",
     [
