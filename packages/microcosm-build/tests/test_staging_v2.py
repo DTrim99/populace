@@ -756,3 +756,19 @@ def test_version_2_cli_uses_country_owned_repository_configuration(monkeypatch):
     assert not hasattr(args, "staging_prefix")
     with pytest.raises(SystemExit):
         parser.parse_args(["--staging-prefix", "candidate-runs"])
+
+
+def test_typed_artifacts_reject_one_scalar_individual_record(tmp_path):
+    telemetry = _recorder(tmp_path)
+    artifact = tmp_path / "individual.json"
+    artifact.write_text(
+        json.dumps({"name": "Example person", "age": 42, "income": 50_000})
+    )
+
+    with pytest.raises(StagingContentError, match="individual record"):
+        telemetry.add_artifact(
+            "individual",
+            artifact,
+            artifact_kind="aggregate_diagnostics",
+            classification="aggregate",
+        )

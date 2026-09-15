@@ -660,12 +660,9 @@ class StagingContentPolicy:
                 _normalized_content_key(key): item for key, item in value.items()
             }
             individual_fields = set(normalized_items) & _INDIVIDUAL_RECORD_KEYS
-            if len(individual_fields) >= 2 and any(
-                isinstance(normalized_items[key], (list, tuple))
-                for key in individual_fields
-            ):
+            if len(individual_fields) >= 2:
                 raise StagingContentError(
-                    "Prohibited columnar individual records in staging content."
+                    "Prohibited individual record in staging content."
                 )
             for key, item in value.items():
                 normalized = _normalized_content_key(key)
