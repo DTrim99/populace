@@ -229,9 +229,12 @@ The tooling refuses a claim that:
   certifies every release the package ever made, including ones predating the
   native-input loader path this qualification measures. State both bounds:
   `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` or `>=2.0.1,<3`. Probes bound a claim;
-  they do not prove one is bounded. A specifier contrived to exclude all three
-  probe versions while admitting others outside the tested major would pass, so
-  declare real bounds rather than a hole-punched open range;
+  they do not prove one is bounded, and the residue is symmetric: a specifier
+  that names the probe versions and excludes them passes while admitting
+  others. `>=2.0.1,!=3.0.0,!=99999.0.0` is accepted and admits `5.0`;
+  `<2.1,!=0` is accepted and admits `0.9.0`. Both are pinned by test so the
+  limit cannot quietly widen past what is written here. Declare real bounds
+  rather than a hole-punched open range;
 - arrives without `--compatibility-claim-declared-by`. A wider claim is the
   publisher's assertion rather than a measurement, so the bundle records who
   made it.

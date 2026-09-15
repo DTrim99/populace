@@ -1035,6 +1035,41 @@ def test_an_unbounded_claim_over_a_2_0_1_build_is_refused(specifier):
         )
 
 
+@pytest.mark.parametrize(
+    ("specifier", "admits"),
+    [
+        # Excludes the next major and the far-future probe by name, and
+        # certifies 4.x and 5.x anyway.
+        (">=2.0.1,!=3.0.0,!=99999.0.0", "5.0"),
+        # The exact mirror below: excludes the zero probe by name, and
+        # certifies the 0.x releases the lower bound exists to keep out.
+        ("<2.1,!=0", "0.9.0"),
+    ],
+)
+def test_the_documented_probe_residue_is_still_exactly_that(specifier, admits):
+    """Characterization: probes bound a claim, they do not prove one bounded.
+
+    The runbook says a specifier that names the probe versions and excludes
+    them passes while admitting others, above and below alike. Pinning both
+    mirrors keeps that sentence honest and stops the residue widening past
+    what is written down. Passes before and after the lower-bound probe; it
+    describes the guard's stated limit rather than a change to it.
+    """
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    assert (
+        enrichment.compatibility_claim_entry(
+            specifier,
+            package="policyengine-us",
+            version="2.0.1",
+            declared_by=DECLARED_BY,
+        )["specifier"]
+        == specifier
+    )
+    assert Version(admits) in SpecifierSet(specifier)
+
+
 def test_the_lower_bound_probe_sits_at_the_tested_version_epoch():
     """A claim may mix epochs, and only a probe at the tested epoch catches it.
 
