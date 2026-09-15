@@ -16,7 +16,12 @@ import warnings
 from collections.abc import Mapping
 from pathlib import Path
 
-from microcosm.data.contract import PUBLISHER_CLAIM_BASIS, ReleaseContractError
+from microcosm.data.contract import (
+    COMPATIBILITY_CLAIM_DECLARER_MAX_CHARS,
+    PUBLISHER_CLAIM_BASIS,
+    ReleaseContractError,
+    compatibility_claim_declarer_error,
+)
 
 SOURCE_ENRICHMENT_RELEASE_TYPE = "source_enrichment"
 SOURCE_ENRICHMENT_FILE = "source_enrichment.json"
@@ -651,17 +656,19 @@ def parse_compatibility_claim_requirement(requirement: str, *, package: str) -> 
 
 
 def check_compatibility_claim_declarer(declared_by: object) -> None:
-    """Raise unless a claim names someone accountable for it."""
-    if (
-        not isinstance(declared_by, str)
-        or not declared_by.strip()
-        or declared_by != declared_by.strip()
-        or len(declared_by) > 200
-        or not declared_by.isprintable()
-    ):
+    """Raise unless a claim names someone accountable for it.
+
+    The rule itself lives in :func:`microcosm.data.contract` beside the release
+    contract that re-checks it, so the producer cannot drift from the layer that
+    reads a published bundle.
+    """
+    reason = compatibility_claim_declarer_error(declared_by)
+    if reason is not None:
         raise ValueError(
             "publisher compatibility claim must record who declared it, as "
-            "trimmed printable text of at most 200 characters"
+            f"trimmed printable text of at most "
+            f"{COMPATIBILITY_CLAIM_DECLARER_MAX_CHARS} characters: declared_by "
+            f"{reason}"
         )
 
 

@@ -4032,6 +4032,39 @@ def test_release_manifest_rejects_an_unattributed_compatibility_claim(
     assert message in "\n".join(excinfo.value.failures)
 
 
+@pytest.mark.parametrize(
+    ("declared_by", "message"),
+    [
+        ("x" * 201, "at most 200 characters"),
+        ("two\nlines", "printable"),
+        (" padded ", "whitespace"),
+    ],
+)
+def test_release_manifest_rejects_a_declarer_the_producer_would_refuse(
+    release_dir: Path, declared_by: str, message: str
+) -> None:
+    """Both layers apply one declarer rule, so neither can admit the other's junk.
+
+    ``check_compatibility_claim_declarer`` refuses these at certification. A
+    bundle carrying one reached this contract from somewhere other than the
+    producer, and the contract is where publication reads it.
+    """
+    _declare_model_claim(
+        release_dir,
+        {
+            "name": "policyengine-us",
+            "specifier": ">=1.729.0,<1.730",
+            "basis": PUBLISHER_CLAIM_BASIS,
+            "declared_by": declared_by,
+        },
+    )
+
+    with pytest.raises(ReleaseContractError) as excinfo:
+        validate_release_dir(release_dir)
+
+    assert message in "\n".join(excinfo.value.failures)
+
+
 def test_release_manifest_compatible_model_package_must_cover_build_version(
     release_dir: Path,
 ) -> None:
