@@ -170,9 +170,16 @@ review.
    for a model predating the native-input loader path this lane measures.
    Measured before fixing: `Version("0") in SpecifierSet("<2.1")` is `True`, and
    `False` for `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` and `>=2.0.1,<3`. A third
-   probe at `Version(f"{tested.epoch}!0")` now refuses it, epoch-aware for the
-   same reason as the two above: `Version("1!0")` is in `<1!2.1` and not in
-   `>=1!2.0.1,<1!2.1`, while epoch-0 `Version("0")` is in neither. `<2.1` and
+   probe at `Version(f"{tested.epoch}!0")` now refuses it. The probe carries the
+   tested version's epoch because a claim may mix epochs: over a `1!2.0.1`
+   build, `>=2.0.1,<1!2.1` is open below within epoch 1 — it admits `1!0` —
+   while excluding a bare `Version("0")`, which sorts under every epoch-1
+   release. (An earlier draft of this note and of the code comment justified
+   the carry the other way round, claiming an epoch-0 zero sits outside an
+   epoch-bearing claim. It does not: `Version("0") in SpecifierSet("<1!2.1")`
+   is `True`, and the test written on that reasoning survived replacing the
+   probe with a bare `Version("0")`. The third adversarial pass caught it; the
+   test now uses the mixed-epoch claim, which kills that mutant.) `<2.1` and
    `<=2.0.5` moved to the refused parameters and the next-major error text no
    longer offers `'<2.1'` as a good claim. The known residue is unchanged and
    still documented: `>=2.0.1,!=3.0.0,!=99999.0.0` names all three probe

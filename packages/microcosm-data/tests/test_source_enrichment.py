@@ -1035,16 +1035,17 @@ def test_an_unbounded_claim_over_a_2_0_1_build_is_refused(specifier):
         )
 
 
-def test_a_lower_bound_is_probed_within_the_tested_version_epoch():
-    """The lower-bound probe is built at the tested epoch, like the upper ones.
+def test_the_lower_bound_probe_sits_at_the_tested_version_epoch():
+    """A claim may mix epochs, and only a probe at the tested epoch catches it.
 
-    A claim written for a `1!` release is open below within its own epoch, and
-    `Version("0")` — epoch 0 — is not in it. The probe therefore has to carry
-    the tested version's epoch or it would pass every epoch-bearing claim.
+    `>=2.0.1,<1!2.1` over a `1!2.0.1` build is open below within epoch 1 — it
+    admits `1!0` — while excluding a bare `Version("0")`, which sorts under
+    every epoch-1 release. A probe at plain zero would accept it. (`<1!2.1` on
+    its own is refused either way, so it is not the case that pins the carry.)
     """
     with pytest.raises(ValueError, match="must also state a lower bound"):
         enrichment.compatibility_claim_entry(
-            "<1!2.1",
+            ">=2.0.1,<1!2.1",
             package="policyengine-us",
             version="1!2.0.1",
             declared_by=DECLARED_BY,

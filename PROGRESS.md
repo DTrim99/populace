@@ -103,24 +103,33 @@ each with a test that fails before and passes after.
 - **L3** — the narrowing loop calls a Core pin change a narrowed "claim",
   although no producer can declare a Core range; reword.
 - **I2** — doc only: a prerelease built-with version cannot carry a range, so
-  the exact default pin is the only option there.
+  the exact default pin is the only option there. (Filed as such; the premise
+  did not survive measurement — see "Done".)
 
 ### Done
 
 - **M1.** A third boundedness probe in `compatibility_claim_entry` asks whether
   the claim still admits `Version(f"{tested.epoch}!0")`. Measured first:
   `Version("0") in SpecifierSet("<2.1")` is `True`, and `False` for
-  `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` and `>=2.0.1,<3`; the epoch form
-  `Version("1!0")` is in `<1!2.1` and not in `>=1!2.0.1,<1!2.1`. `<2.1` and
-  `<=2.0.5` moved from the accepted parameters to the refused ones, a
+  `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` and `>=2.0.1,<3`. `<2.1` and `<=2.0.5`
+  moved from the accepted parameters to the refused ones, a
   certification-level `policyengine-us<2` case was added, and the next-major
   error text now cites `'>=2.0.1,<2.1'` instead of the `'<2.1'` the new probe
-  refuses. Four tests failed before, pass after.
+  refuses. Four tests failed before, pass after. The probe carries the tested
+  version's epoch because a claim may mix epochs: over a `1!2.0.1` build,
+  `>=2.0.1,<1!2.1` admits `1!0` while excluding a bare `Version("0")`. The
+  first draft justified that backwards — claiming an epoch-0 zero sits outside
+  an epoch-bearing claim, when `Version("0") in SpecifierSet("<1!2.1")` is
+  `True` — and its test survived replacing the probe with a bare
+  `Version("0")`. Corrected after the third pass; the test now uses the
+  mixed-epoch claim and kills that mutant.
 - **L1.** `recorded_narrowed_claims` reads the record back, and both validation
   (`python -m microcosm.data.source_enrichment` without `--certify`) and
   `microcosm-publish-release --preflight-only` print `narrowed_claims` beside
-  their verdict when a bundle carries one. It reports rather than gates: an
-  absent or malformed record reads as no record. Two tests failed before.
+  their verdict when a bundle carries one; publication repeats it on stderr,
+  since reaching publication does not require running the preflight first.
+  It reports rather than gates: an absent or malformed record reads as no
+  record. Three tests failed before.
 - **L2.** The "pass the flags" suffix is gated on `claim_specifier is None`.
   Both branches tested through a re-certification that tightens a declared
   range (`>=1.998.0,<2` → `>=1.999.0,<2`): warns, no suffix.

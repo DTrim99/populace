@@ -722,10 +722,11 @@ def compatibility_claim_entry(
     # Bounding a claim above says nothing about how far below it reaches. A
     # bare '<2.1' contains the tested version and neither probe above, yet
     # certifies every release the package ever made — including ones predating
-    # the native-input loader path this qualification measures. Probe the
-    # bottom of the tested version's own epoch for the same reason the probes
-    # above carry it: an epoch-bearing claim is open below within its epoch,
-    # and an epoch-0 zero would sit outside it.
+    # the native-input loader path this qualification measures. The probe sits
+    # at the floor of the tested version's own epoch because a claim may mix
+    # epochs: '>=2.0.1,<1!2.1' over a 1!2.0.1 build is open below within epoch
+    # 1, admitting 1!0, while excluding the epoch-0 floor — which sorts under
+    # every epoch-1 release, so a probe at a bare Version('0') would pass it.
     no_lower_bound = Version(f"{tested.epoch}!0")
     if no_lower_bound in specifier_set:
         raise ValueError(
