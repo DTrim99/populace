@@ -924,6 +924,9 @@ def test_declared_model_range_is_emitted_verbatim_and_replayed_by_preflight(
         ("policyengine-us>=1.999.0", "reaches 2.0.0 and beyond"),
         ("policyengine-us>=1.999.0,!=99999", "reaches 2.0.0 and beyond"),
         ("policyengine-us>=1.999.0,<99998", "reaches 2.0.0 and beyond"),
+        # Excluding exactly the next major walks past that probe while still
+        # certifying every release after it, which the far-future probe catches.
+        ("policyengine-us>=1.999.0,!=2.0.0", "still admits 99999.0.0"),
         ("policyengine-us", "needs a PEP 440 specifier"),
         ("policyengine-us[us]>=1.999.0,<2", "bare name and specifier"),
         (

@@ -31,6 +31,10 @@ COMPATIBILITY_FILE = "source_enrichment_compatibility.json"
 #: the tested version, as it always has: no producer can declare a Core range,
 #: so the validator must not honour one either.
 CLAIM_FIELD = "model"
+#: Second boundedness probe for a publisher claim. A claim may exclude the next
+#: major version by name, so the guard also asks whether it still admits a
+#: version no release will reach.
+_FAR_FUTURE_PROBE_MAJOR = 99999
 COMPATIBILITY_PACKAGES = (
     "policyengine-us",
     "policyengine-core",
@@ -675,6 +679,19 @@ def compatibility_claim_entry(
             f"{next_major} and beyond; a claim measured against {package} "
             f"{version} must stop below the next major version, as '<2.1' or "
             "'~=2.0.1' do"
+        )
+    # A range that punches a hole at exactly the next major ('>=2.0.1,!=3.0.0')
+    # passes the probe above while still certifying 4.x and 5.x, so probe far
+    # past any version this package will plausibly reach as well. Two probes are
+    # a bound check, not a proof of boundedness: a claim contrived to exclude
+    # both while admitting versions between them would still pass.
+    far_future = Version(f"{tested.epoch}!{_FAR_FUTURE_PROBE_MAJOR}.0.0")
+    if far_future in specifier_set:
+        raise ValueError(
+            f"publisher compatibility claim {specifier!r} still admits "
+            f"{far_future}; a claim measured against {package} {version} must "
+            f"stop below {next_major} with an upper bound, not by excluding "
+            "single versions from an open range"
         )
     return {
         "name": package,

@@ -197,9 +197,15 @@ The tooling refuses a claim that:
   the consumers apply (`microcosm.data.loader._package_certification` and
   policyengine.py's `provenance.manifest._specifier_matches`), so a claim that
   is accepted here is a claim they will honour;
-- reaches the next major version (`>=2.0.1`, `!=2.0.5`, `<3.0.1` over a 2.x
-  build), which would outlive the runtime it was measured against — write
-  `>=2.0.1,<2.1`, `~=2.0.1` or `==2.0.*`;
+- fails either boundedness probe. Over a 2.0.1 build the guard asks whether the
+  range still admits the next major version, `3.0.0`, and whether it still
+  admits a far-future `99999.0.0`. `>=2.0.1`, `!=2.0.5` and `>=2.0.1,<3.0.1`
+  fail the first; `>=2.0.1,!=3.0.0`, which excludes the next major by name while
+  still certifying 4.x, fails the second. Write a real upper bound instead:
+  `>=2.0.1,<2.1`, `~=2.0.1`, `==2.0.*` or `>=2.0.1,<3`. Two probes bound a
+  claim; they do not prove one is bounded. A specifier contrived to exclude both
+  probe versions while admitting others above the tested major would pass, so
+  declare an upper bound rather than a hole-punched open range;
 - arrives without `--compatibility-claim-declared-by`. A wider claim is the
   publisher's assertion rather than a measurement, so the bundle records who
   made it.
