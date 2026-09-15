@@ -152,10 +152,35 @@ each with a test that fails before and passes after.
   `packages/microcosm-data` and on every changed `.py`; repo-wide `ruff check`
   clean; `tools/ci_test_groups.py --verify` ok. Pushed as `54908cb26`.
 
+### Third adversarial pass
+
+Five read-only reviewers over the five changes (guard correctness, reporting
+path, wording and reachability, docs/claims audit, test quality), each finding
+put to an independent refuter: 33 raised, 2 survived. Both are fixed.
+
+- **The epoch rationale was a fabricated mechanism, and its test was inert.**
+  The comment and docstring said an epoch-0 zero sits outside an epoch-bearing
+  claim; `Version("0") in SpecifierSet("<1!2.1")` is `True`. The verifier
+  mutated the probe to a bare `Version("0")` and the whole file stayed green —
+  the test named for the epoch carry survived dropping it. The carry is
+  justified by mixed-epoch claims instead (`>=2.0.1,<1!2.1` over `1!2.0.1`
+  admits `1!0` and not `0`), which is the case the test now uses; the mutant
+  fails it.
+- **The record reached the preflight and not the publish run.** Already closed
+  mid-flight, before the pass reported it: publication repeats it on stderr,
+  since `tools/publish_release.sh` passes its arguments straight through and
+  the runbook's "remove `--preflight-only`" step is a habit, not a gate.
+
+Two refuted findings were worth acting on anyway. The documented probe residue
+is now executable on both sides (`<2.1,!=0` admits `0.9.0` exactly as
+`>=2.0.1,!=3.0.0,!=99999.0.0` admits `5.0`), so the sentence describing the
+guard's limit cannot drift from it. And `--certify` now reports the narrowing
+it caused in its own verdict, with `_narrowed_claims` giving all four verdicts
+one tolerance so none can report a bundle differently from the others.
+
 ### Next
 
-- PR CI on `54908cb26`, and an independent adversarial pass over the five
-  changes. Do not merge; do not mark ready.
+- PR CI. Do not merge; do not mark ready.
 
 ## Next
 
