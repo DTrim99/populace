@@ -830,6 +830,39 @@ def _claim_coverage_lost(previous, *, package, specifier, version):
     return None
 
 
+def _narrowing_notice(field, package, lost, *, offer_flags):
+    """Say what re-emitting a compatibility entry takes away.
+
+    ``model`` is the only field a publisher can declare a range for (see
+    :data:`CLAIM_FIELD`), so it is the only one with a claim to narrow. Core's
+    entry is always the exact tested pin; if it ever moved, the bundle would
+    drop every consumer on the old Core, which is worth saying — but saying it
+    narrows a Core *claim* would name a thing no producer can declare.
+
+    Core's wording is defence in depth rather than a path anyone walks today:
+    re-certification validates the input bundle first, and that gate requires
+    its recorded receipt to equal the current runtime, so a moved Core version
+    is refused before the emitted pin could differ from the carried one.
+    """
+    change = (
+        f"narrows the {package} compatibility claim"
+        if field == CLAIM_FIELD
+        else f"moves the {package} compatibility pin"
+    )
+    notice = (
+        f"certification {change} this bundle already carried: "
+        f"{', '.join(lost['previous_specifiers'])} covered "
+        f"{lost['first_version_no_longer_covered']} and the "
+        f"{lost['emitted_specifier']} this run emits does not."
+    )
+    if offer_flags:
+        notice += (
+            " Pass --compatible-model-specifier with "
+            "--compatibility-claim-declared-by to keep a declared range."
+        )
+    return notice
+
+
 def recorded_narrowed_claims(release_dir) -> dict:
     """Return the compatibility narrowing ``release_dir`` records, or ``{}``.
 
@@ -1319,19 +1352,14 @@ def certify_source_enrichment(
                 continue
             narrowed[field] = lost
             warnings.warn(
-                f"certification narrows the {package} compatibility claim this "
-                f"bundle already carried: "
-                f"{', '.join(lost['previous_specifiers'])} covered "
-                f"{lost['first_version_no_longer_covered']} and the "
-                f"{entry['specifier']} this run emits does not."
-                + (
-                    " Pass --compatible-model-specifier with "
-                    "--compatibility-claim-declared-by to keep a declared range."
+                _narrowing_notice(
+                    field,
+                    package,
+                    lost,
                     # Only the run that forgot them needs telling. Re-certifying
                     # with a tighter range is a deliberate narrowing, still
                     # worth naming, but its operator already passed the flags.
-                    if field == CLAIM_FIELD and claim_specifier is None
-                    else ""
+                    offer_flags=field == CLAIM_FIELD and claim_specifier is None,
                 ),
                 RuntimeWarning,
                 stacklevel=2,

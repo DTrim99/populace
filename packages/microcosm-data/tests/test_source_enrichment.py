@@ -1462,6 +1462,79 @@ def test_recertifying_with_the_same_range_narrows_nothing(
     assert "narrowed_claims" not in report["compatibility"]
 
 
+LOST_CORE = {
+    "previous_specifiers": ["==3.99.0"],
+    "emitted_specifier": "==3.100.0",
+    "first_version_no_longer_covered": "3.99.0",
+}
+
+
+def test_a_moved_core_pin_is_reported_as_a_pin_not_a_claim():
+    """Core has no claim to narrow: `CLAIM_FIELD` is `model` and only `model`.
+
+    The loop that names lost coverage runs over Core too, and it should — if a
+    bundle's Core pin ever moved it would drop every consumer on the old one.
+    But Core's entry is always the exact tested pin, so calling that a narrowed
+    "claim" would name a thing no producer can declare.
+    """
+    core = enrichment._narrowing_notice(
+        "core", "policyengine-core", LOST_CORE, offer_flags=False
+    )
+    assert core == (
+        "certification moves the policyengine-core compatibility pin this "
+        "bundle already carried: ==3.99.0 covered 3.99.0 and the ==3.100.0 "
+        "this run emits does not."
+    )
+    assert "claim" not in core
+    model = enrichment._narrowing_notice(
+        enrichment.CLAIM_FIELD,
+        "policyengine-us",
+        {
+            "previous_specifiers": [">=1.999.0,<2"],
+            "emitted_specifier": "==1.999.0",
+            "first_version_no_longer_covered": "1.999.1",
+        },
+        offer_flags=True,
+    )
+    assert model.startswith("certification narrows the policyengine-us ")
+    assert model.endswith(
+        REMEDIATION
+        + " with --compatibility-claim-declared-by to keep a declared range."
+    )
+
+
+def test_a_moved_core_runtime_is_refused_before_certification_narrows_anything(
+    candidate, tmp_path, monkeypatch
+):
+    """Why the Core branch above has no end-to-end test: it cannot be reached.
+
+    Re-certification validates the input bundle first, and that gate re-runs
+    the loader qualification and requires the recorded receipt to equal the
+    current runtime. A Core version that moved fails there, before the emitted
+    pin could differ from the one the bundle carries. The Core branch stays in
+    the loop as defence in depth — a silent revert is what the warning exists
+    to prevent — but this is the wall it sits behind.
+    """
+    _, parent, root = candidate
+    output, _ = _qualify_candidate(candidate, tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        enrichment,
+        "run_native_loader_compatibility",
+        lambda *args, **kwargs: {
+            "status": "passed",
+            "dataset_sha256": enrichment.sha256_file(root / "populace_us_2024.h5"),
+            "packages": {
+                "policyengine-us": {"version": "1.999.0"},
+                "policyengine-core": {"version": "3.100.0"},
+                "policyengine": {"version": "5.99.0"},
+                "spm-calculator": {"version": "1.0.0"},
+            },
+        },
+    )
+    with pytest.raises(ReleaseContractError, match="receipt differs from actual"):
+        _recertify(output, candidate, tmp_path, monkeypatch, "newer-core")
+
+
 def test_first_certification_narrows_nothing(candidate, tmp_path, monkeypatch):
     """A pending candidate declares no compatibility, so there is none to lose."""
     with warnings.catch_warnings(record=True) as caught:

@@ -193,6 +193,12 @@ just `passed`. A bundle that gave nothing up prints no such key.
 
 Only the **model** field may be widened. Core keeps the exact pin it has always
 had, and a `core` key in `publisher_claims` is refused rather than honoured.
+The coverage warning covers Core as defence in depth, and words it as a pin
+moving rather than a claim narrowing, because there is no Core claim to narrow.
+Nothing reaches that wording today: re-certification validates the input bundle
+first, and that gate requires its recorded receipt to equal the current runtime,
+so a Core version that moved is refused before the emitted pin could differ from
+the carried one.
 
 This is a record of who claimed what, not a tamper-proof seal. The report's
 SHA256 lives in the manifest's own `artifacts` map, so widening a certified
