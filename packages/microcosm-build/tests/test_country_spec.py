@@ -926,7 +926,6 @@ class TestUKCountryPackage:
             "gates.json",
             "brma_rent_counts.json",
             "calibration_measure_exclusions.json",
-            "hmrc_cgt_size_bands.json",
             "hmrc_cgt_conditioning_facts.json",
             "advani_summers_capital_gains_distribution.json",
             "salary_sacrifice_anchor.json",
@@ -1032,7 +1031,6 @@ class TestExistingPackagesGeneralize:
             "gates.json",
             "brma_rent_counts.json",
             "calibration_measure_exclusions.json",
-            "hmrc_cgt_size_bands.json",
             "hmrc_cgt_conditioning_facts.json",
             "advani_summers_capital_gains_distribution.json",
             "salary_sacrifice_anchor.json",
@@ -1100,10 +1098,12 @@ class TestExistingPackagesGeneralize:
 
         references = {reference.name: reference for reference in spec.target_references}
         assert (
-            len(references) == 631
+            len(references) == 703
         )  # microcosm#905: 424 - 18 country rows + 189 region-tier cells;
         # microcosm#929: the 81 VOA region cells become 81 composed MHCLG
-        # cells and Wales gains ten country rows (bands A-I + total)
+        # cells and Wales gains ten country rows (bands A-I + total);
+        # microcosm#725/#467: 24 CGT age-band rows, 24 region-tier cells and
+        # 24 size-of-gain rows
         assert references["obr.esa"].value_operation == "sum"
         assert references["dwp.uc.households"].value_operation == (
             "monthly_window_sum_average"
