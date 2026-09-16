@@ -1,3 +1,50 @@
+# US engine lock → policyengine-us 2.2.1
+
+Lane: `engine-lock-pe-us-2.2.1`, off `origin/main` at `51c3143829b88382270f5af0714ae28fba14f803`,
+in the worktree `~/PolicyEngine/_worktrees/microcosm-engine-bump`. Started 2026-09-15.
+Everything below the `---` rule at the end of this section is prior-lane
+history; see "Root journals are history, not state" in `CLAUDE.md`.
+
+## State
+
+In progress. Nothing pushed yet.
+
+## Goal
+
+Move the US engine lock from policyengine-us 1.819.0 / spm-calculator 0.3.1 /
+policyengine-core 3.31.0 to policyengine-us **2.2.1** / spm-calculator **1.0.0** /
+policyengine-core **3.32.5** — the trio inside the certified claim for
+`populace-us-2024-spm-20260915`. Not 2.5.0: the claim names 2.2.1.
+
+Every fail-closed pin re-derived by its own generator; never a hand-edited digest.
+
+## Plan
+
+1. Constraints (`microcosm-build`, `microcosm-data[us]`, `microcosm-frame[policyengine]`)
+   `>=1.745.0,<2` → `>=2.2.1,<3`; relock; verify the trio.
+2. Read policyengine-us CHANGELOG 1.819.0 → 2.2.1; enumerate every entry that
+   touches a variable microcosm reads/writes/seeds/scores.
+3. Re-derive the fail-closed pins: frame adapter generated-source audit, US
+   engine ABI lock, `ENGINE_PUBLIC_PARAMETER_FILES` RECORD digests, take-up
+   contract, per-test `version("policyengine-us")` literals, the release input
+   coverage manifest prose + artifact.
+4. The 2.0.0 SPM-area breaking change: per-call-site explicit selection.
+5. Identity re-pins downstream of the engine, through their generators.
+6. Tests exactly as CI runs them (`tools/ci_test_groups.py` shards) plus the
+   engine-free reproduction.
+7. Changelog fragment.
+8. Push + draft PR (root gates the merge).
+
+## Done
+
+- (nothing yet)
+
+## Next
+
+- Step 1.
+
+---
+
 # Publisher compatibility range at source-enrichment certification
 
 Lane: `max/certify-compatible-model-range-20260914`, off `origin/main` at
