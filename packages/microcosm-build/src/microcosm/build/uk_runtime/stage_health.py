@@ -786,6 +786,30 @@ def _cgt_imputation_summary_gate(
         if value < 0.0:
             failures.append(f"{stage}: {key} is negative.")
     details = {"band_rows": len(rows), "taxpayer_mass": evidence.get("taxpayer_mass")}
+    # The conditioned redraw (microcosm#725) reports its rake and fallback;
+    # a receipt that carries them must carry them finite and non-negative.
+    # No threshold is held yet: the first measured builds set it.
+    allocation = evidence.get("allocation")
+    if allocation is not None:
+        if not isinstance(allocation, Mapping):
+            raise ValueError(f"{stage}.allocation must be a mapping.")
+        rake = allocation.get("rake")
+        if not isinstance(rake, Mapping):
+            raise ValueError(f"{stage}.allocation.rake must be a mapping.")
+        for key in ("ipf_max_abs_margin_error", "ipf_zero_seed_cells"):
+            value = _finite_number(
+                rake.get(key), label=f"{stage}.allocation.rake.{key}"
+            )
+            if value < 0.0:
+                failures.append(f"{stage}: allocation.rake.{key} is negative.")
+        released = _finite_number(
+            allocation.get("fallback_released_mass"),
+            label=f"{stage}.allocation.fallback_released_mass",
+        )
+        if released < 0.0:
+            failures.append(f"{stage}: allocation.fallback_released_mass is negative.")
+        details["ipf_max_abs_margin_error"] = rake.get("ipf_max_abs_margin_error")
+        details["fallback_released_mass"] = released
     return (
         _fail(stage, check, failures, details)
         if failures
