@@ -1,24 +1,30 @@
-"""Price imputed domestic energy at the FY2024-25 Ofgem cap and rake in kWh (microcosm#890 F).
+"""Price imputed domestic energy at published average prices and rake it in kWh
+to the NEED shape at the DESNZ level (microcosm#890 F, chronicle#270).
 
-The LCFS diary and the consumption QRF carry energy as pounds. NEED publishes
-mean annual kWh by household income band, tenure, property type and region
-(England and Wales; Scotland by income, tenure and property). Ofgem publishes
-the price cap as a maximum annual charge at two consumption levels per
-charge-restriction region, payment method and fuel, not as per-unit rates.
-This module ties the three together under one declared operation,
-``price_energy_at_cap``:
+The LCFS diary and the consumption QRF carry energy as pounds. Four published
+facts turn that into a base-year (FY2024-25) frame under one declared
+operation, ``price_domestic_energy``:
 
-* unit rate = (benchmark-consumption level - nil-consumption level) / the
-  period's benchmark consumption, standing charge = the nil-consumption
-  level, both the fiscal-year mean of the four quarterly cap periods, in the
-  region the FRS region maps to (a declared crosswalk), including VAT at the
-  declared reduced rate, which the GB including-VAT rows must reproduce;
-* spend -> kWh = max(spend - standing charge, 0) / unit rate for connected
-  households (electricity: every household; gas: positive gas spend), so the
-  NEED margins can be raked in the unit NEED publishes;
-* kWh -> spend = kWh x unit rate + standing charge for connected households.
+* price: the DESNZ Quarterly Energy Prices average variable unit cost
+  (GBP/kWh) and fixed cost (GBP/yr) actually paid, by QEP price region and
+  payment method, including VAT (tables 2.2.4 and 2.3.4); the FRS region maps
+  to a price region through the committed crosswalk. spend -> kWh =
+  max(spend - fixed cost, 0) / unit cost for connected households
+  (electricity: every household; gas: connected households), and back;
+* connection: the published gas-connected share by region, gas meters over
+  electricity meters from the DESNZ subnational statistics; households the
+  diary marked with a trace of gas are disconnected lowest drawn gas first
+  until the region's design-weighted share is the published one;
+* shape: the NEED mean kWh by household income band, tenure, property type
+  and region (England and Wales; Scotland by income, tenure and property),
+  raked in kWh with gas over connected households;
+* level: DESNZ Energy Trends domestic consumption at actual temperature,
+  summed over the four quarters of the fiscal year, one factor per fuel on
+  the raked kWh so the frame's design-weighted total is the published one.
 
-Every rate, margin and fit is returned in receipts the stage records.
+Every price, share, margin, factor and fit is returned in receipts the stage
+records; the ``energy_rake`` stage-health gate recomputes the published
+values from the vendored rows and refuses a receipt raked to anything else.
 """
 
 from __future__ import annotations
@@ -38,21 +44,41 @@ from microcosm.build.raking import MarginSpec, iterative_proportional_fit
 from microcosm.build.source_manifest import SourceStageSpec
 from microcosm.build.uk_runtime.ledger_fact_vendoring import vendored_rows
 
-PRICE_ENERGY_AT_CAP_KIND = "price_energy_at_cap"
-UK_OFGEM_PRICE_CAP_RESOURCE = "ofgem_price_cap_facts.json"
+PRICE_DOMESTIC_ENERGY_KIND = "price_domestic_energy"
+UK_QEP_ENERGY_PRICES_RESOURCE = "qep_energy_prices.json"
+UK_DESNZ_DOMESTIC_ENERGY_RESOURCE = "desnz_domestic_energy_facts.json"
 UK_NEED_ENERGY_FACTS_RESOURCE = "need_energy_facts.json"
 UK_OFGEM_REGION_CROSSWALK_RESOURCE = "ofgem_region_crosswalk.json"
-CAP_LEVEL_CONCEPT = "ofgem.price_cap.cap_level"
-BENCHMARK_CONSUMPTION_CONCEPT = "ofgem.price_cap.benchmark_consumption"
 NEED_ELECTRICITY_CONCEPT = "desnz.need.household_electricity_consumption"
 NEED_GAS_CONCEPT = "desnz.need.household_gas_consumption"
 ENGLAND_AND_WALES_GEOGRAPHY_ID = "K04000001"
 SCOTLAND_GEOGRAPHY_ID = "S92000003"
+ELECTRICITY_FUEL = "electricity"
 GAS_FUEL = "gas"
 ELECTRICITY_KWH = "electricity_kwh"
 GAS_KWH = "gas_kwh"
+FUEL_OF_COLUMN = {ELECTRICITY_KWH: ELECTRICITY_FUEL, GAS_KWH: GAS_FUEL}
 GAS_CONNECTED_POSITIVE_SPEND = "positive_gas_spend"
-_VAT_CHECK_TOLERANCE = 1e-4
+GAS_CONNECTED_PUBLISHED_METER_SHARE = "published_meter_share"
+CONNECTION_RULE_METER_RATIO = "gas_meters_over_electricity_meters"
+DISCONNECT_LOWEST_DRAWN_GAS_FIRST = "lowest_drawn_gas_first"
+QEP_UNIT_COST_CONCEPTS: Mapping[str, str] = {
+    ELECTRICITY_FUEL: "desnz.qep.domestic_electricity_variable_unit_cost",
+    GAS_FUEL: "desnz.qep.domestic_gas_variable_unit_cost",
+}
+QEP_FIXED_COST_CONCEPTS: Mapping[str, str] = {
+    ELECTRICITY_FUEL: "desnz.qep.domestic_electricity_fixed_cost",
+    GAS_FUEL: "desnz.qep.domestic_gas_fixed_cost",
+}
+ENERGY_TRENDS_CONCEPTS: Mapping[str, str] = {
+    ELECTRICITY_KWH: "desnz.energy_trends.domestic_electricity_consumption",
+    GAS_KWH: "desnz.energy_trends.domestic_gas_consumption",
+}
+SUBNATIONAL_METER_CONCEPTS: Mapping[str, str] = {
+    ELECTRICITY_FUEL: "desnz.subnational.domestic_electricity_meter_count",
+    GAS_FUEL: "desnz.subnational.domestic_gas_meter_count",
+}
+_RELATIVE_FACT_TOLERANCE = 1e-9
 
 #: FRS categorical values -> NEED dimension ids. Categories absent here are
 #: outside the margin (the incumbent's deliberate leave-alone for converted
@@ -109,34 +135,37 @@ NEED_MARGIN_DIMENSIONS = {
 
 
 @dataclass(frozen=True)
-class EnergyCapRates:
-    """Fiscal-year mean unit rates (GBP/kWh) and standing charges (GBP/yr)."""
+class EnergyPrices:
+    """Average unit costs (GBP/kWh) and fixed costs (GBP/yr) per price region."""
 
-    fiscal_start: str
-    vat_rate: float
-    electricity_fuel: str
+    period_type: str
+    period_value: int
+    payment_method: str
     unit_rate: Mapping[tuple[str, str], float]
-    standing_charge: Mapping[tuple[str, str], float]
+    fixed_cost: Mapping[tuple[str, str], float]
     region_of_frs_region: Mapping[str, str]
-    gb_geography_id: str
+    uk_average_id: str
 
-    def region_for(self, frs_region: str) -> str:
+    def region_for(self, frs_region: str, fuel: str) -> str:
         try:
-            return self.region_of_frs_region[str(frs_region)]
+            region = self.region_of_frs_region[str(frs_region)]
         except KeyError as error:
             raise KeyError(
-                f"FRS region {frs_region!r} has no Ofgem charge-restriction region "
-                "in the declared crosswalk."
+                f"FRS region {frs_region!r} has no QEP price region in the declared "
+                "crosswalk."
             ) from error
-
-    def fuel_id(self, fuel: str) -> str:
-        return self.electricity_fuel if fuel == "electricity" else GAS_FUEL
+        if (region, fuel) not in self.unit_rate:
+            # QEP publishes no gas row for Northern Ireland: the UK average
+            # prices the fuel there, as the crosswalk declares.
+            return self.uk_average_id
+        return region
 
 
 @dataclass(frozen=True)
 class NeedMargins:
     """Mean kWh targets per margin, keyed by (geography id, NEED category id)."""
 
+    period_value: int
     targets: Mapping[str, Mapping[tuple[str, str], Mapping[str, float]]]
     income_bands: tuple[tuple[str, float, float], ...]
     receipt: dict[str, Any]
@@ -144,7 +173,7 @@ class NeedMargins:
 
 def pricing_operation(stage: SourceStageSpec) -> Mapping[str, Any] | None:
     for operation in stage.operations:
-        if operation.kind == PRICE_ENERGY_AT_CAP_KIND:
+        if operation.kind == PRICE_DOMESTIC_ENERGY_KIND:
             return dict(operation.parameters)
     return None
 
@@ -171,159 +200,145 @@ def fiscal_year_quarters(fiscal_start: str) -> tuple[str, ...]:
     )
 
 
-def cap_rates(parameters: Mapping[str, Any]) -> tuple[EnergyCapRates, dict[str, Any]]:
-    """Resolve the declared FY cap rates per charge-restriction region and fuel."""
+def _one_row(rows: Sequence[Mapping[str, Any]], *, what: str) -> Mapping[str, Any]:
+    if len(rows) != 1:
+        raise ValueError(f"{what}: expected one vendored row, found {len(rows)}.")
+    return rows[0]
+
+
+def qep_prices(parameters: Mapping[str, Any]) -> tuple[EnergyPrices, dict[str, Any]]:
+    """Resolve the declared QEP average prices per price region and fuel."""
 
     resource = str(parameters.get("resource") or "")
-    if resource != UK_OFGEM_PRICE_CAP_RESOURCE:
+    if resource != UK_QEP_ENERGY_PRICES_RESOURCE:
         raise ValueError(
-            f"price_energy_at_cap must read {UK_OFGEM_PRICE_CAP_RESOURCE!r}, "
+            f"{PRICE_DOMESTIC_ENERGY_KIND} must read {UK_QEP_ENERGY_PRICES_RESOURCE!r}, "
             f"not {resource!r}."
         )
     if str(parameters.get("crosswalk_resource")) != UK_OFGEM_REGION_CROSSWALK_RESOURCE:
-        raise ValueError("price_energy_at_cap must use the committed region crosswalk.")
-    crosswalk = load_ofgem_region_crosswalk()
-    mapping = {str(k): str(v) for k, v in crosswalk["mapping"].items()}
-    gb = str(crosswalk["gb_geography_id"])
-    fiscal_start = str(parameters["fiscal_start"])
-    quarters = fiscal_year_quarters(fiscal_start)
-    payment_method = str(parameters["payment_method"])
-    electricity_fuel = str(parameters["electricity_fuel"])
-    vat_rate = parameters.get("vat_rate")
-    if vat_rate is None:
         raise ValueError(
-            "price_energy_at_cap declares no vat_rate (the reduced VAT rate the GB "
-            "including-VAT rows must reproduce)."
+            f"{PRICE_DOMESTIC_ENERGY_KIND} must use the committed region crosswalk."
         )
-    vat_rate = float(vat_rate)
-    if not 0.0 <= vat_rate < 1.0:
-        raise ValueError("vat_rate must lie in [0, 1).")
-
-    def levels(
-        region: str, fuel: str, consumption_level: str, vat: str
-    ) -> dict[str, float]:
-        rows = vendored_rows(
-            resource,
-            concept=CAP_LEVEL_CONCEPT,
-            geography_id=region,
-            dimensions={
-                "fuel": fuel,
-                "consumption_level": consumption_level,
-                "payment_method": payment_method,
-                "vat_treatment": vat,
-            },
+    crosswalk = load_ofgem_region_crosswalk()
+    mapping = {str(k): str(v) for k, v in crosswalk["qep_price_region_mapping"].items()}
+    uk_average = str(crosswalk["qep_uk_average_id"])
+    period_type = str(parameters.get("period_type") or "")
+    if period_type not in {"fiscal_year", "calendar_year"}:
+        raise ValueError("period_type must be fiscal_year or calendar_year.")
+    period_value = int(parameters["period_value"])
+    payment_method = str(parameters["payment_method"])
+    vat_treatment = str(parameters.get("vat_treatment") or "")
+    if vat_treatment != "including_vat":
+        raise ValueError(
+            "vat_treatment must be including_vat: the frame's spend columns and "
+            "the bound ONS rows include VAT."
         )
-        by_quarter = {
-            str(row["period_coverage"]["start_date"]): float(row["value"])
-            for row in rows
-            if str(row["period_coverage"]["start_date"]) in quarters
-        }
-        missing = [q for q in quarters if q not in by_quarter]
-        if missing:
-            raise ValueError(
-                f"{resource}: {region} {fuel} {consumption_level} ({vat}) lacks "
-                f"cap levels for quarters starting {missing}."
-            )
-        return by_quarter
-
-    def benchmark_kwh(fuel: str) -> dict[str, float]:
-        rows = vendored_rows(
-            resource,
-            concept=BENCHMARK_CONSUMPTION_CONCEPT,
-            geography_id=gb,
-            dimensions={"fuel": fuel},
-        )
-        by_quarter = {
-            str(row["period_coverage"]["start_date"]): float(row["value"])
-            for row in rows
-            if str(row["period_coverage"]["start_date"]) in quarters
-        }
-        missing = [q for q in quarters if q not in by_quarter]
-        if missing:
-            raise ValueError(f"{resource}: benchmark kWh for {fuel} lacks {missing}.")
-        if any(value <= 0 for value in by_quarter.values()):
-            raise ValueError(f"{resource}: benchmark kWh for {fuel} must be positive.")
-        return by_quarter
-
-    # The GB rows carry both VAT treatments: the declared rate must reproduce
-    # the publisher's own including-VAT levels before it is applied anywhere.
-    vat_checks: list[dict[str, Any]] = []
-    for fuel in (electricity_fuel, GAS_FUEL):
-        for level in ("benchmark_consumption", "nil_consumption"):
-            excl = levels(gb, fuel, level, "excluding_vat")
-            incl = levels(gb, fuel, level, "including_vat")
-            for quarter in quarters:
-                ratio = incl[quarter] / excl[quarter]
-                vat_checks.append(
-                    {"fuel": fuel, "level": level, "quarter": quarter, "ratio": ratio}
-                )
-                if abs(ratio - (1.0 + vat_rate)) > _VAT_CHECK_TOLERANCE:
-                    raise ValueError(
-                        f"{resource}: GB {fuel} {level} {quarter} including/excluding "
-                        f"VAT ratio {ratio:.5f} does not match the declared "
-                        f"vat_rate {vat_rate}."
-                    )
-    regions = sorted({*mapping.values(), gb})
+    metering = str(parameters.get("metering_arrangement") or "standard")
+    regions = sorted({*mapping.values(), uk_average})
     unit_rate: dict[tuple[str, str], float] = {}
-    standing_charge: dict[tuple[str, str], float] = {}
+    fixed_cost: dict[tuple[str, str], float] = {}
     by_region: dict[str, dict[str, Any]] = {}
-    kwh = {fuel: benchmark_kwh(fuel) for fuel in (electricity_fuel, GAS_FUEL)}
     for region in regions:
         by_region[region] = {}
-        for fuel in (electricity_fuel, GAS_FUEL):
-            benchmark = levels(region, fuel, "benchmark_consumption", "excluding_vat")
-            nil = levels(region, fuel, "nil_consumption", "excluding_vat")
-            unit_quarters = {
-                q: (benchmark[q] - nil[q]) / kwh[fuel][q] * (1.0 + vat_rate)
-                for q in quarters
+        for fuel in (ELECTRICITY_FUEL, GAS_FUEL):
+            dims = {
+                "payment_method": payment_method,
+                "vat_treatment": vat_treatment,
+                "fuel": fuel,
             }
-            charge_quarters = {q: nil[q] * (1.0 + vat_rate) for q in quarters}
-            if any(value <= 0 for value in unit_quarters.values()):
-                raise ValueError(
-                    f"{resource}: {region} {fuel} unit rate must be positive."
-                )
-            unit_rate[(region, fuel)] = float(np.mean(list(unit_quarters.values())))
-            standing_charge[(region, fuel)] = float(
-                np.mean(list(charge_quarters.values()))
+            if fuel == ELECTRICITY_FUEL:
+                dims["metering_arrangement"] = metering
+            unit_rows = vendored_rows(
+                resource,
+                concept=QEP_UNIT_COST_CONCEPTS[fuel],
+                period_type=period_type,
+                period_value=period_value,
+                groupby_value_id=region,
+                dimensions={**dims, "price_component": "variable_unit_cost"},
             )
+            fixed_rows = vendored_rows(
+                resource,
+                concept=QEP_FIXED_COST_CONCEPTS[fuel],
+                period_type=period_type,
+                period_value=period_value,
+                groupby_value_id=region,
+                dimensions={**dims, "price_component": "fixed_cost"},
+            )
+            if not unit_rows and not fixed_rows and fuel == GAS_FUEL:
+                # No published gas row for this price region (Northern Ireland).
+                continue
+            unit = _one_row(unit_rows, what=f"{resource}: {region} {fuel} unit cost")
+            if str(unit.get("unit")) != "gbp_per_kwh":
+                raise ValueError(
+                    f"{resource}: {region} {fuel} unit cost is not gbp_per_kwh."
+                )
+            unit_value = float(unit["value"])
+            if fixed_rows:
+                fixed = _one_row(
+                    fixed_rows, what=f"{resource}: {region} {fuel} fixed cost"
+                )
+                if str(fixed.get("unit")) != "gbp_per_year":
+                    raise ValueError(
+                        f"{resource}: {region} {fuel} fixed cost is not gbp_per_year."
+                    )
+                fixed_value = float(fixed["value"])
+                fixed_record = str(fixed.get("source_record_id", ""))
+            elif fuel == ELECTRICITY_FUEL and region != uk_average:
+                # QEP publishes no fixed cost for Northern Ireland electricity:
+                # its standard tariffs carry the whole charge in the unit rate,
+                # so the fixed cost is zero there, a translation the receipt names.
+                fixed_value = 0.0
+                fixed_record = ""
+            else:
+                raise ValueError(f"{resource}: {region} {fuel} lacks a fixed cost row.")
+            if unit_value <= 0 or fixed_value < 0:
+                raise ValueError(
+                    f"{resource}: {region} {fuel} prices must be positive."
+                )
+            unit_rate[(region, fuel)] = unit_value
+            fixed_cost[(region, fuel)] = fixed_value
             by_region[region][fuel] = {
-                "unit_rate_gbp_per_kwh": unit_rate[(region, fuel)],
-                "standing_charge_gbp_per_year": standing_charge[(region, fuel)],
-                "quarterly_unit_rates": unit_quarters,
-                "quarterly_standing_charges": charge_quarters,
-                "benchmark_kwh": kwh[fuel],
+                "unit_rate_gbp_per_kwh": unit_value,
+                "fixed_cost_gbp_per_year": fixed_value,
+                "fixed_cost_published": bool(fixed_rows),
+                "source_record_ids": [
+                    record
+                    for record in (str(unit.get("source_record_id", "")), fixed_record)
+                    if record
+                ],
             }
-    rates = EnergyCapRates(
-        fiscal_start=fiscal_start,
-        vat_rate=vat_rate,
-        electricity_fuel=electricity_fuel,
+    for fuel in (ELECTRICITY_FUEL, GAS_FUEL):
+        if (uk_average, fuel) not in unit_rate:
+            raise ValueError(f"{resource}: no {fuel} prices for {uk_average!r}.")
+    prices = EnergyPrices(
+        period_type=period_type,
+        period_value=period_value,
+        payment_method=payment_method,
         unit_rate=unit_rate,
-        standing_charge=standing_charge,
+        fixed_cost=fixed_cost,
         region_of_frs_region=mapping,
-        gb_geography_id=gb,
+        uk_average_id=uk_average,
+    )
+    gas_at_uk_average = sorted(
+        frs
+        for frs, region in mapping.items()
+        if prices.region_for(frs, GAS_FUEL) == uk_average and region != uk_average
     )
     receipt = {
-        "operation": PRICE_ENERGY_AT_CAP_KIND,
+        "operation": PRICE_DOMESTIC_ENERGY_KIND,
         "resource": resource,
         "crosswalk_resource": UK_OFGEM_REGION_CROSSWALK_RESOURCE,
-        "fiscal_start": fiscal_start,
-        "quarters": list(quarters),
+        "period_type": period_type,
+        "period_value": period_value,
         "payment_method": payment_method,
-        "electricity_fuel": electricity_fuel,
-        "vat_rate": vat_rate,
-        "vat_parameter_path": parameters.get("vat_parameter_path"),
-        "vat_check": {
-            "rows": len(vat_checks),
-            "min_ratio": min(check["ratio"] for check in vat_checks),
-            "max_ratio": max(check["ratio"] for check in vat_checks),
-        },
-        "gas_connected": str(
-            parameters.get("gas_connected", GAS_CONNECTED_POSITIVE_SPEND)
-        ),
+        "vat_treatment": vat_treatment,
+        "metering_arrangement": metering,
         "region_of_frs_region": dict(mapping),
-        "rates_by_region": by_region,
+        "uk_average_id": uk_average,
+        "gas_priced_at_uk_average": gas_at_uk_average,
+        "prices_by_region": by_region,
     }
-    return rates, receipt
+    return prices, receipt
 
 
 def spend_to_kwh(
@@ -331,20 +346,22 @@ def spend_to_kwh(
     *,
     frs_region: Sequence[str],
     fuel: str,
-    rates: EnergyCapRates,
+    prices: EnergyPrices,
     connected: np.ndarray | None = None,
 ) -> np.ndarray:
-    """kWh = max(spend - standing charge, 0) / unit rate for connected rows, else 0."""
+    """kWh = max(spend - fixed cost, 0) / unit cost for connected rows, else 0."""
 
     values = np.asarray(spend, dtype=float)
     regions = np.asarray(frs_region).astype(str)
-    fuel_id = rates.fuel_id(fuel)
     unit = np.asarray(
-        [rates.unit_rate[(rates.region_for(region), fuel_id)] for region in regions]
-    )
-    charge = np.asarray(
         [
-            rates.standing_charge[(rates.region_for(region), fuel_id)]
+            prices.unit_rate[(prices.region_for(region, fuel), fuel)]
+            for region in regions
+        ]
+    )
+    fixed = np.asarray(
+        [
+            prices.fixed_cost[(prices.region_for(region, fuel), fuel)]
             for region in regions
         ]
     )
@@ -353,8 +370,7 @@ def spend_to_kwh(
         if connected is None
         else np.asarray(connected, dtype=bool)
     )
-    kwh = np.where(mask, np.maximum(values - charge, 0.0) / unit, 0.0)
-    return kwh
+    return np.where(mask, np.maximum(values - fixed, 0.0) / unit, 0.0)
 
 
 def kwh_to_spend(
@@ -362,20 +378,22 @@ def kwh_to_spend(
     *,
     frs_region: Sequence[str],
     fuel: str,
-    rates: EnergyCapRates,
+    prices: EnergyPrices,
     connected: np.ndarray | None = None,
 ) -> np.ndarray:
-    """spend = kWh x unit rate + standing charge for connected rows, else 0."""
+    """spend = kWh x unit cost + fixed cost for connected rows, else 0."""
 
     values = np.asarray(kwh, dtype=float)
     regions = np.asarray(frs_region).astype(str)
-    fuel_id = rates.fuel_id(fuel)
     unit = np.asarray(
-        [rates.unit_rate[(rates.region_for(region), fuel_id)] for region in regions]
-    )
-    charge = np.asarray(
         [
-            rates.standing_charge[(rates.region_for(region), fuel_id)]
+            prices.unit_rate[(prices.region_for(region, fuel), fuel)]
+            for region in regions
+        ]
+    )
+    fixed = np.asarray(
+        [
+            prices.fixed_cost[(prices.region_for(region, fuel), fuel)]
             for region in regions
         ]
     )
@@ -384,7 +402,247 @@ def kwh_to_spend(
         if connected is None
         else np.asarray(connected, dtype=bool)
     )
-    return np.where(mask, np.maximum(values, 0.0) * unit + charge, 0.0)
+    return np.where(mask, np.maximum(values, 0.0) * unit + fixed, 0.0)
+
+
+def published_gas_connected_shares(
+    parameters: Mapping[str, Any],
+) -> tuple[dict[str, float | None], dict[str, Any]]:
+    """Gas meters over electricity meters per FRS region from the DESNZ subnational rows.
+
+    Regions without a subnational area in the crosswalk (Northern Ireland)
+    carry ``None`` and keep the stage's declared fallback rule.
+    """
+
+    resource = str(parameters.get("connection_resource") or "")
+    if resource != UK_DESNZ_DOMESTIC_ENERGY_RESOURCE:
+        raise ValueError(
+            f"connection_resource must be {UK_DESNZ_DOMESTIC_ENERGY_RESOURCE!r}, "
+            f"not {resource!r}."
+        )
+    rule = str(parameters.get("connection_rule") or "")
+    if rule != CONNECTION_RULE_METER_RATIO:
+        raise ValueError(f"connection_rule must be {CONNECTION_RULE_METER_RATIO!r}.")
+    period_value = int(parameters["connection_period_value"])
+    fallback = str(parameters.get("connection_fallback") or "")
+    if fallback != GAS_CONNECTED_POSITIVE_SPEND:
+        raise ValueError(
+            f"connection_fallback must be {GAS_CONNECTED_POSITIVE_SPEND!r} (the rule "
+            "for regions without a published meter count)."
+        )
+    crosswalk = load_ofgem_region_crosswalk()
+    areas = crosswalk["subnational_area_mapping"]
+    shares: dict[str, float | None] = {}
+    by_region: dict[str, dict[str, Any]] = {}
+    for frs_region, area in areas.items():
+        if area is None:
+            shares[str(frs_region)] = None
+            by_region[str(frs_region)] = {"area": None, "rule": fallback}
+            continue
+        counts: dict[str, float] = {}
+        record_ids: list[str] = []
+        for fuel in (GAS_FUEL, ELECTRICITY_FUEL):
+            row = _one_row(
+                vendored_rows(
+                    resource,
+                    concept=SUBNATIONAL_METER_CONCEPTS[fuel],
+                    geography_id=str(area),
+                    period_value=period_value,
+                    dimensions={"metric": "meter_count", "fuel": fuel},
+                ),
+                what=f"{resource}: {area} {fuel} meter count {period_value}",
+            )
+            if str(row.get("unit")) != "count":
+                raise ValueError(f"{resource}: {area} {fuel} meters are not a count.")
+            counts[fuel] = float(row["value"])
+            record_ids.append(str(row.get("source_record_id", "")))
+        if counts[ELECTRICITY_FUEL] <= 0:
+            raise ValueError(f"{resource}: {area} has no electricity meters.")
+        share = counts[GAS_FUEL] / counts[ELECTRICITY_FUEL]
+        if not 0.0 < share <= 1.0:
+            raise ValueError(
+                f"{resource}: {area} gas-connected share {share} is not in (0, 1]."
+            )
+        shares[str(frs_region)] = share
+        by_region[str(frs_region)] = {
+            "area": str(area),
+            "gas_meters": counts[GAS_FUEL],
+            "electricity_meters": counts[ELECTRICITY_FUEL],
+            "share": share,
+            "source_record_ids": record_ids,
+        }
+    receipt = {
+        "rule": GAS_CONNECTED_PUBLISHED_METER_SHARE,
+        "connection_rule": rule,
+        "resource": resource,
+        "period_value": period_value,
+        "fallback": fallback,
+        "by_region": by_region,
+    }
+    return shares, receipt
+
+
+def impose_gas_connection(
+    gas_kwh: Sequence[float],
+    *,
+    frs_region: Sequence[str],
+    weights: Sequence[float],
+    shares: Mapping[str, float | None],
+    disconnect_rule: str = DISCONNECT_LOWEST_DRAWN_GAS_FIRST,
+) -> tuple[np.ndarray, dict[str, Any]]:
+    """The gas-connected mask after imposing each region's published share.
+
+    Within a region whose design-weighted share of gas-positive households
+    exceeds the published share, gas-positive households are disconnected in
+    ascending order of drawn gas kWh (a trace of diary gas is the likeliest
+    false connection) until the share is nearest the published one. A region
+    below its published share keeps every gas-positive household (the draw
+    cannot create connections) and the shortfall is receipted. Regions with
+    no published share (``None``) keep the positive-gas rule.
+    """
+
+    if disconnect_rule != DISCONNECT_LOWEST_DRAWN_GAS_FIRST:
+        raise ValueError(
+            f"disconnect_rule must be {DISCONNECT_LOWEST_DRAWN_GAS_FIRST!r}."
+        )
+    gas = np.asarray(gas_kwh, dtype=float)
+    regions = np.asarray(frs_region).astype(str)
+    weight = np.asarray(weights, dtype=float)
+    if not (len(gas) == len(regions) == len(weight)):
+        raise ValueError("gas_kwh, frs_region and weights must align.")
+    connected = gas > 0
+    by_region: dict[str, dict[str, Any]] = {}
+    for region in sorted(set(regions)):
+        rows = np.flatnonzero(regions == region)
+        total = float(weight[rows].sum())
+        positive = rows[connected[rows]]
+        before = float(weight[positive].sum()) / total if total > 0 else 0.0
+        target = shares.get(region)
+        entry: dict[str, Any] = {
+            "rows": int(len(rows)),
+            "share_before": before,
+            "target_share": target,
+        }
+        if target is None:
+            entry.update({"rule": GAS_CONNECTED_POSITIVE_SPEND, "share_after": before})
+            by_region[region] = entry
+            continue
+        if before <= target or len(positive) == 0:
+            entry.update(
+                {
+                    "rule": GAS_CONNECTED_PUBLISHED_METER_SHARE,
+                    "share_after": before,
+                    "rows_disconnected": 0,
+                    "weight_disconnected": 0.0,
+                    "shortfall": max(target - before, 0.0),
+                }
+            )
+            by_region[region] = entry
+            continue
+        order = positive[np.argsort(gas[positive], kind="stable")]
+        cumulative = np.cumsum(weight[order])
+        excess = (before - target) * total
+        # The prefix whose removal leaves the share nearest the published one.
+        deviations = np.abs(cumulative - excess)
+        count = int(np.argmin(deviations)) + 1
+        if abs(0.0 - excess) < deviations[count - 1]:
+            count = 0
+        drop = order[:count]
+        connected[drop] = False
+        after = float(weight[rows[connected[rows]]].sum()) / total
+        entry.update(
+            {
+                "rule": GAS_CONNECTED_PUBLISHED_METER_SHARE,
+                "share_after": after,
+                "rows_disconnected": int(len(drop)),
+                "weight_disconnected": float(weight[drop].sum()),
+                "shortfall": 0.0,
+            }
+        )
+        by_region[region] = entry
+    total_weight = float(weight.sum())
+    receipt = {
+        "disconnect_rule": disconnect_rule,
+        "share_before": float(weight[gas > 0].sum()) / total_weight
+        if total_weight > 0
+        else 0.0,
+        "share_after": float(weight[connected].sum()) / total_weight
+        if total_weight > 0
+        else 0.0,
+        "rows_disconnected": int(((gas > 0) & ~connected).sum()),
+        "by_region": by_region,
+    }
+    return connected, receipt
+
+
+def published_energy_level(
+    parameters: Mapping[str, Any],
+) -> tuple[dict[str, float], dict[str, Any]]:
+    """Fiscal-year domestic consumption per fuel (kWh) from the Energy Trends rows."""
+
+    resource = str(parameters.get("level_resource") or "")
+    if resource != UK_DESNZ_DOMESTIC_ENERGY_RESOURCE:
+        raise ValueError(
+            f"level_resource must be {UK_DESNZ_DOMESTIC_ENERGY_RESOURCE!r}, "
+            f"not {resource!r}."
+        )
+    fiscal_start = str(parameters["level_fiscal_start"])
+    quarters = fiscal_year_quarters(fiscal_start)
+    temperature = str(parameters.get("level_temperature_adjustment") or "")
+    if temperature != "actual_temperature":
+        raise ValueError(
+            "level_temperature_adjustment must be actual_temperature (the volume "
+            "households consumed, not a weather-corrected one)."
+        )
+    level: dict[str, float] = {}
+    by_fuel: dict[str, dict[str, Any]] = {}
+    geographies: set[str] = set()
+    for column, concept in ENERGY_TRENDS_CONCEPTS.items():
+        rows = vendored_rows(
+            resource,
+            concept=concept,
+            period_type="quarter",
+            dimensions={
+                "temperature_adjustment": temperature,
+                "frequency": "quarterly",
+            },
+        )
+        by_quarter: dict[str, float] = {}
+        record_ids: list[str] = []
+        for row in rows:
+            start = str((row.get("period_coverage") or {}).get("start_date"))
+            if start not in quarters:
+                continue
+            if start in by_quarter:
+                raise ValueError(f"{resource}: duplicate {concept} row for {start}.")
+            if str(row.get("unit")) != "kwh":
+                raise ValueError(f"{resource}: {concept} is not in kwh.")
+            by_quarter[start] = float(row["value"])
+            record_ids.append(str(row.get("source_record_id", "")))
+            geographies.add(str((row.get("geography") or {}).get("id")))
+        missing = [q for q in quarters if q not in by_quarter]
+        if missing:
+            raise ValueError(
+                f"{resource}: {concept} lacks quarters starting {missing}."
+            )
+        if any(value <= 0 for value in by_quarter.values()):
+            raise ValueError(f"{resource}: {concept} quarters must be positive.")
+        level[column] = float(sum(by_quarter.values()))
+        by_fuel[column] = {
+            "concept": concept,
+            "quarters": by_quarter,
+            "total_kwh": level[column],
+            "source_record_ids": record_ids,
+        }
+    receipt = {
+        "resource": resource,
+        "fiscal_start": fiscal_start,
+        "quarters": list(quarters),
+        "temperature_adjustment": temperature,
+        "geography_ids": sorted(geographies),
+        "by_fuel": by_fuel,
+    }
+    return level, receipt
 
 
 def need_geography(frs_region: Sequence[str]) -> np.ndarray:
@@ -425,14 +683,18 @@ def _income_band_edges(band_ids: Sequence[str]) -> tuple[tuple[str, float, float
 
 
 def need_margins_from_facts(
-    resource: str = UK_NEED_ENERGY_FACTS_RESOURCE, *, statistic: str = "mean"
+    resource: str = UK_NEED_ENERGY_FACTS_RESOURCE,
+    *,
+    period_value: int,
+    statistic: str = "mean",
 ) -> NeedMargins:
-    """Mean kWh per margin category from the vendored NEED rows, both geographies."""
+    """Mean kWh per margin category from the vendored NEED rows of one consumption year."""
 
     if resource != UK_NEED_ENERGY_FACTS_RESOURCE:
         raise ValueError(
             f"NEED margins must come from {UK_NEED_ENERGY_FACTS_RESOURCE!r}."
         )
+    period_value = int(period_value)
     targets: dict[str, dict[tuple[str, str], dict[str, float]]] = {
         margin: {} for margin in NEED_MARGIN_DIMENSIONS
     }
@@ -449,6 +711,8 @@ def need_margins_from_facts(
                         resource,
                         concept=concept,
                         geography_id=geography,
+                        period_type="calendar_year",
+                        period_value=period_value,
                         dimensions={"statistic": statistic},
                     )
                     if dimension in (row.get("dimensions") or {})
@@ -470,7 +734,9 @@ def need_margins_from_facts(
         # Scotland all-dwellings mean carried by the income table.
         all_dwellings = targets["income"].get((SCOTLAND_GEOGRAPHY_ID, "all_dwellings"))
         if all_dwellings is None:
-            raise ValueError(f"{resource}: Scotland lacks an all_dwellings row.")
+            raise ValueError(
+                f"{resource}: Scotland lacks an all_dwellings row for {period_value}."
+            )
         targets["region"][scotland_region] = dict(all_dwellings)
     for margin, cells in targets.items():
         for key, cell in cells.items():
@@ -479,10 +745,11 @@ def need_margins_from_facts(
     if not targets["region"] or all(
         g != SCOTLAND_GEOGRAPHY_ID for g, _ in targets["income"]
     ):
-        raise ValueError(f"{resource}: missing a NEED geography.")
+        raise ValueError(f"{resource}: missing a NEED geography for {period_value}.")
     bands = _income_band_edges(sorted({band for geography, band in targets["income"]}))
     receipt = {
         "resource": resource,
+        "period_value": period_value,
         "statistic": statistic,
         "geographies": [ENGLAND_AND_WALES_GEOGRAPHY_ID, SCOTLAND_GEOGRAPHY_ID],
         "translations": {
@@ -509,7 +776,9 @@ def need_margins_from_facts(
         },
         "source_record_ids": record_ids,
     }
-    return NeedMargins(targets=targets, income_bands=bands, receipt=receipt)
+    return NeedMargins(
+        period_value=period_value, targets=targets, income_bands=bands, receipt=receipt
+    )
 
 
 def income_band_ids(income: Sequence[float], margins: NeedMargins) -> np.ndarray:
@@ -532,8 +801,9 @@ def rake_energy_kwh(
     accommodation: Sequence[str] | None = None,
     use_region_margin: bool = False,
     gas_connected: Sequence[bool] | None = None,
+    level: Mapping[str, float] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Rake ``electricity_kwh`` and ``gas_kwh`` to the NEED margins.
+    """Rake ``electricity_kwh`` and ``gas_kwh`` to the NEED shape, then to the level.
 
     Margins are swept income -> tenure -> accommodation -> region per
     iteration (the incumbent's order); each household's categories are
@@ -546,6 +816,12 @@ def rake_energy_kwh(
     over its ``gas_connected`` rows only (the cell-mean IPF would otherwise
     spread a per-connected mean over unconnected zeros). Without a mask every
     row counts as connected.
+
+    ``level`` (published kWh per column) then scales every row of a fuel by
+    one factor so the weighted frame total equals the published volume: the
+    NEED means become the shape (every cell mean moves by the same factor,
+    which the fit block records as ``level_factor`` beside the ``shape_target``
+    and the levelled ``target``).
     """
 
     frame = table.copy()
@@ -643,22 +919,53 @@ def rake_energy_kwh(
     )
     zero_cells.extend(gas_raked.attrs.get("raking_zero_current_cells", ()))
     raked.loc[connected, GAS_KWH] = gas_raked[GAS_KWH].to_numpy(dtype=float)
+    raked.loc[~connected, GAS_KWH] = 0.0
     weight_values = (
         np.ones(len(frame), dtype=float)
         if weights is None
         else np.asarray(weights, dtype=float)
     )
-    fit = _rake_fit(raked, margins, fitted, connected, weight_values)
+    level_factor = {ELECTRICITY_KWH: 1.0, GAS_KWH: 1.0}
+    level_receipt: dict[str, Any] | None = None
+    if level is not None:
+        level_receipt = {}
+        for column in (ELECTRICITY_KWH, GAS_KWH):
+            published = float(level[column])
+            values = raked[column].to_numpy(dtype=float)
+            population = (
+                np.ones(len(frame), dtype=bool)
+                if column == ELECTRICITY_KWH
+                else connected
+            )
+            before = float(np.dot(values[population], weight_values[population]))
+            if before <= 0.0 or published <= 0.0:
+                raise ValueError(
+                    f"{column}: cannot level a frame total of {before} to {published}."
+                )
+            factor = published / before
+            raked[column] = values * factor
+            after = float(np.dot(raked[column].to_numpy(dtype=float), weight_values))
+            level_factor[column] = factor
+            level_receipt[column] = {
+                "published_kwh": published,
+                "frame_kwh_before": before,
+                "factor": factor,
+                "frame_kwh_after": after,
+            }
+    fit = _rake_fit(raked, margins, fitted, connected, weight_values, level_factor)
     receipt = {
         "unit": "kwh",
         "iterations": int(iterations),
         "weighted": weights is not None,
         "margins": list(fitted),
+        "margins_period_value": margins.period_value,
         "populated_cells": {margin: len(keys) for margin, keys in fitted.items()},
         "gas_rake_population": "gas_connected_rows",
         "gas_connected_rows": int(connected.sum()),
         "rows": int(len(frame)),
         "zero_current_cells": zero_cells,
+        "level_factor": dict(level_factor),
+        "level": level_receipt,
         "fit": fit,
     }
     return raked.drop(columns=[c for c in scratch if c in raked]), receipt
@@ -670,11 +977,14 @@ def _rake_fit(
     fitted: Mapping[str, Sequence[str]],
     connected: np.ndarray,
     weights: np.ndarray,
+    level_factor: Mapping[str, float],
 ) -> dict[str, Any]:
-    """Per margin: the design-weighted cell means after the rake against NEED.
+    """Per margin: the design-weighted cell means after the rake against NEED x level.
 
     Electricity is averaged over every row of a cell, gas over its connected
-    rows, the populations the rake itself used. The stage-time
+    rows, the populations the rake itself used. Each cell records the NEED
+    mean (``shape_target``), the fuel's ``level_factor`` and their product,
+    the ``target`` the levelled frame is held to. The stage-time
     ``energy_rake`` health check reads the maximum absolute relative
     deviation per margin and fuel from this block (microcosm#890: NEED is
     checked where the rake acts, at design weights, not on the calibrated
@@ -691,7 +1001,7 @@ def _rake_fit(
         worst = {ELECTRICITY_KWH: 0.0, GAS_KWH: 0.0}
         for key in keys:
             geo, category = key.split(":", 1)
-            target = margins.targets[margin][(geo, category)]
+            shape = margins.targets[margin][(geo, category)]
             rows = labels == key
             entry: dict[str, Any] = {}
             for fuel, values, population in (
@@ -706,13 +1016,14 @@ def _rake_fit(
                     if total_weight > 0
                     else None
                 )
+                target = shape[fuel] * float(level_factor[fuel])
                 deviation = (
-                    None
-                    if achieved is None or target[fuel] <= 0
-                    else achieved / target[fuel] - 1.0
+                    None if achieved is None or target <= 0 else achieved / target - 1.0
                 )
                 entry[fuel] = {
-                    "target": target[fuel],
+                    "shape_target": shape[fuel],
+                    "level_factor": float(level_factor[fuel]),
+                    "target": target,
                     "achieved": achieved,
                     "relative_deviation": deviation,
                     "weighted_rows": total_weight,

@@ -123,7 +123,7 @@ ALLOWED_SOURCE_OPERATION_KINDS = frozenset(
         "impute_workers_compensation_to_puf_support",
         "impute_weeks_unemployed_to_puf_support",
         "iterative_proportional_fit",
-        "price_energy_at_cap",
+        "price_domestic_energy",
         "rake_to_vendored_facts",
         "map_columns",
         "map_coded_amounts",

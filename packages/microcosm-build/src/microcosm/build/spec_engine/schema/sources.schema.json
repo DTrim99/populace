@@ -8171,16 +8171,21 @@
       "kind",
       "resource",
       "crosswalk_resource",
-      "fiscal_start",
+      "period_type",
+      "period_value",
       "payment_method",
-      "electricity_fuel",
-      "vat_parameter_path",
+      "vat_treatment",
       "columns",
-      "vat_rate"
+      "gas_connected",
+      "margins_resource",
+      "margins_period_value",
+      "level_resource",
+      "level_fiscal_start",
+      "level_temperature_adjustment"
      ],
      "properties": {
       "kind": {
-       "const": "price_energy_at_cap"
+       "const": "price_domestic_energy"
       },
       "resource": {
        "type": "string"
@@ -8188,20 +8193,25 @@
       "crosswalk_resource": {
        "type": "string"
       },
-      "fiscal_start": {
-       "type": "string"
+      "period_type": {
+       "enum": [
+        "fiscal_year",
+        "calendar_year"
+       ]
+      },
+      "period_value": {
+       "type": "integer"
       },
       "payment_method": {
        "type": "string"
       },
-      "electricity_fuel": {
+      "metering_arrangement": {
        "type": "string"
       },
-      "vat_parameter_path": {
-       "type": "string"
-      },
-      "vat_period": {
-       "type": "integer"
+      "vat_treatment": {
+       "enum": [
+        "including_vat"
+       ]
       },
       "columns": {
        "type": "object",
@@ -8221,16 +8231,47 @@
       },
       "gas_connected": {
        "enum": [
+        "positive_gas_spend",
+        "published_meter_share"
+       ]
+      },
+      "connection_resource": {
+       "type": "string"
+      },
+      "connection_period_value": {
+       "type": "integer"
+      },
+      "connection_rule": {
+       "enum": [
+        "gas_meters_over_electricity_meters"
+       ]
+      },
+      "connection_fallback": {
+       "enum": [
         "positive_gas_spend"
+       ]
+      },
+      "disconnect_rule": {
+       "enum": [
+        "lowest_drawn_gas_first"
        ]
       },
       "margins_resource": {
        "type": "string"
       },
-      "vat_rate": {
-       "type": "number",
-       "minimum": 0,
-       "exclusiveMaximum": 1
+      "margins_period_value": {
+       "type": "integer"
+      },
+      "level_resource": {
+       "type": "string"
+      },
+      "level_fiscal_start": {
+       "type": "string"
+      },
+      "level_temperature_adjustment": {
+       "enum": [
+        "actual_temperature"
+       ]
       }
      }
     }

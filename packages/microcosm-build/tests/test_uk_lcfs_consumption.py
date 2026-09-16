@@ -367,16 +367,22 @@ def test_post_imputation_rake_fits_all_four_need_margins_in_kwh() -> None:
     # Regression for the licensed-build finding: the manifest declares a
     # four-margin post-imputation rake (income -> tenure -> accommodation ->
     # region); the incumbent hits the tenure/accommodation cells to ~1 %.
-    # Since microcosm#890 the margins are the vendored NEED mean kWh and the
-    # rake runs in kWh at the FY2024-25 cap rates, geography by geography.
+    # Since microcosm#890 the margins are the vendored NEED mean kWh (the
+    # shape), the rake runs in kWh at the FY2024-25 QEP average prices paid,
+    # geography by geography, the gas connection is imposed at the published
+    # meter share and one factor per fuel levels the frame to the DESNZ total.
     from microcosm.build.country_spec import load_country_spec
     from microcosm.build.uk_runtime.energy_pricing import (
+        ELECTRICITY_KWH,
         ENGLAND_AND_WALES_GEOGRAPHY_ID,
+        GAS_KWH,
         SCOTLAND_GEOGRAPHY_ID,
         kwh_to_spend,
+        rake_energy_kwh,
         spend_to_kwh,
     )
     from microcosm.build.uk_runtime.lcfs_consumption import (
+        energy_spend_to_kwh,
         lcfs_energy_pricing,
         rake_recipient_energy,
     )
@@ -384,13 +390,14 @@ def test_post_imputation_rake_fits_all_four_need_margins_in_kwh() -> None:
     stage = load_country_spec("uk").sources.stage_map()["lcfs_consumption"]
     energy = lcfs_energy_pricing(stage)
     assert energy is not None
+    assert energy.gas_connected == "published_meter_share"
     rng = np.random.default_rng(3)
-    n = 600
+    n = 2400
     household = pd.DataFrame(
         {
             "electricity_consumption": rng.uniform(400.0, 2000.0, n),
             "gas_consumption": np.where(
-                rng.random(n) < 0.15, 0.0, rng.uniform(300.0, 1500.0, n)
+                rng.random(n) < 0.05, 0.0, rng.uniform(300.0, 1500.0, n)
             ),
         }
     )
@@ -410,6 +417,10 @@ def test_post_imputation_rake_fits_all_four_need_margins_in_kwh() -> None:
         weights=weights,
         iterations=50,
     )
+    elec = raked["electricity_consumption"].to_numpy(dtype=float)
+    gas = raked["gas_consumption"].to_numpy(dtype=float)
+    factor = receipt["level_factor"]
+    margins = energy.margins.targets
 
     def wmean_kwh(spend, fuel, mask):
         # NEED gas means are per gas-metered household: average gas over the
@@ -420,35 +431,67 @@ def test_post_imputation_rake_fits_all_four_need_margins_in_kwh() -> None:
             spend[mask],
             frs_region=region[mask],
             fuel=fuel,
-            rates=energy.rates,
+            prices=energy.prices,
             connected=None if fuel == "electricity" else spend[mask] > 0,
         )
         return float((kwh * weights[mask]).sum() / weights[mask].sum())
 
-    elec = raked["electricity_consumption"].to_numpy(dtype=float)
-    gas = raked["gas_consumption"].to_numpy(dtype=float)
-    margins = energy.margins.targets
-    # Region is the last margin swept, so it fits essentially exactly.
+    # Region is the last margin swept, so it fits the levelled target exactly.
     london = region == "LONDON"
-    target = margins["region"][(ENGLAND_AND_WALES_GEOGRAPHY_ID, "london")][
-        "electricity_kwh"
-    ]
+    target = (
+        margins["region"][(ENGLAND_AND_WALES_GEOGRAPHY_ID, "london")][ELECTRICITY_KWH]
+        * factor[ELECTRICITY_KWH]
+    )
     assert abs(wmean_kwh(elec, "electricity", london) - target) / target < 1e-6
     scotland = region == "SCOTLAND"
-    target = margins["region"][(SCOTLAND_GEOGRAPHY_ID, "all_dwellings")]["gas_kwh"]
+    target = (
+        margins["region"][(SCOTLAND_GEOGRAPHY_ID, "all_dwellings")][GAS_KWH]
+        * factor[GAS_KWH]
+    )
     assert abs(wmean_kwh(gas, "gas", scotland) - target) / target < 1e-6
+    assert receipt["fit"]["region"]["max_abs_relative_deviation"][GAS_KWH] < 1e-9
     # Earlier margins settle within a band over 50 iterations (the synthetic
     # categories are mutually inconsistent, so the sweep compromises), per
     # geography: E&W owner-occupiers against the E&W row, not Scotland's.
     ew_owner = np.isin(region, ["LONDON", "WALES"]) & (tenure == "OWNED_OUTRIGHT")
-    target = margins["tenure"][(ENGLAND_AND_WALES_GEOGRAPHY_ID, "owner_occupied")][
-        "gas_kwh"
-    ]
+    target = (
+        margins["tenure"][(ENGLAND_AND_WALES_GEOGRAPHY_ID, "owner_occupied")][GAS_KWH]
+        * factor[GAS_KWH]
+    )
     assert abs(wmean_kwh(gas, "gas", ew_owner) - target) / target < 0.15
+    # The level: the design-weighted kWh totals are the published DESNZ totals.
+    for fuel, spend in ((ELECTRICITY_KWH, elec), (GAS_KWH, gas)):
+        kwh = spend_to_kwh(
+            spend,
+            frs_region=region,
+            fuel=fuel.split("_")[0],
+            prices=energy.prices,
+            connected=None if fuel == ELECTRICITY_KWH else spend > 0,
+        )
+        assert float(np.dot(kwh, weights)) == pytest.approx(
+            energy.level[fuel], rel=1e-6
+        )
+        assert receipt["level"][fuel]["frame_kwh_after"] == pytest.approx(
+            energy.level[fuel], rel=1e-9
+        )
+    # The gas connection: each GB region sits at its published meter share
+    # (the synthetic draw starts at 95 % connected, above every share), and
+    # Northern Ireland keeps the positive-gas rule.
+    shares = energy.connection_shares
+    assert shares is not None
+    for name in ("LONDON", "WALES", "SCOTLAND"):
+        mask = region == name
+        achieved = float(weights[mask & (gas > 0)].sum() / weights[mask].sum())
+        assert abs(achieved - shares[name]) < 0.01, name
+        entry = receipt["gas_connection"]["by_region"][name]
+        assert entry["rows_disconnected"] > 0 and entry["shortfall"] == 0.0
+    ni = region == "NORTHERN_IRELAND"
+    assert receipt["gas_connection"]["by_region"]["NORTHERN_IRELAND"]["rule"] == (
+        "positive_gas_spend"
+    )
+    zero_gas = household["gas_consumption"].to_numpy() == 0.0
+    assert (gas[ni & ~zero_gas] > 0.0).all()
     # With tenure as the last margin swept it fits to the sweep's own tolerance.
-    from microcosm.build.uk_runtime.energy_pricing import GAS_KWH, rake_energy_kwh
-    from microcosm.build.uk_runtime.lcfs_consumption import energy_spend_to_kwh
-
     in_kwh = energy_spend_to_kwh(household, energy=energy, region=region)
     two_margin, _ = rake_energy_kwh(
         in_kwh,
@@ -466,31 +509,35 @@ def test_post_imputation_rake_fits_all_four_need_margins_in_kwh() -> None:
         (gas_two[connected_owner] * weights[connected_owner]).sum()
         / weights[connected_owner].sum()
     )
-    assert abs(fitted - target) / target < 1e-6
+    shape = margins["tenure"][(ENGLAND_AND_WALES_GEOGRAPHY_ID, "owner_occupied")][
+        GAS_KWH
+    ]
+    assert abs(fitted - shape) / shape < 1e-6
     # Northern Ireland has no NEED table: untouched by every margin, so its
-    # spend round-trips through the GB-average pricing unchanged.
-    ni = region == "NORTHERN_IRELAND"
+    # electricity moves by the level factor alone through the NI pricing.
     before_kwh = spend_to_kwh(
         household["electricity_consumption"].to_numpy()[ni],
         frs_region=region[ni],
         fuel="electricity",
-        rates=energy.rates,
+        prices=energy.prices,
     )
     np.testing.assert_allclose(
         elec[ni],
         kwh_to_spend(
-            before_kwh, frs_region=region[ni], fuel="electricity", rates=energy.rates
+            before_kwh * factor[ELECTRICITY_KWH],
+            frs_region=region[ni],
+            fuel="electricity",
+            prices=energy.prices,
         ),
     )
-    # Gas-connected households keep the standing charge; the others stay at zero.
-    zero_gas = household["gas_consumption"].to_numpy() == 0.0
+    # Disconnected and never-connected households carry no gas fixed cost.
     assert (gas[zero_gas] == 0.0).all()
-    assert (gas[~zero_gas] > 0.0).all()
     assert receipt["unit"] == "kwh"
     assert receipt["margins"] == ["income", "tenure", "accommodation", "region"]
-    assert 0.8 < receipt["gas_connected_share"] < 0.9
+    assert receipt["margins_period_value"] == 2024
+    assert 0.7 < receipt["gas_connected_share"] < 0.9
     assert receipt["gas_rake_population"] == "gas_connected_rows"
-    assert receipt["gas_connected_rows"] == int((~zero_gas).sum())
+    assert receipt["gas_connected_rows"] == int((gas > 0).sum())
 
 
 def _synthetic_lcfs_donor(
@@ -656,8 +703,15 @@ def test_stage_transform_imposes_bus_incidence_and_rakes_fares_to_the_facts() ->
         "energy_pricing",
         "energy_rake",
     } <= set(evidence)
-    assert evidence["energy_pricing"]["vat_rate"] == 0.05
+    assert evidence["energy_pricing"]["payment_method"] == "all"
+    assert evidence["energy_pricing"]["vat_treatment"] == "including_vat"
+    assert evidence["energy_pricing"]["gas_connection"]["rule"] == (
+        "published_meter_share"
+    )
     assert evidence["energy_rake"]["unit"] == "kwh"
+    assert evidence["energy_rake"]["margins_period_value"] == 2024
+    assert evidence["energy_rake"]["level"]["gas_kwh"]["factor"] > 0
+    assert evidence["energy_rake"]["gas_connection"]["rule"] == "published_meter_share"
     # The uprating step is dropped in this engine-free run, so no litres audit.
     assert "fuel_litres_audit" not in evidence
     assert "donor_uprating" not in evidence

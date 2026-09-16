@@ -185,30 +185,41 @@ def _energy_rake_gate(
     evidence: Mapping[str, object],
     parameters: Mapping[str, object],
 ) -> GateResult:
-    """The NEED kWh rake fits its margins at design weights (microcosm#890).
+    """The energy kWh rake fits the NEED shape at the DESNZ level, at design weights.
 
-    Two checks on the lcfs ``energy_rake`` receipt. The fact check: every
-    cell target the rake fitted is recomputed here from the vendored NEED
-    rows (``need_energy_facts.json``) and must equal the receipt's target,
-    so the gate cannot pass on a receipt raked to something other than the
-    published means. The residual check: the rake sweeps four mutually
-    inconsistent margins, so the earlier ones settle to a residual; the
-    maximum absolute relative deviation of any cell mean from its target,
-    per margin and fuel, must not exceed ``maximum_relative_deviation``, one
-    fixed tolerance on that IPF residual (it is not a tolerance on NEED
-    itself, which the rake hits by construction on the last-swept margin).
-    The rake must have run in kWh with gas over gas-connected rows and no
-    zero-current cell; a missing margin, fit block or tolerance fails closed.
+    Fact checks on the lcfs ``energy_rake`` receipt, every published value
+    recomputed here from the vendored rows the stage declares (never taken
+    from the receipt): each cell's ``shape_target`` must be the vendored NEED
+    mean of the declared consumption year; each fuel's level block must be
+    the vendored DESNZ Energy Trends fiscal-year total, its ``factor`` that
+    total over the frame's pre-level total, and the levelled frame total the
+    published one; each cell's ``target`` must be shape times factor; and,
+    where the stage declares the published gas-connected share, every region
+    with a published share must sit within ``maximum_connected_share_deviation``
+    of it after the imposition (a region the draw could not fill records a
+    shortfall instead). The residual check then holds the maximum absolute
+    relative deviation of any cell mean from its levelled target, per margin
+    and fuel, to ``maximum_relative_deviation``, one fixed tolerance on the
+    IPF's cross-margin residual. The rake must have run in kWh with gas over
+    gas-connected rows and no zero-current cell; a missing margin, block or
+    tolerance fails closed.
 
-    This is where NEED is checked; the calibrated frame is held to the bound
-    ONS 04.5 total instead (María's ruling, 2026-09-15), and the NEED means
-    of the calibrated frame are not checked by any gate.
+    This is where NEED, DESNZ and the connection share are checked; the
+    calibrated frame is held to the bound ONS 04.5.1 and 04.5.2 spend rows
+    instead (María's ruling, 2026-09-15), and no gate re-checks these facts
+    after calibration.
     """
 
+    from microcosm.build.country_spec import load_country_spec
     from microcosm.build.uk_runtime.energy_pricing import (
         ELECTRICITY_KWH,
+        GAS_CONNECTED_PUBLISHED_METER_SHARE,
         GAS_KWH,
+        PRICE_DOMESTIC_ENERGY_KIND,
         need_margins_from_facts,
+        pricing_operation,
+        published_energy_level,
+        published_gas_connected_shares,
     )
 
     check = "energy_rake"
@@ -217,9 +228,26 @@ def _energy_rake_gate(
         parameters.get("maximum_relative_deviation"),
         label=f"{stage}.maximum_relative_deviation",
     )
+    share_tolerance = _finite_number(
+        parameters.get("maximum_connected_share_deviation"),
+        label=f"{stage}.maximum_connected_share_deviation",
+    )
     expected_margins = [str(m) for m in parameters.get("margins", ())]
     if not expected_margins:
         raise ValueError(f"{stage}: energy_rake declares no margins.")
+    margins_period = parameters.get("margins_period_value")
+    if not isinstance(margins_period, int) or isinstance(margins_period, bool):
+        raise ValueError(f"{stage}: energy_rake declares no margins_period_value.")
+    declared = pricing_operation(load_country_spec("uk").sources.stage_map()[stage])
+    if declared is None:
+        raise ValueError(
+            f"{stage}: declares no {PRICE_DOMESTIC_ENERGY_KIND} operation."
+        )
+    if int(declared.get("margins_period_value", -1)) != margins_period:
+        raise ValueError(
+            f"{stage}: the gate's margins_period_value {margins_period} differs from "
+            f"the stage's declared {declared.get('margins_period_value')!r}."
+        )
     failures: list[str] = []
     if receipt.get("unit") != "kwh":
         failures.append(
@@ -230,6 +258,11 @@ def _energy_rake_gate(
             f"{stage}: gas rake population is "
             f"{receipt.get('gas_rake_population')!r}, not gas_connected_rows."
         )
+    if receipt.get("margins_period_value") != margins_period:
+        failures.append(
+            f"{stage}: receipt raked NEED {receipt.get('margins_period_value')!r}, "
+            f"not the declared consumption year {margins_period}."
+        )
     fit = receipt.get("fit")
     if not isinstance(fit, Mapping):
         failures.append(f"{stage}: energy_rake receipt carries no fit block.")
@@ -238,13 +271,59 @@ def _energy_rake_gate(
     undeclared = sorted(set(declared_margins) - set(expected_margins))
     if undeclared:
         failures.append(f"{stage}: receipt rakes undeclared margins {undeclared}.")
-    published = need_margins_from_facts().targets
+    published = need_margins_from_facts(period_value=margins_period).targets
+    level, _ = published_energy_level(declared)
+    factors_block = receipt.get("level_factor")
+    level_block = receipt.get("level")
+    factors: dict[str, float] = {}
     details: dict[str, object] = {
         "margins": expected_margins,
+        "margins_period_value": margins_period,
         "maximum_relative_deviation": tolerance,
+        "maximum_connected_share_deviation": share_tolerance,
+        "level_factor": {},
         "worst": {},
         "cells_fact_checked": 0,
+        "connected_share": {},
     }
+    if not isinstance(factors_block, Mapping) or not isinstance(level_block, Mapping):
+        failures.append(f"{stage}: energy_rake receipt carries no level block.")
+        factors_block, level_block = {}, {}
+
+    def _close(observed: object, expected: float, rtol: float) -> bool:
+        return isinstance(observed, int | float) and abs(
+            float(observed) - expected
+        ) <= rtol * max(1.0, abs(expected))
+
+    for fuel in (ELECTRICITY_KWH, GAS_KWH):
+        block = level_block.get(fuel)
+        factor = factors_block.get(fuel)
+        if not isinstance(block, Mapping) or not isinstance(factor, int | float):
+            failures.append(f"{stage}: level block lacks {fuel}.")
+            continue
+        published_kwh = float(level[fuel])
+        before = block.get("frame_kwh_before")
+        if not _close(block.get("published_kwh"), published_kwh, 1e-9):
+            failures.append(
+                f"{stage}: {fuel} was levelled to {block.get('published_kwh')!r}, not "
+                f"the vendored DESNZ total {published_kwh}."
+            )
+        if not isinstance(before, int | float) or float(before) <= 0:
+            failures.append(f"{stage}: {fuel} level block has no positive frame total.")
+        elif not _close(factor, published_kwh / float(before), 1e-9) or not _close(
+            block.get("factor"), float(factor), 1e-12
+        ):
+            failures.append(
+                f"{stage}: {fuel} level factor {factor!r} is not the published total "
+                f"over the frame total {published_kwh / float(before)}."
+            )
+        if not _close(block.get("frame_kwh_after"), published_kwh, 1e-6):
+            failures.append(
+                f"{stage}: {fuel} frame total after levelling is "
+                f"{block.get('frame_kwh_after')!r}, not the published {published_kwh}."
+            )
+        factors[fuel] = float(factor)
+        details["level_factor"][fuel] = float(factor)
     for margin in expected_margins:
         if margin not in declared_margins:
             failures.append(f"{stage}: margin {margin!r} was not raked.")
@@ -266,14 +345,23 @@ def _energy_rake_gate(
                 )
                 continue
             for fuel in (ELECTRICITY_KWH, GAS_KWH):
-                target = _mapping(cell, label=f"{stage}.{key}").get(fuel)
-                observed = _mapping(target, label=f"{stage}.{key}.{fuel}").get("target")
-                if not isinstance(observed, int | float) or abs(
-                    float(observed) - float(fact[fuel])
-                ) > 1e-6 * max(1.0, abs(float(fact[fuel]))):
+                entry = _mapping(
+                    _mapping(cell, label=f"{stage}.{key}").get(fuel),
+                    label=f"{stage}.{key}.{fuel}",
+                )
+                if not _close(entry.get("shape_target"), float(fact[fuel]), 1e-6):
                     failures.append(
                         f"{stage}: {margin} cell {key!r} {fuel} was raked to "
-                        f"{observed!r}, not the vendored NEED mean {fact[fuel]}."
+                        f"{entry.get('shape_target')!r}, not the vendored NEED mean "
+                        f"{fact[fuel]}."
+                    )
+                if fuel in factors and not _close(
+                    entry.get("target"), float(fact[fuel]) * factors[fuel], 1e-9
+                ):
+                    failures.append(
+                        f"{stage}: {margin} cell {key!r} {fuel} target "
+                        f"{entry.get('target')!r} is not the NEED mean times the level "
+                        f"factor {factors[fuel]}."
                     )
             details["cells_fact_checked"] = int(details["cells_fact_checked"]) + 1
         worst = block["max_abs_relative_deviation"]
@@ -283,7 +371,8 @@ def _energy_rake_gate(
             if value > tolerance:
                 failures.append(
                     f"{stage}: {margin} {fuel} cell mean deviates {value:.4f} "
-                    f"from its NEED target, above the residual tolerance {tolerance}."
+                    f"from its levelled NEED target, above the residual tolerance "
+                    f"{tolerance}."
                 )
     zero_cells = receipt.get("zero_current_cells")
     if zero_cells:
@@ -291,6 +380,51 @@ def _energy_rake_gate(
             f"{stage}: {len(zero_cells)} NEED cell(s) had a zero current mean and "
             "could not be raked."
         )
+    if declared.get("gas_connected") == GAS_CONNECTED_PUBLISHED_METER_SHARE:
+        connection = receipt.get("gas_connection")
+        if (
+            not isinstance(connection, Mapping)
+            or connection.get("rule") != GAS_CONNECTED_PUBLISHED_METER_SHARE
+        ):
+            failures.append(
+                f"{stage}: gas connection was not imposed at the published meter share."
+            )
+        else:
+            shares, _ = published_gas_connected_shares(declared)
+            by_region = connection.get("by_region")
+            by_region = by_region if isinstance(by_region, Mapping) else {}
+            if not by_region:
+                failures.append(f"{stage}: gas-connection receipt names no region.")
+            unknown = sorted(set(by_region) - set(shares))
+            if unknown:
+                failures.append(
+                    f"{stage}: gas-connection receipt names regions outside the "
+                    f"crosswalk {unknown}."
+                )
+            # Every region the frame carried is in the receipt (the imposition
+            # walks the frame's regions); each with a published share is checked.
+            for region, entry in sorted(by_region.items()):
+                target = shares.get(region)
+                if target is None or not isinstance(entry, Mapping):
+                    continue
+                after = entry.get("share_after")
+                shortfall = entry.get("shortfall") or 0.0
+                if not isinstance(after, int | float):
+                    failures.append(f"{stage}: {region} has no connected share.")
+                    continue
+                details["connected_share"][region] = {
+                    "published": target,
+                    "achieved": float(after),
+                    "shortfall": float(shortfall),
+                }
+                if (
+                    float(shortfall) <= 0
+                    and abs(float(after) - target) > share_tolerance
+                ):
+                    failures.append(
+                        f"{stage}: {region} gas-connected share {float(after):.4f} is "
+                        f"not the published {target:.4f} (tolerance {share_tolerance})."
+                    )
     return (
         _fail(stage, check, failures, details)
         if failures
@@ -422,7 +556,11 @@ def _cgt_incidence_mass_gate(
         "floating_point_relative_tolerance": _FLOAT_RELATIVE_TOLERANCE,
         "effective_relative_tolerance": effective_tolerance,
     }
-    return _fail(stage, check, failures, details) if failures else _pass(stage, check, details)
+    return (
+        _fail(stage, check, failures, details)
+        if failures
+        else _pass(stage, check, details)
+    )
 
 
 def _spi_support_channel_gate(

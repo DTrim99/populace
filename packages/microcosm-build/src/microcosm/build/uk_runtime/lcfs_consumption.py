@@ -28,16 +28,24 @@ from microcosm.build.uk_runtime.donor_uprating import (
     uprating_operation,
 )
 from microcosm.build.uk_runtime.energy_pricing import (
+    DISCONNECT_LOWEST_DRAWN_GAS_FIRST,
     ELECTRICITY_KWH,
+    GAS_CONNECTED_POSITIVE_SPEND,
+    GAS_CONNECTED_PUBLISHED_METER_SHARE,
     GAS_KWH,
+    PRICE_DOMESTIC_ENERGY_KIND,
+    UK_DESNZ_DOMESTIC_ENERGY_RESOURCE,
     UK_NEED_ENERGY_FACTS_RESOURCE,
-    UK_OFGEM_PRICE_CAP_RESOURCE,
-    EnergyCapRates,
+    UK_QEP_ENERGY_PRICES_RESOURCE,
+    EnergyPrices,
     NeedMargins,
-    cap_rates,
+    impose_gas_connection,
     kwh_to_spend,
     need_margins_from_facts,
     pricing_operation,
+    published_energy_level,
+    published_gas_connected_shares,
+    qep_prices,
     rake_energy_kwh,
     spend_to_kwh,
 )
@@ -159,7 +167,8 @@ UK_LCFS_VENDORED_RESOURCES = (
     UK_LCFS_DFT_BUS_VALUE_RESOURCE,
     UK_LCFS_DEVOLVED_BUS_FINANCE_RESOURCE,
     UK_NEED_ENERGY_FACTS_RESOURCE,
-    UK_OFGEM_PRICE_CAP_RESOURCE,
+    UK_DESNZ_DOMESTIC_ENERGY_RESOURCE,
+    UK_QEP_ENERGY_PRICES_RESOURCE,
 )
 #: Columns a declared rake levels; the support clip and the committed support
 #: bounds leave them alone.
@@ -546,49 +555,83 @@ def fuel_litres_audit(
 
 @dataclass(frozen=True)
 class LCFSEnergyPricing:
-    """The declared cap rates and NEED margins, with their receipts."""
+    """The declared prices, NEED margins, gas connection and level, with receipts."""
 
-    rates: EnergyCapRates
+    prices: EnergyPrices
     margins: NeedMargins
     gas_connected: str
+    connection_shares: Mapping[str, float | None] | None
+    disconnect_rule: str
+    level: Mapping[str, float]
     receipt: dict[str, Any]
 
 
 def lcfs_energy_pricing(stage: SourceStageSpec) -> LCFSEnergyPricing | None:
-    """Resolve the declared ``price_energy_at_cap`` operation (none if undeclared)."""
+    """Resolve the declared ``price_domestic_energy`` operation (none if undeclared)."""
 
     parameters = pricing_operation(stage)
     if parameters is None:
         return None
     columns = dict(parameters["columns"])
     if columns != {"electricity": "electricity_consumption", "gas": "gas_consumption"}:
-        raise ValueError("price_energy_at_cap must price the two energy spend columns.")
+        raise ValueError(
+            f"{PRICE_DOMESTIC_ENERGY_KIND} must price the two energy spend columns."
+        )
     margins_resource = str(
         parameters.get("margins_resource") or UK_NEED_ENERGY_FACTS_RESOURCE
     )
-    rates, rates_receipt = cap_rates(parameters)
-    margins = need_margins_from_facts(margins_resource)
+    if "margins_period_value" not in parameters:
+        raise ValueError(
+            f"{PRICE_DOMESTIC_ENERGY_KIND} declares no margins_period_value (the "
+            "NEED consumption year the shape comes from)."
+        )
+    prices, prices_receipt = qep_prices(parameters)
+    margins = need_margins_from_facts(
+        margins_resource, period_value=int(parameters["margins_period_value"])
+    )
+    level, level_receipt = published_energy_level(parameters)
+    gas_connected = str(parameters.get("gas_connected") or "")
+    if gas_connected == GAS_CONNECTED_PUBLISHED_METER_SHARE:
+        shares, connection_receipt = published_gas_connected_shares(parameters)
+    elif gas_connected == GAS_CONNECTED_POSITIVE_SPEND:
+        shares, connection_receipt = None, {"rule": GAS_CONNECTED_POSITIVE_SPEND}
+    else:
+        raise ValueError(
+            f"gas_connected must be {GAS_CONNECTED_POSITIVE_SPEND!r} or "
+            f"{GAS_CONNECTED_PUBLISHED_METER_SHARE!r}, not {gas_connected!r}."
+        )
+    disconnect_rule = str(
+        parameters.get("disconnect_rule") or DISCONNECT_LOWEST_DRAWN_GAS_FIRST
+    )
     return LCFSEnergyPricing(
-        rates=rates,
+        prices=prices,
         margins=margins,
-        gas_connected=str(parameters.get("gas_connected", "positive_gas_spend")),
-        receipt={**rates_receipt, "need_margins": margins.receipt},
+        gas_connected=gas_connected,
+        connection_shares=shares,
+        disconnect_rule=disconnect_rule,
+        level=level,
+        receipt={
+            **prices_receipt,
+            "need_margins": margins.receipt,
+            "level": level_receipt,
+            "gas_connection": connection_receipt,
+        },
     )
 
 
 def energy_spend_to_kwh(
     table: pd.DataFrame, *, energy: LCFSEnergyPricing, region: np.ndarray
 ) -> pd.DataFrame:
-    """Add ``electricity_kwh`` and ``gas_kwh`` at the declared regional cap rates."""
+    """Add ``electricity_kwh`` and ``gas_kwh`` at the declared regional average prices."""
 
     result = table.copy()
     electricity = _numeric(result["electricity_consumption"]).to_numpy(dtype=float)
     gas = _numeric(result["gas_consumption"]).to_numpy(dtype=float)
     result[ELECTRICITY_KWH] = spend_to_kwh(
-        electricity, frs_region=region, fuel="electricity", rates=energy.rates
+        electricity, frs_region=region, fuel="electricity", prices=energy.prices
     )
     result[GAS_KWH] = spend_to_kwh(
-        gas, frs_region=region, fuel="gas", rates=energy.rates, connected=gas > 0
+        gas, frs_region=region, fuel="gas", prices=energy.prices, connected=gas > 0
     )
     return result
 
@@ -596,7 +639,7 @@ def energy_spend_to_kwh(
 def energy_kwh_to_spend(
     table: pd.DataFrame, *, energy: LCFSEnergyPricing, region: np.ndarray
 ) -> pd.DataFrame:
-    """Price the kWh columns back to spend and drop them."""
+    """Price the kWh columns back to spend (gas fixed cost where connected) and drop them."""
 
     result = table.copy()
     gas_kwh = result[GAS_KWH].to_numpy(dtype=float)
@@ -604,13 +647,13 @@ def energy_kwh_to_spend(
         result[ELECTRICITY_KWH].to_numpy(dtype=float),
         frs_region=region,
         fuel="electricity",
-        rates=energy.rates,
+        prices=energy.prices,
     )
     result["gas_consumption"] = kwh_to_spend(
         gas_kwh,
         frs_region=region,
         fuel="gas",
-        rates=energy.rates,
+        prices=energy.prices,
         connected=gas_kwh > 0,
     )
     return result.drop(columns=[ELECTRICITY_KWH, GAS_KWH])
@@ -627,26 +670,44 @@ def rake_recipient_energy(
     weights: np.ndarray,
     iterations: int,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Price the drawn energy spend to kWh, rake the four NEED margins, price back."""
+    """Price the drawn spend to kWh, impose the published gas connection, rake the
+    NEED shape at the DESNZ level, price back."""
 
     in_kwh = energy_spend_to_kwh(household_draws, energy=energy, region=region)
+    drawn_gas = in_kwh[GAS_KWH].to_numpy(dtype=float)
+    weight_values = np.asarray(weights, dtype=float)
+    if energy.gas_connected == GAS_CONNECTED_PUBLISHED_METER_SHARE:
+        connected, connection_receipt = impose_gas_connection(
+            drawn_gas,
+            frs_region=region,
+            weights=weight_values,
+            shares=energy.connection_shares or {},
+            disconnect_rule=energy.disconnect_rule,
+        )
+        in_kwh.loc[~connected, GAS_KWH] = 0.0
+    else:
+        connected = drawn_gas > 0
+        share = float(np.dot(connected, weight_values)) / max(
+            float(weight_values.sum()), 1e-12
+        )
+        connection_receipt = {"share_before": share, "share_after": share}
     raked, receipt = rake_energy_kwh(
         in_kwh,
         margins=energy.margins,
         frs_region=region,
         income=income,
-        weights=weights,
+        weights=weight_values,
         iterations=iterations,
         tenure=tenure,
         accommodation=accommodation,
         use_region_margin=True,
-        gas_connected=in_kwh[GAS_KWH].to_numpy(dtype=float) > 0,
+        gas_connected=connected,
+        level=energy.level,
     )
+    receipt["gas_connection"] = {"rule": energy.gas_connected, **connection_receipt}
     receipt["gas_connected_share"] = float(
-        np.dot(
-            raked[GAS_KWH].to_numpy(dtype=float) > 0, np.asarray(weights, dtype=float)
-        )
-        / max(float(np.sum(weights)), 1e-12)
+        np.dot(raked[GAS_KWH].to_numpy(dtype=float) > 0, weight_values)
+        / max(float(weight_values.sum()), 1e-12)
     )
     return energy_kwh_to_spend(raked, energy=energy, region=region), receipt
 
@@ -942,9 +1003,9 @@ def clean_lcfs_consumption_table(
     2023-24 diary to the FRS 2024-25 base year (``uprate_donor_columns``);
     it is applied after annualisation and before the donor-side NEED rake, so
     the income bands and the support-clip ranges see base-year values.
-    ``energy`` (the declared ``price_energy_at_cap``) converts the diary's
-    energy spend to kWh at the FY2024-25 regional cap rates, rakes the income
-    margin to the NEED means and prices back; without it the energy columns
+    ``energy`` (the declared ``price_domestic_energy``) converts the diary's
+    energy spend to kWh at the FY2024-25 regional average prices paid, rakes
+    the income margin to the NEED means (shape only, no level) and prices back; without it the energy columns
     are the raw diary spend.
     """
 
