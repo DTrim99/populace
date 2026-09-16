@@ -43,6 +43,55 @@ Every fail-closed pin re-derived by its own generator; never a hand-edited diges
   `packages/microcosm-frame/pyproject.toml` (`policyengine` extra); `uv.lock`
   relocked. Resolved trio confirmed in the lane venv: policyengine-us 2.2.1,
   spm-calculator 1.0.0, policyengine-core 3.32.5.
+- **Step 2 — changelog read, 1.819.0 → 2.2.1** (49 releases). Read from
+  `gh api repos/PolicyEngine/policyengine-us/contents/CHANGELOG.md`, not from
+  memory. The entries that touch a variable microcosm reads, writes, seeds or
+  scores:
+  - **2.0.0 (breaking) — SPM geography.** County FIPS required by default, or
+    an explicit national or fixed SPM area selection, for SPM measurement and
+    for resource calculations (household net income, benefits, marginal tax
+    rates) *only where a unit's housing assistance is positive*. Country
+    threshold extrapolation replaced by spm-calculator 1.0.0's canonical
+    2022–2035 amounts; unavailable years fail. Population datasets must supply
+    observed county inputs and source-backed SPM independence roles instead of
+    stored formula-owned SPM outputs, which the loader now rejects.
+  - **2.2.1 — housing-assistance valuation.** General household benefits and
+    CBO means-tested transfers count actual housing assistance rather than its
+    SPM-capped valuation (the cap stays inside SPM resources), so household
+    benefits, household net income, marginal tax rates and CBO transfer
+    aggregates rise for assisted households. Housing assistance and awarded
+    families' tenant contributions are allocated across a household's SPM units
+    by member share before each unit's resource cap, so SPM poverty and deep
+    poverty move for multi-SPM-unit households.
+  - **2.2.1 — loader rejections.** Derived poverty aliases such as `in_poverty`
+    are rejected from stored datasets; a `county_fips` input that is not a
+    five-digit string is rejected however it is spelled; the default dataset
+    content hash is verified.
+  - **1.822.1 + 2.0.6 — heating inputs.** Canonical `heating_type` enum
+    (default `UNSPECIFIED`) with derived `heating_expense`; new `wood_expense`
+    and `other_heating_fuel_expense` inputs; new `has_heating_expense` /
+    `has_cooling_expense` facts read by SNAP utility-allowance incurrence;
+    `heating_expense_person` and `heating_cooling_expense` deprecated as
+    heating-amount inputs; Illinois AABD reads `gas_expense` instead of the
+    deprecated `metered_gas_expense`.
+  - **1.824.5 — federal disability gates.** SNAP elderly-or-disabled member
+    qualifies by SSI receipt rather than the SSI disability criteria flag; SNAP
+    work/ABAWD/student rules recognise disability benefit receipt; the SSI
+    student earned income exclusion uses the SSI disability test; HUD
+    person-with-disabilities status recognises the SSI and SSDI paths.
+  - **1.820.0 — SNAP work-requirement surface.** New `is_snap_abawd_exempt`,
+    `is_subject_to_snap_abawd`, `has_snap_abawd_household_child`.
+  - **2.0.1 — deduction ordering.** Stable deduction order for person-level AGI
+    and student-loan-interest MAGI, removing process-dependent floating-point
+    results; any pinned golden number in that chain may move.
+  - **1.823.0 — removal.** The inert legacy New York `gov/hhs/ccdf` encoding
+    (market rates, county clusters, copay percentages and variables) is gone.
+  - State/parameter corrections with no microcosm input surface (1.820.1–1.825.2
+    Arkansas/NY/Washington/Michigan/Massachusetts/Maine/Minnesota/Montana, the
+    CCDF and CCAP rate tables, SNAP utility-allowance value corrections,
+    Medicaid ABD unit, Texas CEAP, state TANF unearned-income lists) change
+    computed outputs but no leaf microcosm supplies; they are scoring-surface
+    movement, not lock work.
 - **Step 3a — frame-adapter generated-variable audit** (`59608c332`). The
   `_GENERATED_SOURCE_VERSION` / `_GENERATED_SOURCE_SHA256` audit in
   `packages/microcosm-frame/src/microcosm/frame/adapters/policyengine_us.py`
