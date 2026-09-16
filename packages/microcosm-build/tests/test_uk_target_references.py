@@ -739,9 +739,9 @@ def test_uk_target_reference_membership_report_is_packaged() -> None:
     assert membership["target_period"] == 2025
     assert membership["active_reference_count"] == ACTIVE_REFERENCE_COUNT
     assert membership["status_counts"] == {
-        "active": 613,
+        "active": 614,
         "no_fact_at_or_before_period": 7,
-        "signed_excluded": 7,
+        "signed_excluded": 8,
     }
     assert membership["genuine_sum_residue"]
     assert membership["uprating_holds"]

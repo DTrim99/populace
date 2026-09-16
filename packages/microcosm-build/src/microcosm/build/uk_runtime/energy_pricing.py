@@ -495,10 +495,15 @@ def impose_gas_connection(
     Within a region whose design-weighted share of gas-positive households
     exceeds the published share, gas-positive households are disconnected in
     ascending order of drawn gas kWh (a trace of diary gas is the likeliest
-    false connection) until the share is nearest the published one. A region
-    below its published share keeps every gas-positive household (the draw
-    cannot create connections) and the shortfall is receipted. Regions with
-    no published share (``None``) keep the positive-gas rule.
+    false connection) until the excess weight is removed: a household whose
+    weight would overshoot the remaining excess is skipped (it stays
+    connected) and the walk continues to lighter households, then the skipped
+    household nearest the remainder is taken if that brings the share nearer
+    the published one, so the achieved share sits within a fraction of one
+    household weight of the published share. A region below its published
+    share keeps every gas-positive household (the draw cannot create
+    connections) and the shortfall is receipted. Regions with no published
+    share (``None``) keep the positive-gas rule.
     """
 
     if disconnect_rule != DISCONNECT_LOWEST_DRAWN_GAS_FIRST:
@@ -540,22 +545,35 @@ def impose_gas_connection(
             by_region[region] = entry
             continue
         order = positive[np.argsort(gas[positive], kind="stable")]
-        cumulative = np.cumsum(weight[order])
         excess = (before - target) * total
-        # The prefix whose removal leaves the share nearest the published one.
-        deviations = np.abs(cumulative - excess)
-        count = int(np.argmin(deviations)) + 1
-        if abs(0.0 - excess) < deviations[count - 1]:
-            count = 0
-        drop = order[:count]
-        connected[drop] = False
+        remaining = excess
+        drop: list[int] = []
+        skipped: list[int] = []
+        for index in order:
+            if remaining <= 0.0:
+                break
+            if weight[index] <= remaining:
+                drop.append(int(index))
+                remaining -= weight[index]
+            else:
+                skipped.append(int(index))
+        if remaining > 0.0 and skipped:
+            nearest = min(skipped, key=lambda i: abs(weight[i] - remaining))
+            if abs(weight[nearest] - remaining) < remaining:
+                drop.append(nearest)
+                remaining -= weight[nearest]
+        drop_index = np.asarray(drop, dtype=int)
+        connected[drop_index] = False
         after = float(weight[rows[connected[rows]]].sum()) / total
         entry.update(
             {
                 "rule": GAS_CONNECTED_PUBLISHED_METER_SHARE,
                 "share_after": after,
-                "rows_disconnected": int(len(drop)),
-                "weight_disconnected": float(weight[drop].sum()),
+                "rows_disconnected": int(len(drop_index)),
+                "rows_skipped_for_weight": int(
+                    sum(1 for i in skipped if i not in set(drop))
+                ),
+                "weight_disconnected": float(weight[drop_index].sum()),
                 "shortfall": 0.0,
             }
         )

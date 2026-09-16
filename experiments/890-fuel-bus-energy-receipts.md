@@ -656,3 +656,73 @@ spend target per fuel), NEED 2024 and the gas-connected household counts — aft
 carries the shape only, DESNZ the level, QEP the price and ONS the calibrated spend, three
 independent facts with the concept residual stated. Until then the stage-time gate is a
 provenance-and-convergence check on the rake, not a NEED fence.
+
+## Part T — chronicle #271 folded in: the energy frame from published volume, price and connection (2026-09-16)
+
+María's instruction after chronicle#271 merged: "chronicle#271 just merged so we can fold the gas
+modeling improvements that depended on it into this pr (927). it will also need a rebase." The
+branch was rebased onto main d69a543e (#906 region grain, #921 UC elements, #928, #896, #936
+pe-us 2.2.1 engine lock, #934 with the #929 df35af7 re-pin); the pins main re-derived were taken
+from main and the two branch-owned identities (the minimal-bundle golden vector and the US pool
+spec binding, both moved by the C1 positive-regime QRF attestation) re-derived on the combined
+tree.
+
+Feed. Consumer artifact built from chronicle ec200856 (PR #271, closes chronicle#269/#270):
+275,698 rows (facts 47612c48…, manifest c91fa9ff…, chronicle.consumer_fact.v3), 9,308 more than
+df35af7. New for this stage: DESNZ Energy Trends domestic electricity (table 5.5) and gas (4.1)
+consumption at actual temperature, annual and quarterly; the DESNZ subnational statistics'
+domestic consumption and meter counts for the regions and countries, 2023 and 2024; Quarterly
+Energy Prices tables 2.2.4 and 2.3.4 (average variable unit costs and fixed costs by price region
+and payment method, including VAT, calendar and fiscal years 2023–2025) and 2.2.1/2.3.1 (annual
+bills); NEED 2024 with the same headline tables as 2023; ONS Consumer Trends 04.5.1–04.5.4 with
+the coicop dimension; census central-heating tables (TS046, UV407; not consumed, the DESNZ meter
+counts carry the connection). Vendored: need_energy_facts.json (456 rows, 2023 and 2024),
+ons_household_expenditure_facts.json (42), desnz_domestic_energy_facts.json (155: Energy Trends
+plus the sixteen region/country subnational areas), qep_energy_prices.json (1,465). National
+surface 614 active (613 + 04.5.1 + 04.5.2 − 04.5 signed out `superseded_by_component_targets`),
+local surface unchanged (20,885), compile-parity receipts rebuilt.
+
+The published facts (FY2024-25 unless stated):
+- Volume (DESNZ Energy Trends, UK, actual temperature, 2024-Q2 to 2025-Q1): electricity
+  93.03 TWh (20.27 + 19.54 + 26.24 + 26.98), gas 260.07 TWh (40.37 + 22.14 + 86.42 + 111.14).
+  Calendar 2024: 91.74 and 252.34 TWh; 2023: 90.10 and 241.83 TWh.
+- Price (QEP, all payment methods, standard metering, including VAT, FY2024): UK electricity
+  24.81 p/kWh + GBP 209.39 a year, gas 6.23 p/kWh + GBP 113.13; the cap derivation of Part N
+  gave 24.05 p + GBP 220.98 and 6.02 p + GBP 115.11 (direct debit). Regional fixed costs run from
+  GBP 153.84 (London) to GBP 260.00 (North East) for electricity; Northern Ireland electricity
+  30.70 p/kWh with no published fixed cost (unit-rate-only standard tariffs; zero, receipted);
+  Northern Ireland gas is priced at the UK average because QEP publishes no row.
+- Connection (DESNZ subnational, 2024, gas meters over electricity meters): Great Britain
+  24.70 m / 29.34 m = 84.2 %; by region from 75.9 % (South West) and 77.7 % (Scotland) to
+  93.0 % (North East); the diary signal marked 96.5 % (spine-s4).
+- Shape: NEED 2024 means (England and Wales all-dwellings electricity 3,334 kWh, gas 11,191 kWh;
+  Scotland 3,263 and 11,827).
+- Spend (ONS 04.5.1 / 04.5.2, calendar year): electricity GBP 30.59bn (2023), 26.10bn (2024),
+  26.52bn (2025); gas 20.09bn, 14.64bn, 15.34bn; liquid fuels 1.20bn and solid fuels 0.35bn in
+  2024 make up the 04.5 total of 42.29bn.
+
+The stage now (price_domestic_energy, replacing price_energy_at_cap): spend → kWh at the QEP
+regional prices; the published gas-connected share imposed per region by disconnecting the
+households with the smallest drawn gas first, skipping a household whose weight would overshoot
+the share (Northern Ireland keeps the positive-gas rule); the four-margin NEED 2024 rake in kWh
+(gas over connected households); one factor per fuel to the DESNZ FY2024-25 total; kWh → spend
+at the same prices with the gas fixed cost only where connected. The energy_rake gate recomputes
+every published value from the vendored rows (NEED means for the declared year, the DESNZ
+total, the factor, the levelled total, the connection shares within 0.5 points) and holds the
+IPF residual to a declared 2.5 % (the 2 % rule of spine-s3 was set above the NEED-2023 maxima;
+on the NEED-2024 shape the income margin's electricity residual is 2.16 %, so the declared rule
+moved with its rationale in the gate notes).
+
+The residual that remains is between published sources, not inside the model. At the UK level
+the published volume at the published price implies about GBP 29bn for electricity (93.0 TWh ×
+24.81 p + 28.9 m households × GBP 209) and about GBP 19bn for gas (260.1 TWh × 6.23 p + 24.7 m
+connected × GBP 113), against ONS 04.5.1 GBP 26.1bn / 04.5.2 GBP 14.6bn in 2024 (26.5 / 15.3 in
+2025): electricity about 10 % and gas about 25 % above the national-accounts spend. ONS's gas
+figure sits below even the variable cost of the DESNZ volume at the QEP unit price (252 TWh ×
+6.23 p = GBP 15.7bn before fixed costs), so no pricing of the published volume reproduces it.
+The two per-fuel targets are bound at CY2025 as the 04.5 total was; whether calibration should
+close that gap by weight, or the spend level should follow ONS with the QEP price as a
+diagnostic, or the gap stands as a recorded disagreement, is María's call (the rake-then-bind
+line of 2026-09-15 covered a rake and a target on the same fact; these are different facts).
+
+Measured on spine-s5 (the rebased tree with the fold-in; twin of spine-s4): [filled below].
