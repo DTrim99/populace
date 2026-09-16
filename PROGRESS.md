@@ -37,11 +37,30 @@ Every fail-closed pin re-derived by its own generator; never a hand-edited diges
 
 ## Done
 
-- (nothing yet)
+- **Step 1 — constraints and lock** (`6aad4e1bd`). `policyengine-us>=1.745.0,<2`
+  → `>=2.2.1,<3` in `packages/microcosm-build/pyproject.toml`,
+  `packages/microcosm-data/pyproject.toml` (`us` extra) and
+  `packages/microcosm-frame/pyproject.toml` (`policyengine` extra); `uv.lock`
+  relocked. Resolved trio confirmed in the lane venv: policyengine-us 2.2.1,
+  spm-calculator 1.0.0, policyengine-core 3.32.5.
+- **Step 3a — frame-adapter generated-variable audit** (`59608c332`). The
+  `_GENERATED_SOURCE_VERSION` / `_GENERATED_SOURCE_SHA256` audit in
+  `packages/microcosm-frame/src/microcosm/frame/adapters/policyengine_us.py`
+  re-derived through a new generator, `tools/refresh_us_generated_variable_audit.py`,
+  with the import-free AST inventory split out into
+  `adapters/_policyengine_us_source_index.py`.
+- **Step 3b — engine ABI lock and US pool engine contracts** (`4c6bce3d8`).
+  `packages/microcosm-build/src/microcosm/build/us/engine_abi.lock.json`
+  regenerated through `tools/generate_us_bundle_from_constants.py`; the
+  multispine pool contracts re-pinned through a new
+  `tools/repin_us_pool_engine_contracts.py`.
 
 ## Next
 
-- Step 1.
+- Verify the uncommitted version-literal and prose bumps against 2.2.1 source
+  (every engine fact re-checked, not just the literal edited), then the
+  take-up contract, the SPM-area selection audit, the remaining identity
+  re-pins, the CI-faithful test run, the changelog fragment and the draft PR.
 
 ---
 
