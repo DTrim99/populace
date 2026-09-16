@@ -725,4 +725,49 @@ close that gap by weight, or the spend level should follow ONS with the QEP pric
 diagnostic, or the gap stands as a recorded disagreement, is María's call (the rake-then-bind
 line of 2026-09-15 covered a rake and a target on the same fact; these are different facts).
 
-Measured on spine-s5 (the rebased tree with the fold-in; twin of spine-s4): [filled below].
+Measured on spine-s5 (7cf7c478…, code 5e0e4fff; the rebased tree with the fold-in; built from
+the #791 recipe, all stages, checkpoints on, 6 min): every one of the 18 spine gates passes. The
+twin diff against spine-s4 (e9a572a6…) changes exactly the three energy household columns
+(52,846 rows each) and nothing else — no row, weight, index, attribute or other column moves,
+and the etb_vat draw downstream does not move (its predictor does not carry the energy spend), so
+the payload expectation names the three columns only. Stage receipts (16,288 households at the
+lcfs stage, before the later stages' clones): the gas connection walks from the diary's 96.9 %
+to 84.5 % (1,913 households disconnected, each region within 0.02 points of its published share
+— South West 75.90 % against 75.89 %, with 1,005 heavier households skipped so the walk could
+land); the NEED 2024 rake then levels electricity from 96.23 TWh to the published 93.03 TWh
+(factor 0.9667) and gas from 278.19 TWh over the connected households to 260.07 TWh (0.9349);
+the IPF residuals are income 2.16 % / 1.97 %, accommodation 0.70 % / 1.46 %, tenure 0.47 % /
+1.31 % (electricity / gas), region exact. On the final frame at design weights (29.25 m
+households): electricity GBP 29.36bn (mean GBP 1,004; 94.2 TWh at the QEP prices once the later
+clone stages re-weight), gas GBP 19.11bn over the 84.2 % connected (mean GBP 776 per connected
+household), fixed costs GBP 8.80bn (18 %), total GBP 48.47bn against spine-s4's GBP 52.25bn
+(electricity 29.61, gas 22.65 over 96.5 % connected). Against the bound rows: electricity
++12.5 % on 04.5.1 CY2024 and +10.7 % on CY2025; gas +30.5 % on 04.5.2 CY2024 and +24.6 % on
+CY2025 — the published-source residual stated above, now with every input a vendored fact.
+The fuel-litres audit is unchanged (frame 19.06 bn litres, 70.6 % of the cars benchmark).
+
+A main-side finding met on the way (not this PR's): the first round-5 attempt refused at
+`apply_uk_calibration_measure_exclusions` with "matched zero registry specs:
+dwp/uc/elements/carer, dwp/uc/elements/childcare, dwp/uc/elements/housing". Main's #921
+(merged 2026-09-15) wrote its three UC-element exclusions under the rows' metric names, but the
+registry names its specs by reference id (`dwp.uc.households_carer_element`,
+`dwp.uc.households_childcare_element`, `dwp.uc.households_housing_element`; the social- and
+private-rented housing rows carry their own metric names and are not excluded), so no national
+calibration can start on main as merged. Round 5 ran with a scratch copy of the register that
+names the three reference ids (`--measure-exclusions`, recorded in the run manifest); the
+committed register is untouched here and the correction is María's call (a three-line rename in
+`uk/calibration_measure_exclusions.json`, in this PR or its own).
+
+Round 5 (`pr-s-round5-spine-s5`, code 5e0e4fff, 1,500 epochs, `family_equal`, 561 targets on
+the ec20085 surface; 7 min): loss 0.30159 → 0.01127 (round 4 0.01138), 97.1 % of targets
+within 10 % (16 outside), ESS 9,478 (round 4 9,137), realised maximum weight ratio 10.0, top-1 %
+weight share 16.1 %. The two energy rows are fitted by weight from their published-source
+residual: electricity +10.7 % → −0.03 % and gas +24.6 % → −0.02 % against the CY2025 ONS rows.
+The bus rows hold (England fares −6.5 % → 0.00 %, London −2.6 % → −0.09 %, the devolved legs
+within 0.7 %), cars fuel duty −34.7 % → −14.5 %, rail support −76.8 % → 0.00 % (the solver by
+weight, the open rail item). The terminal battery blocks on one entry only, the inherited HMRC
+self-employment 20–30k cell at +25.9 % (+6.1 % at design weights; María's ruling 2 keeps it
+failing until she signs an exclusion or names a lever); no other target sits outside 25 %.
+What the gas fit costs in weight — the frame's connected-household gas mean has to fall a
+quarter against a published volume and a published price — is the question the residual
+paragraph above puts to María.
