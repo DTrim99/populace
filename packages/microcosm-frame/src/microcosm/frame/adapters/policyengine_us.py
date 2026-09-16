@@ -617,9 +617,22 @@ class PolicyEngineUSEngine:
         self,
         contract: ExportContract | None = None,
         defaults: Mapping[str, object] | None = None,
+        spm: Mapping[str, object] | None = None,
     ) -> None:
         self._contract = contract if contract is not None else ExportContract.empty()
         self._defaults = dict(defaults or {})
+        # Explicit SPM measurement selection, forwarded verbatim to the engine
+        # as ``Microsimulation(spm=...)``.  PolicyEngine-US 2.0.0 stopped
+        # inferring SPM geography from an absent county: an SPM-dependent
+        # variable now raises ``SPMInputError(SPM_GEOGRAPHY_REQUIRED)`` unless
+        # the caller supplies five-digit string county FIPS or selects
+        # ``{"geography_kind": "national"}`` (or a fixed ``"metro"`` area with
+        # its ``geography_id``).  ``None`` keeps the engine default, which is
+        # county measurement, so a Frame that already carries ``county_fips``
+        # is measured on its own counties exactly as before.  A stage that runs
+        # before geography assignment must pass the national selection rather
+        # than let the default raise.
+        self._spm = None if spm is None else dict(spm)
         self._system: Any = None
 
     # ------------------------------------------------------------------
@@ -861,7 +874,10 @@ class PolicyEngineUSEngine:
         microsimulation_class = self._import_policyengine_us().Microsimulation
         tables = self._engine_tables(bundle)
         dataset = self._build_dataset(tables, period)
-        simulation = microsimulation_class(dataset=dataset)
+        simulation = microsimulation_class(
+            dataset=dataset,
+            **({"spm": dict(self._spm)} if self._spm is not None else {}),
+        )
         results: dict[str, np.ndarray] = {}
         for name in variables:
             entity = self._entity_of(name)

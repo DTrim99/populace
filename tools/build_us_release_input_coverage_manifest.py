@@ -509,7 +509,15 @@ REFORM_COVERAGE_PROBES = [
             "benefits by its weighted source mass; without the restored "
             "SPM_ENGVAL carry, the effect is a structural zero. No OBBBA "
             "provision consumes this SPM resource, so the direct neutralization "
-            "is the uniquely isolating policy-engine probe."
+            "is the uniquely isolating policy-engine probe. Under PolicyEngine-US "
+            "2.x this measure reaches SPM geography: spm_unit_benefits adds "
+            "spm_unit_capped_housing_subsidy, which consults the calculator's "
+            "canonical housing portion for housing-assisted units only. Every SPM "
+            "unit with positive housing assistance must therefore carry a "
+            "five-digit string county_fips, and every SPM unit evaluated on that "
+            "path must classify at least one adult; an SPMInputError of "
+            "SPM_GEOGRAPHY_REQUIRED or SPM_COMPOSITION_REQUIRED here is an SPM "
+            "input defect, not a LIHEAP coverage failure."
         ),
         "issue": "PolicyEngine/microcosm#32",
     },
