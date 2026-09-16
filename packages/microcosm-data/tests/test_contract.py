@@ -138,13 +138,13 @@ def _trusted_terminal_gate_signing_key(monkeypatch) -> None:
 UK_GATE_BATTERY_PRODUCER = "microcosm.build.gate_battery"
 UK_GATE_BATTERY_SIGNING_KEY_ENV = "MICROCOSM_UK_TERMINAL_GATE_SIGNING_KEY"
 UK_GATE_BATTERY_POLICY_SHA256 = (
-    "4b86eb7903585e2a2ce9585139901dfa467bf42d2a8019e3985615bb1c89e795"
+    "5d6e83a54ab5e8e83acf970f14855189bb1086cf2d3d809df454725fafea0342"
 )
 UK_GATE_BATTERY_GATES_MANIFEST_SHA256 = (
-    "5ab0e3da981c6aa162804971f80b680131350f7c53f7d2a52fbaab639fd769d9"
+    "94586a14c660ae5d8ab2eeff8ef293067fd9e1d7d1f847d0f51362fe49f9bd9e"
 )
 UK_GATE_BATTERY_SPEC_FINGERPRINT = (
-    "49bc5daf9d1a3fea3385d38d2c956c33931747ffb3fda692e5dcb6b2a8e084e9"
+    "55c435df4725e5fe3ee870f8d9b27a3b16cfea650e2a784baf792d849a49132d"
 )
 UK_GATE_BATTERY_DEGENERATE_EVIDENCE_SHA256 = (
     "6f0243bcda09dad26945376230c44ec3cf55d4e417c3a25e29bae8c59bc1a69d"
@@ -177,7 +177,6 @@ UK_GATE_BATTERY_ENTRIES = {
         None,
     ),
     "uk_stage_lcfs_consumption_support": ("stage_health", "transferred", None),
-    "uk_stage_lcfs_consumption_energy_rake": ("stage_health", "transferred", None),
     "uk_stage_etb_vat_support": ("stage_health", "transferred", None),
     "uk_stage_etb_services_support": ("stage_health", "transferred", None),
     "uk_stage_frs_hmrc_spine_leaves_signal": (
@@ -1183,7 +1182,6 @@ def _gate_battery_payload(
         "uk_stage_was_wealth_support": "was_wealth",
         "uk_stage_uc_deduction_attributes": "uc_deduction_attributes",
         "uk_stage_lcfs_consumption_support": "lcfs_consumption",
-        "uk_stage_lcfs_consumption_energy_rake": "lcfs_consumption",
         "uk_stage_etb_vat_support": "etb_vat",
         "uk_stage_etb_services_support": "etb_services",
         "uk_stage_frs_hmrc_spine_leaves_signal": "frs_hmrc_spine_leaves",
