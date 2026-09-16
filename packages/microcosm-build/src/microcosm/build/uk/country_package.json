@@ -353,6 +353,16 @@
       "schema_id": "legacy_json"
     },
     {
+      "path": "desnz_domestic_energy_facts.json",
+      "kind": "legacy_json",
+      "schema_id": "legacy_json"
+    },
+    {
+      "path": "qep_energy_prices.json",
+      "kind": "legacy_json",
+      "schema_id": "legacy_json"
+    },
+    {
       "path": "nts_bus_use_frequency.json",
       "kind": "legacy_json",
       "schema_id": "legacy_json"

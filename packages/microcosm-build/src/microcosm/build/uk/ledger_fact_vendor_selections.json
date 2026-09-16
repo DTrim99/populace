@@ -159,7 +159,7 @@
     },
     {
       "resource": "need_energy_facts.json",
-      "purpose": "DESNZ NEED 2023 mean and median household gas and electricity consumption (kWh) by property type, tenure, household income band and region for England and Wales, and by property type, tenure and income band for Scotland. Consumed by the LCFS energy rake in place of need_energy_targets.json.",
+      "purpose": "DESNZ NEED 2023 and 2024 mean and median household gas and electricity consumption (kWh) by property type, tenure, household income band and region for England and Wales, and by property type, tenure and income band for Scotland. Consumed by the LCFS energy rake in place of need_energy_targets.json.",
       "consumers": [
         "uk_runtime.energy_pricing"
       ],
@@ -177,18 +177,16 @@
             ],
             "period_type": "calendar_year"
           },
-          "expected_row_count": 228
+          "expected_row_count": 456
         }
       ]
     },
     {
       "resource": "ofgem_price_cap_facts.json",
-      "purpose": "Ofgem default tariff cap levels at nil and benchmark consumption for the four charge restriction periods of FY2024-25 (2024-Q2 to 2025-Q1), direct debit, single-rate electricity and gas, every charge restriction region excluding VAT plus the GB average including and excluding VAT; and the benchmark consumption each level is set at. Consumed by the LCFS energy pricing (unit rate = (benchmark - nil) / benchmark consumption; nil = annual standing charge; VAT added from the engine parameter).",
-      "consumers": [
-        "uk_runtime.energy_pricing"
-      ],
+      "purpose": "Ofgem default tariff cap levels at nil and benchmark consumption for the four charge restriction periods of FY2024-25 (2024-Q2 to 2025-Q1), direct debit, single-rate electricity and gas, every charge restriction region excluding VAT plus the GB average including and excluding VAT; and the benchmark consumption each level is set at. Consumed by the LCFS energy pricing (unit rate = (benchmark - nil) / benchmark consumption; nil = annual standing charge; VAT added from the engine parameter). Since chronicle #271 the stage prices at the DESNZ QEP average prices paid (qep_energy_prices.json); the cap levels stay vendored as the regional maximum that the QEP-versus-cap lockstep test and the receipts compare against.",
+      "consumers": [],
       "planned_consumers": [
-        "uk_aggregate_admin"
+        "uk_runtime.energy_pricing"
       ],
       "selections": [
         {
@@ -367,7 +365,7 @@
     },
     {
       "resource": "ons_household_expenditure_facts.json",
-      "purpose": "ONS Consumer Trends household final consumption expenditure, current prices, annual, for COICOP 04.5 electricity, gas and other fuels, 07.2.2 fuels and lubricants for personal transport and 07.3.2 passenger transport by road, 2020 to 2025. Consumed by the domestic energy spend target and the motor-fuel spend diagnostic.",
+      "purpose": "ONS Consumer Trends household final consumption expenditure, current prices, annual, for COICOP 04.5 electricity, gas and other fuels and its sub-classes 04.5.1 electricity, 04.5.2 gas, 04.5.3 liquid fuels and 04.5.4 solid fuels, 07.2.2 fuels and lubricants for personal transport and 07.3.2 passenger transport by road, 2020 to 2025. Consumed by the domestic energy spend targets (04.5.1 and 04.5.2 bound per fuel) and the motor-fuel spend diagnostic.",
       "consumers": [],
       "planned_consumers": [
         "uk_aggregate_admin"
@@ -379,12 +377,77 @@
             "source_name": "ons",
             "source_concept": [
               "ons.household_expenditure.electricity_gas_other_fuels",
+              "ons.household_expenditure.electricity",
+              "ons.household_expenditure.gas",
+              "ons.household_expenditure.liquid_fuels",
+              "ons.household_expenditure.solid_fuels",
               "ons.household_expenditure.personal_transport_fuels_lubricants",
               "ons.household_expenditure.road_transport_services"
             ],
             "period_type": "calendar_year"
           },
-          "expected_row_count": 18
+          "expected_row_count": 42
+        }
+      ]
+    },
+    {
+      "resource": "desnz_domestic_energy_facts.json",
+      "purpose": "DESNZ domestic energy volumes: Energy Trends domestic electricity (table 5.5) and gas (table 4.1) consumption at actual temperature, annual and quarterly, United Kingdom, 2022 to the latest quarter (the published level the LCFS kWh rake scales to over FY2024-25), and the subnational electricity and gas statistics' domestic consumption and meter counts for Great Britain, England and Wales, the countries and the English regions, 2023 and 2024 (the published gas-connected share by region: gas meters over electricity meters).",
+      "consumers": [
+        "uk_runtime.energy_pricing"
+      ],
+      "planned_consumers": [],
+      "selections": [
+        {
+          "label": "energy_trends_domestic_consumption",
+          "selector": {
+            "source_name": "desnz",
+            "source_concept": [
+              "desnz.energy_trends.domestic_electricity_consumption",
+              "desnz.energy_trends.domestic_gas_consumption"
+            ]
+          },
+          "expected_row_count": 43
+        },
+        {
+          "label": "subnational_domestic_consumption_and_meters_regions",
+          "selector": {
+            "source_name": "desnz",
+            "source_concept": [
+              "desnz.subnational.domestic_electricity_consumption",
+              "desnz.subnational.domestic_electricity_meter_count",
+              "desnz.subnational.domestic_gas_consumption",
+              "desnz.subnational.domestic_gas_meter_count"
+            ],
+            "geography_level": [
+              "country",
+              "region"
+            ]
+          },
+          "expected_row_count": 112
+        }
+      ]
+    },
+    {
+      "resource": "qep_energy_prices.json",
+      "purpose": "DESNZ Quarterly Energy Prices average domestic prices paid: standard electricity (table 2.2.4) and gas (table 2.3.4) average variable unit costs (GBP per kWh) and fixed costs (GBP per year) by QEP price region and payment method (standard credit, direct debit, prepayment, all), including VAT, calendar and fiscal years 2023 to 2025. Consumed by the LCFS energy pricing step in place of the Ofgem cap levels (the cap stays vendored as the regional maximum).",
+      "consumers": [
+        "uk_runtime.energy_pricing"
+      ],
+      "planned_consumers": [],
+      "selections": [
+        {
+          "label": "qep_average_unit_and_fixed_costs",
+          "selector": {
+            "source_name": "desnz",
+            "source_concept": [
+              "desnz.qep.domestic_electricity_variable_unit_cost",
+              "desnz.qep.domestic_electricity_fixed_cost",
+              "desnz.qep.domestic_gas_variable_unit_cost",
+              "desnz.qep.domestic_gas_fixed_cost"
+            ]
+          },
+          "expected_row_count": 1465
         }
       ]
     }

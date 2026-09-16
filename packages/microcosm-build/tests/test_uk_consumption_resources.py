@@ -36,6 +36,25 @@ def test_ofgem_region_crosswalk_covers_every_frs_region_once() -> None:
         for region, value in mapping.items()
         if region != "NORTHERN_IRELAND"
     )
+    # The QEP price-region and DESNZ subnational-area legs cover the same
+    # twelve FRS regions; QEP ids are the vendored groupby ids, areas the
+    # vendored geography ids (Northern Ireland has no subnational row).
+    qep = payload["qep_price_region_mapping"]
+    assert set(qep) == set(LCFS_REGIONS.values())
+    qep_ids = {
+        row["layout"]["groupby_value_id"]
+        for row in load_vendored_resource("qep_energy_prices.json")["rows"]
+    }
+    assert set(qep.values()) <= qep_ids
+    assert payload["qep_uk_average_id"] in qep_ids
+    areas = payload["subnational_area_mapping"]
+    assert set(areas) == set(LCFS_REGIONS.values())
+    area_ids = {
+        row["geography"]["id"]
+        for row in load_vendored_resource("desnz_domestic_energy_facts.json")["rows"]
+    }
+    assert {a for a in areas.values() if a is not None} <= area_ids
+    assert areas["NORTHERN_IRELAND"] is None
 
 
 def test_policy_anchor_resources_carry_parameter_paths() -> None:

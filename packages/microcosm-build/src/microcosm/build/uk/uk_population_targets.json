@@ -702,6 +702,8 @@
       "obr.fuel_duties_cars": "No incumbent ancestor: uk-data bound the all-road-users OBR fuel duties total; the cars receipts from the OBR vehicle-type release are a net-new household-incidence target (microcosm#890 E1, ruling 2026-09-10).",
       "orr.rail_government_support": "No incumbent target: uk-data scaled rail_subsidy_spending to the ORR total after calibration (the #790 rail scaler); microcosm#890 G binds the ORR table 7270 fact instead.",
       "ons.household_energy_expenditure": "No incumbent target: uk-data raked energy to NEED means and never bound a household-sector expenditure total; microcosm#890 F1 binds ONS Consumer Trends COICOP 04.5.",
+      "ons.household_electricity_expenditure": "No incumbent target: uk-data raked energy to NEED means and never bound a household-sector expenditure total; microcosm#890 F1 binds ONS Consumer Trends COICOP 04.5.1 electricity per fuel (chronicle#270 / #271).",
+      "ons.household_gas_expenditure": "No incumbent target: uk-data raked energy to NEED means and never bound a household-sector expenditure total; microcosm#890 F1 binds ONS Consumer Trends COICOP 04.5.2 gas per fuel (chronicle#270 / #271).",
       "scotgov.bus.passenger_revenue": "No incumbent target: uk-data uplifted DfT England fares to the UK by population; microcosm#890 binds the Scotland leg from Scottish Transport Statistics.",
       "scotgov.bus.government_support": "No incumbent target: uk-data uplifted DfT England support to the UK by population; microcosm#890 binds the Scotland leg from Scottish Transport Statistics.",
       "welshgov.bus.public_support": "No incumbent target: uk-data uplifted DfT England support to the UK by population; microcosm#890 binds the Wales leg (local-authority route) from the StatsWales revenue outturn.",
@@ -963,6 +965,8 @@
       "obr.fuel_duties_cars",
       "orr.rail_government_support",
       "ons.household_energy_expenditure",
+      "ons.household_electricity_expenditure",
+      "ons.household_gas_expenditure",
       "scotgov.bus.passenger_revenue",
       "scotgov.bus.government_support",
       "welshgov.bus.public_support",
@@ -14181,7 +14185,7 @@
         "policyengine": {
           "metric_name": "ons/household_energy_expenditure",
           "value_variable": "domestic_energy_consumption",
-          "notes": "ONS Consumer Trends COICOP 04.5 electricity, gas and other fuels, current prices, calendar year; the publisher class includes other fuels (heating oil, solid fuel), which the frame's electricity plus gas column does not carry, so the bound total is a few percent wide of the modelled scope (#890 F1)."
+          "notes": "ONS Consumer Trends COICOP 04.5 electricity, gas and other fuels, current prices, calendar year; the publisher class includes other fuels (heating oil, solid fuel), which the frame's electricity plus gas column does not carry, so the bound total is a few percent wide of the modelled scope (#890 F1). Signed out of calibration once the 04.5.1 electricity and 04.5.2 gas sub-classes were published and bound per fuel (chronicle #271); retained for registry parity."
         },
         "axiom": {
           "metric_name": "ons/household_energy_expenditure",
@@ -14201,6 +14205,76 @@
       },
       "category_id": "ons.consumer_trends",
       "label": "Electricity, gas and other fuels (COICOP 04.5)"
+    },
+    {
+      "target_id": "ons.household_electricity_expenditure",
+      "family": "ons_national_accounts",
+      "geography_levels": [
+        "country"
+      ],
+      "measurement": {
+        "entity": "household",
+        "concept": "uk.consumption.electricity.amount"
+      },
+      "bindings": {
+        "policyengine": {
+          "metric_name": "ons/household_electricity_expenditure",
+          "value_variable": "electricity_consumption",
+          "notes": "ONS Consumer Trends COICOP 04.5.1 electricity, current prices, calendar year, bound on the frame's electricity spend column; replaces the 04.5 total (which carries other fuels the frame does not model) once chronicle #271 published the sub-classes (microcosm#890 F1, chronicle#270). The stage sets the column's level from DESNZ volumes at QEP average prices paid, so the design-weight gap to this row is the published-source residual the receipts record."
+        },
+        "axiom": {
+          "metric_name": "ons/household_electricity_expenditure",
+          "status": "pending",
+          "value_rule": "uk.consumption.electricity.amount"
+        }
+      },
+      "ledger_selector": {
+        "source_name": "ons",
+        "source_concept": "ons.household_expenditure.electricity",
+        "entity_name": "household",
+        "period_type": "calendar_year",
+        "dimension_values": {
+          "coicop": "04.5.1",
+          "frequency": "annual"
+        }
+      },
+      "category_id": "ons.consumer_trends",
+      "label": "Electricity (COICOP 04.5.1)"
+    },
+    {
+      "target_id": "ons.household_gas_expenditure",
+      "family": "ons_national_accounts",
+      "geography_levels": [
+        "country"
+      ],
+      "measurement": {
+        "entity": "household",
+        "concept": "uk.consumption.gas.amount"
+      },
+      "bindings": {
+        "policyengine": {
+          "metric_name": "ons/household_gas_expenditure",
+          "value_variable": "gas_consumption",
+          "notes": "ONS Consumer Trends COICOP 04.5.2 gas, current prices, calendar year, bound on the frame's gas spend column (zero for households without a gas connection); replaces the 04.5 total once chronicle #271 published the sub-classes (microcosm#890 F1, chronicle#270). The stage sets the column's level from DESNZ volumes at QEP average prices paid over the published gas-connected share, so the design-weight gap to this row is the published-source residual the receipts record."
+        },
+        "axiom": {
+          "metric_name": "ons/household_gas_expenditure",
+          "status": "pending",
+          "value_rule": "uk.consumption.gas.amount"
+        }
+      },
+      "ledger_selector": {
+        "source_name": "ons",
+        "source_concept": "ons.household_expenditure.gas",
+        "entity_name": "household",
+        "period_type": "calendar_year",
+        "dimension_values": {
+          "coicop": "04.5.2",
+          "frequency": "annual"
+        }
+      },
+      "category_id": "ons.consumer_trends",
+      "label": "Gas (COICOP 04.5.2)"
     },
     {
       "target_id": "scotgov.bus.passenger_revenue",
