@@ -1,0 +1,1 @@
+Derive each graph source's content key once per run instead of once per executed node, re-deriving every source in full before the manifest is built, and build the per-column context-digest stream with numpy. No digest, key, seal or receipt value changes.
