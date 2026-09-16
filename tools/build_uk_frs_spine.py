@@ -1605,6 +1605,7 @@ def main(argv: list[str] | None = None) -> int:
                 release_id=state.build_id,
                 report_path=spine_gate_path,
                 release_candidate=args.release_candidate,
+                synthetic_smoke=args.synthetic_fixture_dir is not None,
                 registry=UK_GATE_REGISTRY,
             )
             if spine_gate_manifest is not None

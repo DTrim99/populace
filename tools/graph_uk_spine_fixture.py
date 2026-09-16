@@ -644,6 +644,12 @@ def _lcfs_donors() -> tuple[pd.DataFrame, pd.DataFrame]:
         start=1,
     ):
         household[source] = position + rows / 10.0
+    # A third of the diary households buy no bus fares, as the licensed diary
+    # does: the stage clips the recipient's fares to the donor's realised
+    # range with no allowance (María's Wales fence), so the synthetic donor
+    # must reach zero or every non-user recipient would clip low.
+    for source in BUS_FARE_LCFS_CODES:
+        household[source] = np.where(rows.astype(int) % 3 == 0, 0.0, household[source])
     person = pd.DataFrame(
         {
             "case": np.arange(1, _DONOR_ROWS + 1),
