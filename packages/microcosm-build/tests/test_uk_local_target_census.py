@@ -202,13 +202,32 @@ def test_council_tax_source_and_fence_pin_measured_coverage() -> None:
     assert "all 198 cells bind, band I included" in wales["notes"]
     scotland = sources["scotgov_ctaxbase_chargeable_dwellings_la"]
     assert scotland["status"] == SOURCE_STATUS_PINNED_IN_LEDGER_FACTS
-    assert "all 256 cells bind" in scotland["notes"]
+    assert "255 cells bind and Shetland band H is signed deferred" in scotland["notes"]
     families = {row["family"]: row for row in census["families"]}
     assert families["council_tax"]["sources"] == [
         "mhclg_council_taxbase_la",
         "welshgov_council_tax_dwellings_la",
         "scotgov_ctaxbase_chargeable_dwellings_la",
     ]
+    # The composed region controls keep the two support-floor-deferred
+    # authorities in their sums (review round 1 of microcosm#934).
+    assert (
+        "rescales those regions' bound cells" in families["council_tax"]["description"]
+    )
+    retired = families["council_tax"]["retired_deferrals"]
+    assert [row["reason_id"] for row in retired] == [
+        "council_tax_voa_scotland_absent",
+        "council_tax_wales_country_control_absent",
+        "council_tax_ni_domestic_rates",
+        "council_tax_city_of_london_band_a_suppressed",
+    ]
+    assert all(
+        row["retired_on"] == "2026-09-15"
+        and row["approved_by"] == "juaristi22"
+        and "microcosm#929" in row["adjudication"]
+        and row["rationale"]
+        for row in retired
+    )
     fences = {row["fence_id"]: row for row in census["binding_fences"]}
     fence = fences["voa_dwellings_vs_household_frame"]
     assert "councils' taxbase returns" in fence["rule"]

@@ -831,7 +831,7 @@
    "ledger_value": 5305.0,
    "name": "welshgov.council_tax_stock.band_i",
    "period": 2025,
-   "reason": "Ledger-compiled row has no fixture counterpart at this comparison period."
+   "reason": "No incumbent counterpart: Wales alone has a council tax band I and the incumbent's VOA rows stop at band H; Microcosm binds welshgov.council_tax_stock.band_i from the StatsWales CT1 return (microcosm#929)."
   },
   {
    "fixture_value": 999000.0,
@@ -1799,7 +1799,7 @@
    "ledger_value": 621096.0,
    "name": "mhclg.council_tax_stock.band_a@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1386260.0,
@@ -1807,7 +1807,7 @@
    "ledger_value": 1285713.0,
    "name": "mhclg.council_tax_stock.band_a@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1070830.0,
@@ -1815,7 +1815,7 @@
    "ledger_value": 988548.0,
    "name": "mhclg.council_tax_stock.band_a@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 804340.0,
@@ -1823,7 +1823,7 @@
    "ledger_value": 739971.0,
    "name": "mhclg.council_tax_stock.band_a@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 786010.0,
@@ -1831,7 +1831,7 @@
    "ledger_value": 728493.0,
    "name": "mhclg.council_tax_stock.band_a@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 403180.0,
@@ -1839,7 +1839,7 @@
    "ledger_value": 364482.0,
    "name": "mhclg.council_tax_stock.band_a@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 144550.0,
@@ -1847,7 +1847,7 @@
    "ledger_value": 118732.0,
    "name": "mhclg.council_tax_stock.band_a@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 367610.0,
@@ -1855,7 +1855,7 @@
    "ledger_value": 320025.0,
    "name": "mhclg.council_tax_stock.band_a@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 473020.0,
@@ -1863,7 +1863,7 @@
    "ledger_value": 422969.0,
    "name": "mhclg.council_tax_stock.band_a@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 206790.0,
@@ -1871,7 +1871,7 @@
    "ledger_value": 193309.0,
    "name": "mhclg.council_tax_stock.band_b@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 705450.0,
@@ -1879,7 +1879,7 @@
    "ledger_value": 666970.0,
    "name": "mhclg.council_tax_stock.band_b@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 514190.0,
@@ -1887,7 +1887,7 @@
    "ledger_value": 482052.0,
    "name": "mhclg.council_tax_stock.band_b@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 505610.0,
@@ -1895,7 +1895,7 @@
    "ledger_value": 478320.0,
    "name": "mhclg.council_tax_stock.band_b@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 654140.0,
@@ -1903,7 +1903,7 @@
    "ledger_value": 625673.0,
    "name": "mhclg.council_tax_stock.band_b@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 598950.0,
@@ -1911,7 +1911,7 @@
    "ledger_value": 568914.0,
    "name": "mhclg.council_tax_stock.band_b@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 499130.0,
@@ -1919,7 +1919,7 @@
    "ledger_value": 463447.0,
    "name": "mhclg.council_tax_stock.band_b@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 687430.0,
@@ -1927,7 +1927,7 @@
    "ledger_value": 649092.0,
    "name": "mhclg.council_tax_stock.band_b@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 644890.0,
@@ -1935,7 +1935,7 @@
    "ledger_value": 609286.0,
    "name": "mhclg.council_tax_stock.band_b@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 196180.0,
@@ -1943,7 +1943,7 @@
    "ledger_value": 186703.0,
    "name": "mhclg.council_tax_stock.band_c@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 616070.0,
@@ -1951,7 +1951,7 @@
    "ledger_value": 585587.0,
    "name": "mhclg.council_tax_stock.band_c@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 432290.0,
@@ -1959,7 +1959,7 @@
    "ledger_value": 408440.0,
    "name": "mhclg.council_tax_stock.band_c@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 403840.0,
@@ -1967,7 +1967,7 @@
    "ledger_value": 384470.0,
    "name": "mhclg.council_tax_stock.band_c@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 526260.0,
@@ -1975,7 +1975,7 @@
    "ledger_value": 503657.0,
    "name": "mhclg.council_tax_stock.band_c@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 739570.0,
@@ -1983,7 +1983,7 @@
    "ledger_value": 708146.0,
    "name": "mhclg.council_tax_stock.band_c@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1040280.0,
@@ -1991,7 +1991,7 @@
    "ledger_value": 991205.0,
    "name": "mhclg.council_tax_stock.band_c@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1075940.0,
@@ -1999,7 +1999,7 @@
    "ledger_value": 1024169.0,
    "name": "mhclg.council_tax_stock.band_c@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 624030.0,
@@ -2007,7 +2007,7 @@
    "ledger_value": 587214.0,
    "name": "mhclg.council_tax_stock.band_c@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 113460.0,
@@ -2015,7 +2015,7 @@
    "ledger_value": 108432.0,
    "name": "mhclg.council_tax_stock.band_d@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 363970.0,
@@ -2023,7 +2023,7 @@
    "ledger_value": 346489.0,
    "name": "mhclg.council_tax_stock.band_d@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 249530.0,
@@ -2031,7 +2031,7 @@
    "ledger_value": 237496.0,
    "name": "mhclg.council_tax_stock.band_d@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 247850.0,
@@ -2039,7 +2039,7 @@
    "ledger_value": 238335.0,
    "name": "mhclg.council_tax_stock.band_d@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 302500.0,
@@ -2047,7 +2047,7 @@
    "ledger_value": 288790.0,
    "name": "mhclg.council_tax_stock.band_d@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 506540.0,
@@ -2055,7 +2055,7 @@
    "ledger_value": 485975.0,
    "name": "mhclg.council_tax_stock.band_d@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 975750.0,
@@ -2063,7 +2063,7 @@
    "ledger_value": 929941.0,
    "name": "mhclg.council_tax_stock.band_d@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 843560.0,
@@ -2071,7 +2071,7 @@
    "ledger_value": 807114.0,
    "name": "mhclg.council_tax_stock.band_d@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 432070.0,
@@ -2079,7 +2079,7 @@
    "ledger_value": 404568.0,
    "name": "mhclg.council_tax_stock.band_d@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 61090.0,
@@ -2087,7 +2087,7 @@
    "ledger_value": 58932.0,
    "name": "mhclg.council_tax_stock.band_e@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 216990.0,
@@ -2095,7 +2095,7 @@
    "ledger_value": 207825.0,
    "name": "mhclg.council_tax_stock.band_e@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 158600.0,
@@ -2103,7 +2103,7 @@
    "ledger_value": 152517.0,
    "name": "mhclg.council_tax_stock.band_e@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 154970.0,
@@ -2111,7 +2111,7 @@
    "ledger_value": 149931.0,
    "name": "mhclg.council_tax_stock.band_e@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 193700.0,
@@ -2119,7 +2119,7 @@
    "ledger_value": 185672.0,
    "name": "mhclg.council_tax_stock.band_e@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 313840.0,
@@ -2127,7 +2127,7 @@
    "ledger_value": 301723.0,
    "name": "mhclg.council_tax_stock.band_e@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 585130.0,
@@ -2135,7 +2135,7 @@
    "ledger_value": 551952.0,
    "name": "mhclg.council_tax_stock.band_e@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 551730.0,
@@ -2143,7 +2143,7 @@
    "ledger_value": 529137.0,
    "name": "mhclg.council_tax_stock.band_e@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 292090.0,
@@ -2151,7 +2151,7 @@
    "ledger_value": 274120.0,
    "name": "mhclg.council_tax_stock.band_e@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 26600.0,
@@ -2159,7 +2159,7 @@
    "ledger_value": 25729.0,
    "name": "mhclg.council_tax_stock.band_f@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 104330.0,
@@ -2167,7 +2167,7 @@
    "ledger_value": 100117.0,
    "name": "mhclg.council_tax_stock.band_f@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 75690.0,
@@ -2175,7 +2175,7 @@
    "ledger_value": 73172.0,
    "name": "mhclg.council_tax_stock.band_f@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 73920.0,
@@ -2183,7 +2183,7 @@
    "ledger_value": 71418.0,
    "name": "mhclg.council_tax_stock.band_f@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 105630.0,
@@ -2191,7 +2191,7 @@
    "ledger_value": 102077.0,
    "name": "mhclg.council_tax_stock.band_f@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 172960.0,
@@ -2199,7 +2199,7 @@
    "ledger_value": 166744.0,
    "name": "mhclg.council_tax_stock.band_f@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 298920.0,
@@ -2207,7 +2207,7 @@
    "ledger_value": 279261.0,
    "name": "mhclg.council_tax_stock.band_f@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 337260.0,
@@ -2215,7 +2215,7 @@
    "ledger_value": 325815.0,
    "name": "mhclg.council_tax_stock.band_f@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 147920.0,
@@ -2223,7 +2223,7 @@
    "ledger_value": 139412.0,
    "name": "mhclg.council_tax_stock.band_f@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 14600.0,
@@ -2231,7 +2231,7 @@
    "ledger_value": 14062.0,
    "name": "mhclg.council_tax_stock.band_g@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 65750.0,
@@ -2239,7 +2239,7 @@
    "ledger_value": 62587.0,
    "name": "mhclg.council_tax_stock.band_g@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 42180.0,
@@ -2247,7 +2247,7 @@
    "ledger_value": 40487.0,
    "name": "mhclg.council_tax_stock.band_g@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 39400.0,
@@ -2255,7 +2255,7 @@
    "ledger_value": 37892.0,
    "name": "mhclg.council_tax_stock.band_g@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 62780.0,
@@ -2263,7 +2263,7 @@
    "ledger_value": 60209.0,
    "name": "mhclg.council_tax_stock.band_g@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 113720.0,
@@ -2271,7 +2271,7 @@
    "ledger_value": 108700.0,
    "name": "mhclg.council_tax_stock.band_g@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 225170.0,
@@ -2279,7 +2279,7 @@
    "ledger_value": 207056.0,
    "name": "mhclg.council_tax_stock.band_g@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 265610.0,
@@ -2287,7 +2287,7 @@
    "ledger_value": 255206.0,
    "name": "mhclg.council_tax_stock.band_g@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 81960.0,
@@ -2295,7 +2295,7 @@
    "ledger_value": 75533.0,
    "name": "mhclg.council_tax_stock.band_g@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1570.0,
@@ -2303,7 +2303,7 @@
    "ledger_value": 1151.0,
    "name": "mhclg.council_tax_stock.band_h@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 7350.0,
@@ -2311,7 +2311,7 @@
    "ledger_value": 6230.0,
    "name": "mhclg.council_tax_stock.band_h@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 3770.0,
@@ -2319,7 +2319,7 @@
    "ledger_value": 3022.0,
    "name": "mhclg.council_tax_stock.band_h@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 3480.0,
@@ -2327,7 +2327,7 @@
    "ledger_value": 2779.0,
    "name": "mhclg.council_tax_stock.band_h@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 6170.0,
@@ -2335,7 +2335,7 @@
    "ledger_value": 5285.0,
    "name": "mhclg.council_tax_stock.band_h@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 14830.0,
@@ -2343,7 +2343,7 @@
    "ledger_value": 13447.0,
    "name": "mhclg.council_tax_stock.band_h@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 68500.0,
@@ -2351,7 +2351,7 @@
    "ledger_value": 59569.0,
    "name": "mhclg.council_tax_stock.band_h@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 40390.0,
@@ -2359,7 +2359,7 @@
    "ledger_value": 36978.0,
    "name": "mhclg.council_tax_stock.band_h@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 8430.0,
@@ -2367,7 +2367,7 @@
    "ledger_value": 6697.0,
    "name": "mhclg.council_tax_stock.band_h@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1287830.0,
@@ -2375,7 +2375,7 @@
    "ledger_value": 1209414.0,
    "name": "mhclg.council_tax_stock.total@E12000001",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 3466140.0,
@@ -2383,7 +2383,7 @@
    "ledger_value": 3261518.0,
    "name": "mhclg.council_tax_stock.total@E12000002",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 2547080.0,
@@ -2391,7 +2391,7 @@
    "ledger_value": 2385734.0,
    "name": "mhclg.council_tax_stock.total@E12000003",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 2233400.0,
@@ -2399,7 +2399,7 @@
    "ledger_value": 2103116.0,
    "name": "mhclg.council_tax_stock.total@E12000004",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 2637190.0,
@@ -2407,7 +2407,7 @@
    "ledger_value": 2499856.0,
    "name": "mhclg.council_tax_stock.total@E12000005",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 2863600.0,
@@ -2415,7 +2415,7 @@
    "ledger_value": 2718131.0,
    "name": "mhclg.council_tax_stock.total@E12000006",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 3837430.0,
@@ -2423,7 +2423,7 @@
    "ledger_value": 3601163.0,
    "name": "mhclg.council_tax_stock.total@E12000007",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 4169520.0,
@@ -2431,7 +2431,7 @@
    "ledger_value": 3947536.0,
    "name": "mhclg.council_tax_stock.total@E12000008",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 2704390.0,
@@ -2439,7 +2439,7 @@
    "ledger_value": 2519799.0,
    "name": "mhclg.council_tax_stock.total@E12000009",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/<REGION>/<band> row is the VOA valuation-list stock, all banded dwellings; Microcosm's region cell is composed from the 296 billing authorities' MHCLG Council Taxbase rows (CTB line 7 plus A- for band A, minus lines 11 and 15: occupied chargeable dwellings, chronicle#264) and sums to the publisher's England row to the unit. The valuation list runs 6.3 % over England's household rows, so the taxbase cell sits below the VOA value (North East band A 667,540 VOA against 621,096 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 2057128451236.5015,
@@ -3727,7 +3727,7 @@
    "ledger_value": 194973.29,
    "name": "welshgov.council_tax_stock.band_a",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 307070.0,
@@ -3735,7 +3735,7 @@
    "ledger_value": 285787.52,
    "name": "welshgov.council_tax_stock.band_b",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 323220.0,
@@ -3743,7 +3743,7 @@
    "ledger_value": 301699.86,
    "name": "welshgov.council_tax_stock.band_c",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 241220.0,
@@ -3751,7 +3751,7 @@
    "ledger_value": 225179.88,
    "name": "welshgov.council_tax_stock.band_d",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 200840.0,
@@ -3759,7 +3759,7 @@
    "ledger_value": 185447.46,
    "name": "welshgov.council_tax_stock.band_e",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 122650.0,
@@ -3767,7 +3767,7 @@
    "ledger_value": 114672.0,
    "name": "welshgov.council_tax_stock.band_f",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 55190.0,
@@ -3775,7 +3775,7 @@
    "ledger_value": 52211.0,
    "name": "welshgov.council_tax_stock.band_g",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 13190.0,
@@ -3783,7 +3783,7 @@
    "ledger_value": 12357.0,
    "name": "welshgov.council_tax_stock.band_h",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   },
   {
    "fixture_value": 1484410.0,
@@ -3791,7 +3791,7 @@
    "ledger_value": 1377633.03,
    "name": "welshgov.council_tax_stock.total",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Signed basis translation (microcosm#929): the incumbent's voa/council_tax/WALES/<band> row is the VOA valuation-list stock; Microcosm binds the StatsWales CT1 2025-26 return's chargeable dwellings by band A-I minus h7 empty and h8 second homes (chronicle#264; Wales A 215,380 VOA against 194,973 taxbase). Ruled by María 2026-09-11 / 2026-09-15; receipts experiments/929-council-tax-taxbase-receipts.md."
   }
  ],
  "fixture_count": 637

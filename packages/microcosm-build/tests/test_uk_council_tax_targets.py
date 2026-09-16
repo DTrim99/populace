@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import os
+from dataclasses import replace
 from importlib import resources as importlib_resources
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from microcosm.build.country_spec import load_country_spec
+from microcosm.build.ledger_targets import compile_ledger_target_references
+from microcosm.build.uk_runtime.chronicle_feed import load_uk_chronicle_feed
 from microcosm.build.uk_runtime.ledger_targets import (
     UKFrameTargetAdapter,
+    compile_uk_target_registry,
     materialize_uk_ledger_targets,
 )
 from microcosm.build.uk_runtime.local_targets import load_uk_population_contract
@@ -291,8 +298,9 @@ def test_council_tax_activation_binds_2511_references() -> None:
             continue
         candidates = payload["geography_levels"]["local_authority"]["candidates"]
         active += sum(row["status"] == "active" for row in candidates)
-    # 2,058 English A-G cells (microcosm#762) + 198 Welsh A-I + 256 Scottish
-    # A-H (microcosm#929); the 296 English band-H cells stay deferred.
+    # 2,058 English A-G cells (microcosm#762) + 198 Welsh A-I + 255 Scottish
+    # A-H (microcosm#929; Shetland band H is a support deferral); the 296
+    # English band-H cells stay deferred.
     assert active == 2_511
 
 
@@ -414,3 +422,97 @@ def test_council_tax_country_masks_refuse_roster_count_drift(
         match=rf"{name}.*expected {expected}.*measured {expected - 1}",
     ):
         _area_signed_deferrals(load_uk_population_contract(), crosswalk)
+
+
+# The untracked default location of the pinned consumer feed (the same one the
+# regeneration test in test_uk_target_references.py reads).
+STABLE_UK_FACT_FEED_NAME = ".codex-work/consumer_facts_uk.jsonl"
+
+
+def _pinned_feed_facts() -> list[dict]:
+    """The pinned Chronicle consumer facts, or skip (the artifact is untracked)."""
+
+    root = Path(__file__).resolve().parents[3]
+    configured = os.environ.get("CHRONICLE_UK_FACTS")
+    feed = Path(configured) if configured else root / STABLE_UK_FACT_FEED_NAME
+    if feed.is_dir():
+        feed = feed / "consumer_facts.jsonl"
+    if not feed.is_file():
+        pytest.skip("pinned UK Chronicle consumer feed is not present")
+    pin = load_uk_chronicle_feed()
+    assert hashlib.sha256(feed.read_bytes()).hexdigest() == pin.facts_sha256
+    with feed.open(encoding="utf-8") as handle:
+        return [json.loads(line) for line in handle if line.strip()]
+
+
+def test_composed_english_region_cells_sum_to_the_publisher_england_row() -> None:
+    """The nine composed region cells are the publisher's England row, split.
+
+    MHCLG prints no region row, so the region controls are consumer rollups
+    of the 296 billing-authority facts (microcosm#929). The England row is
+    published, and the same operands resolved at E92000001 must equal the
+    sum of the nine cells to the unit, band by band, the check the binding
+    notes cite. Feed-gated like the regeneration test.
+    """
+
+    facts = _pinned_feed_facts()
+    spec = load_country_spec("uk")
+    composed = {
+        reference.name: reference
+        for reference in spec.target_references
+        if reference.name.startswith("mhclg.council_tax_stock.")
+    }
+    assert len(composed) == 81
+    compiled = compile_uk_target_registry(facts, target_period=2025).registry
+    values = {
+        target.name.rsplit("@", 1)[0]
+        if target.name.endswith("@2025")
+        else target.name: (target.value)
+        for target in compiled.specs
+        if target.name.startswith("mhclg.council_tax_stock.")
+    }
+    assert len(values) == 81, sorted(values)[:3]
+
+    suffixes = [f"band_{band}" for band in "abcdefgh"] + ["total"]
+    england_references = []
+    for suffix in suffixes:
+        template = composed[f"mhclg.council_tax_stock.{suffix}@E12000001"]
+        england_references.append(
+            replace(
+                template,
+                name=f"mhclg.council_tax_stock.{suffix}@E92000001",
+                ledger_selector={
+                    **template.ledger_selector,
+                    "geography_level": "country",
+                    "geography_id": ["E92000001"],
+                },
+                value_operands=tuple(
+                    {**operand, "expected_member_count": 1}
+                    for operand in template.value_operands
+                ),
+                metadata={
+                    "contract_target_id": f"mhclg.council_tax_stock.{suffix}",
+                    "measure_kind": "prepared_column",
+                    "geography_level": "country",
+                    "geography_id": "E92000001",
+                },
+            )
+        )
+    registry = compile_ledger_target_references(facts, england_references, country="uk")
+    published = {
+        suffix: float(row.value)
+        for suffix, row in zip(suffixes, registry.specs, strict=True)
+    }
+    for suffix in suffixes:
+        region_sum = sum(
+            values[f"mhclg.council_tax_stock.{suffix}@{code}"]
+            for code in (f"E1200000{index}" for index in range(1, 10))
+        )
+        assert region_sum == pytest.approx(published[suffix], abs=0.5), suffix
+    # The publisher's England row on the occupied-chargeable basis (CTB 2025:
+    # line 7 plus A- for band A, minus lines 11 and 15).
+    assert published["band_a"] == pytest.approx(5_590_029, abs=0.5)
+    assert published["total"] == pytest.approx(24_246_267, abs=0.5)
+    assert sum(published[f"band_{band}"] for band in "abcdefgh") == pytest.approx(
+        published["total"], abs=0.5
+    )

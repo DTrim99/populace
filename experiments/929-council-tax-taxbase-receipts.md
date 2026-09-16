@@ -33,7 +33,7 @@ the hierarchy labels every constituency and authority from the fact's `geography
 
 **National surface (`tools/generate_uk_target_references.py`, 84 s).** 603 active, 7
 `no_fact_at_or_before_period`, 7 signed excluded — main's counts after #906 and #921; all 603 references
-byte-identical, no value or period moves. One defect surfaced and is fixed in the same commit:
+JSON-equal (about 315 `period_basis_note` strings re-escaped, hierarchy providers and categories added; no value or period moves). One defect surfaced and is fixed in the same commit:
 the nine `scotgov.council_tax_stock.*` rows first came back `multi_fact` (3 matches each)
 because chronicle spells the vintage into the record-set id without a separator
 (`scotgov.ctaxbase2025.chargeable_dwellings.scotland`; MHCLG does the same with `ctb2025`),
@@ -50,7 +50,7 @@ headers only (rows unchanged). `uk/local_validation_levels.json` `source_feed` r
 (three values).
 
 **Compile-parity receipts (6 min, both surfaces).** Incumbent 2025 national and local registers:
-unchanged. Production 2023 register: 337 → 346 compiled, +9 `ledger_only` — the nine Scottish
+unchanged. Production 2023 register: 344 → 353 compiled, +9 `ledger_only` — the nine Scottish
 stock rows now compile at 2023 from the September 2023 CTAXBASE workbook chronicle #264 added.
 
 **Not yet on this branch.** The taxbase facts bind nothing until the family commits below
@@ -86,7 +86,7 @@ at S92000003 as the winning rows, the region `total` rows below them, on the sig
 composition targets bound their partition only through the policyengine `household_conditions`;
 their measurement was the bare household count, so under #906's nearest-covering-control rule every
 one of them was a candidate country control for every household total. Latent on `main` since #903
-for the rowwise driver. Fixed in its own commit ahead of the family (`97ee7d54`): the filter
+for the rowwise driver. Fixed by the partition declaration folded into the family commit (it first rode as its own commit, `97ee7d54` on the pre-rebase branch): the filter
 `uk.household.composition_type == <household_type>` sits on each measurement, mirroring the binding;
 both registers are byte-identical (no reference carries the measurement); the repro compiles 20,430
 surface rows; the contract tests pin the partition and assert the ten cells share no signature with
@@ -200,7 +200,45 @@ yes. `obr.council_tax` a smaller miss: no, −11.0 % → −12.8 % (explained ab
 regenerates to 603 national references (main's 603 on the v3 feed), the family to 613 / 20,885. Two overlaps
 were merged rather than chosen between: 42254801 filters the council-tax stock totals by band (the totals leave
 the composition group from their side; the new `mhclg.*` and `welshgov.*` totals carry the same filter shape, A–H
-and A–I) alongside 97ee7d54's partition filter on the composition cells, and b5f1331b's resolver-derived leg
+and A–I) alongside this branch's partition filter on the composition cells, and b5f1331b's resolver-derived leg
 licences carry the `area_scope` rule on top. The run in this Part measured the pre-rebase family tree
 (96e6204e, kept as the local ref `backup-929-pre-retarget`); the rebased head adds #921's UC element controls
 to the joint solve and the totals' filters, neither of which touches a council-tax cell, and was not re-solved.
+
+## Part E — review round 1 (Vahid, 2026-09-16) and the sources of the comparison figures
+
+**Sources of the D2 figures quoted in Part D and the PR body.** The D2 run is
+`data/ukds/acceptance/355-dataset-size/spine-q/f100-k15-dense-e2000-s42` (the 10 September report's dense run; its
+step-40 evaluation sits under `evaluation/40-incumbent-surface/`). The council-tax family figures (92.2 % within
+10 %, 33 past 25 %, the mean signed error by band, the four band-G micro-cells, the inner-London cells) are read
+from its `solve_diagnostics.csv` (family `council_tax`, area type `la`); the "+6.3 % England / +6.6 % Wales
+valuation list over the household rows" and the 0.97–1.20× per-authority range in the plan and the PR body are
+the VOA band A–G sums per authority against the `census_households` rows of the same file; the national grain
+(80.9 % within 10 %, `obr.council_tax` −11.0 %, the frozen-versus-recomputed rows) is its
+`incumbent_surface_evaluation.json`. The same script summarised both runs.
+
+**Review items and what moved** (commit on the branch after 4db5d6e3):
+1. Both compile-parity registers now carry taxbase-basis rationales: the local `calibration_drift` rows on the
+   `mhclg…by_area` cells sign the valuation-list → occupied-chargeable translation (with the ruling dates and
+   the Westminster example), the `fixture_only` rows name the band-H and support-floor deferrals, the Scottish and
+   Welsh `ledger_only` rows say why the incumbent has no counterpart (band I included); on the national register
+   the 81 `mhclg…@E12` and nine `welshgov` drift rows sign the same translation with the North East and Wales
+   band-A examples, and Welsh band I has its own rationale. Band I joins the tool's metric set.
+2. The binding notes no longer name an England country control; the nine composed cells sum to the publisher's
+   England row under a feed-gated test (`test_composed_english_region_cells_sum_to_the_publisher_england_row`:
+   band A 5,590,029, total 24,246,267, bands sum to the total).
+3. The partition commit is folded into the family commit (its test could not stand alone on a base where #906's
+   42254801 had already filtered the totals); the changelog fragment says "on the pre-42254801 frame".
+4. The four retired generator masks are recorded with dates, approver and rationale under the council-tax family
+   of `uk_local_target_census.json` (`retired_deferrals`).
+5. The three band-H region exclusions read the MHCLG basis and the #929 measurement (78 cells within 3.7 %).
+6. The rebased-head batch result is in this Part (below), not a comment.
+7. 2,511 / 255 everywhere (Shetland band H deferred); the PR body too.
+8. The #355 erratum sits after both VOA divergence paragraphs and states 12.4 % → 6.2 %.
+**Batch on the review-round head.** 2,739 tests, 0 failures, 16 skipped (2026-09-16 13:21, the UK build shard: test_uk_*, ledger targets, authoring, country spec, chronicle epoch, cross-grain); the two feed-gated regeneration tests (national and local) and the
+England-sum test ran with the pinned feed present (`.codex-work/consumer_facts_uk.jsonl`, digest-checked against the pin).
+
+Questions: the composed controls' rescale over the two deferred members is stated in the census family text;
+the vintage strip keeps classification revisions (`sic2007`) and says the MYE fold is intended; the Welsh
+selector notes cite the 2026-09-15 ruling; the two feed-gated regeneration tests and the sum test were run with
+the pinned feed present (below).

@@ -208,7 +208,14 @@ _FAMILIES: tuple[dict[str, Any], ...] = (
         "description": (
             "Dwellings charged council tax by band at local-authority grain, "
             "from the councils' taxbase returns (England A-H, Wales A-I, "
-            "Scotland A-H), represented on the household frame (microcosm#929)."
+            "Scotland A-H), represented on the household frame (microcosm#929). "
+            "The nine composed English region controls sum all 296 authority "
+            "facts, including the two support-floor-deferred authorities "
+            "(Isles of Scilly in the South West, City of London in London), so "
+            "the cross-grain operator rescales those regions' bound cells by "
+            "the whole-region sum over the bound sum: about a thousand "
+            "dwellings on the South West's band A, the same shape the VOA "
+            "basis had."
         ),
         "sources": [
             "mhclg_council_taxbase_la",
@@ -216,6 +223,36 @@ _FAMILIES: tuple[dict[str, Any], ...] = (
             "scotgov_ctaxbase_chargeable_dwellings_la",
         ],
         "adjudications": [_COUNCIL_TAX_UNIVERSE_FENCE_ID],
+        "retired_deferrals": [
+            {
+                "reason_id": reason_id,
+                "retired_on": "2026-09-15",
+                "approved_by": "juaristi22",
+                "adjudication": (
+                    "microcosm#929 plan approved by María on 2026-09-15 (the "
+                    "taxbase basis binds Wales and Scotland from their own returns)"
+                ),
+                "rationale": rationale,
+            }
+            for reason_id, rationale in (
+                (
+                    "council_tax_voa_scotland_absent",
+                    "The 32 Scottish councils bind CTAXBASE chargeable dwellings by band (chronicle#264); the VOA local feed's absence no longer applies.",
+                ),
+                (
+                    "council_tax_wales_country_control_absent",
+                    "The 22 Welsh authorities bind StatsWales CT1 chargeable dwellings by band A-I with the Wales row as their country control; the premise (no Wales country fact) was stale, since Chronicle carried the VOA Wales row in every pin.",
+                ),
+                (
+                    "council_tax_ni_domestic_rates",
+                    "Northern Ireland is outside every family's area_scope roster (domestic rates, no council tax bands), so no cell exists to defer.",
+                ),
+                (
+                    "council_tax_city_of_london_band_a_suppressed",
+                    "MHCLG publishes the City of London's band A in the taxbase return; the VOA suppression no longer applies. The City's cells stay under the local-authority support floor.",
+                ),
+            )
+        ],
     },
 )
 
@@ -551,10 +588,10 @@ _SOURCES: tuple[dict[str, Any], ...] = (
             "The pinned feed record-set spec uk.local_geography.council_tax_"
             "stock.scotland_ctaxbase_chargeable_dwellings.by_council_area.v1 "
             "supplies the 32 councils by band A-H, the concept the "
-            "scotgov.council_tax_stock country rows already bind; all 256 "
-            "cells bind. Chargeable dwellings run about 1 % above the "
-            "household frame nationally, the residual the universe fence "
-            "records."
+            "scotgov.council_tax_stock country rows already bind; 255 cells "
+            "bind and Shetland band H is signed deferred (no band-H clone at "
+            "K=15). Chargeable dwellings run about 1 % above the household "
+            "frame nationally, the residual the universe fence records."
         ),
     },
 )

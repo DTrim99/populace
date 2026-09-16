@@ -10450,7 +10450,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_a",
@@ -10528,7 +10528,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_b",
@@ -10600,7 +10600,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_c",
@@ -10672,7 +10672,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_d",
@@ -10744,7 +10744,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_e",
@@ -10816,7 +10816,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_f",
@@ -10888,7 +10888,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_g",
@@ -10960,7 +10960,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/band_h",
@@ -11042,7 +11042,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. The country control is the publisher's England row; the nine region cells are composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in their reference metadata; this binding filters country == ENGLAND. Local cells use the separate by_area bindings."
+          "notes": "England occupied chargeable dwellings by band from the MHCLG Council Taxbase return (chronicle#262 / #264): CTB line 7 (chargeable dwellings after the disabled-relief band adjustment; band A adds the A- column, which lines 11-17 do not carry) minus line 11 (second homes) minus line 15 (empty dwellings), the dwellings a household file can carry. There is no England country reference: the family fans out over the nine English regions only (microcosm#905/#906), each region cell composed from the 296 billing-authority rows (a consumer rollup, microcosm#929) and scoped by the household-region predicate in its reference metadata; the nine cells sum to the publisher's England row to the unit, asserted against the pinned feed in test_uk_council_tax_targets. This binding filters country == ENGLAND. Local cells use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "mhclg/council_tax/total",
@@ -11155,7 +11155,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band a"
+      "label": "Band a",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_b",
@@ -11232,7 +11233,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band b"
+      "label": "Band b",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_c",
@@ -11309,7 +11311,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band c"
+      "label": "Band c",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_d",
@@ -11386,7 +11389,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band d"
+      "label": "Band d",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_e",
@@ -11463,7 +11467,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band e"
+      "label": "Band e",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_f",
@@ -11540,7 +11545,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band f"
+      "label": "Band f",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_g",
@@ -11617,7 +11623,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band g"
+      "label": "Band g",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_h",
@@ -11694,7 +11701,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band h"
+      "label": "Band h",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.band_i",
@@ -11771,7 +11779,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Band i"
+      "label": "Band i",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "welshgov.council_tax_stock.total",
@@ -11853,7 +11862,8 @@
         }
       ],
       "category_id": "welshgov.council_tax_stock",
-      "label": "Total"
+      "label": "Total",
+      "selector_note": "Binds the 2025-26 CT1 return (the list of 31 October 2024, taken in the FRS 2024/25 base year) to period 2025 under latest_not_after with no uprating hold: ruled by María on 2026-09-15 (microcosm#929). It sits one count-year behind England (October 2025) and Scotland (September 2025)."
     },
     {
       "target_id": "scotgov.council_tax_stock.band_a",

@@ -4297,7 +4297,10 @@ def test__given_composed_row_members_at_another_grain__then_it_refuses() -> None
         ("welshgov.ct1.fy2025.a1", "welshgov.ct1.a1"),
         ("irs_soi.ty2023.table_1_1", "irs_soi.table_1_1"),
         ("ons.pipr.june2026.average_rent_by_area", "ons.pipr.average_rent_by_area"),
-        ("dwp.uc_households.sic2007_division", "dwp.uc_households.sic_division"),
+        # SIC 2007 is a classification revision, not a vintage: it keeps its year.
+        ("dwp.uc_households.sic2007_division", "dwp.uc_households.sic2007_division"),
+        # Successive mid-year-estimate vintages are one series (road-fuel anchors).
+        ("ons.mid2024.population_by_age", "ons.mid.population_by_age"),
     ],
 )
 def test__given_a_vintage_year_glued_to_a_word__then_the_record_set_id_normalizes(

@@ -360,7 +360,7 @@ _CONCERN_DECLARATIONS: tuple[dict[str, Any], ...] = (
         "concern_id": "local_council_tax_band_counts",
         "status": "ported_local_declared",
         "classification": "local_registry_family",
-        "evidence": "uk-data targets/sources/la_council_tax.py and datasets/local_areas/local_authorities/loss.py:251-300; Microcosm council_tax/band_a..i contract rows (mhclg, welshgov and scotgov by_area families) bind 2,512 authority cells on the taxbase basis with the 296 English band-H cells signed deferred (microcosm#929).",
+        "evidence": "uk-data targets/sources/la_council_tax.py and datasets/local_areas/local_authorities/loss.py:251-300; Microcosm council_tax/band_a..i contract rows (mhclg, welshgov and scotgov by_area families) bind 2,511 authority cells on the taxbase basis with the 296 English band-H cells and Shetland's band-H cell signed deferred (microcosm#929).",
     },
     {
         "concern_id": "local_private_rent_pipr",

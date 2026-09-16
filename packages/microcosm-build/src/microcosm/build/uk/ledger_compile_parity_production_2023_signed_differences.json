@@ -2301,7 +2301,7 @@
    "ledger_value": 5286.0,
    "name": "welshgov.council_tax_stock.band_i",
    "period": 2023,
-   "reason": "Ledger-compiled row has no fixture counterpart at this comparison period."
+   "reason": "No incumbent counterpart: Wales alone has a council tax band I and the incumbent's VOA rows stop at band H; Microcosm binds welshgov.council_tax_stock.band_i from the StatsWales CT1 return (microcosm#929)."
   },
   {
    "kind": "ledger_only",

@@ -2539,10 +2539,19 @@ def _normalized_record_set_part(value: str) -> str:
 
 
 _TRAILING_VINTAGE_YEAR = re.compile(r"^([a-z]{2,})((?:19|20)[0-9]{2})$")
+#: Word-plus-year tokens that name a classification revision, not a publication
+#: vintage: they must keep their year, or two classifications would read as one
+#: series. Grow this set when a new one enters a record-set id.
+_CLASSIFICATION_REVISION_TOKENS = frozenset({"sic2007"})
 
 
 def _strip_trailing_vintage_year(piece: str) -> str:
     """``ctaxbase2025`` -> ``ctaxbase``: a vintage year glued to a word.
+
+    The strip is generic: it also folds ``ons.mid2023…`` and ``ons.mid2024…``
+    (the road-fuel anchors' mid-year estimate vintages) into one series, which
+    is intended, since successive MYE vintages are one publication series. A
+    classification revision (``sic2007``) is not a vintage and is kept.
 
     Chronicle names one package per publication year and spells the year
     into the record-set id without a separator (``scotgov.ctaxbase2025.…``,
@@ -2552,6 +2561,8 @@ def _strip_trailing_vintage_year(piece: str) -> str:
     refuses the reference as ambiguous.
     """
 
+    if piece in _CLASSIFICATION_REVISION_TOKENS:
+        return piece
     match = _TRAILING_VINTAGE_YEAR.match(piece)
     return match.group(1) if match else piece
 
