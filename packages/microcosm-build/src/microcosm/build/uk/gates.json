@@ -656,7 +656,9 @@
           "person.tax_free_childcare_spend_routed_share",
           "person.would_claim_carers_allowance",
           "person.would_claim_marriage_allowance",
-          "person.would_claim_scp"
+          "person.would_claim_scp",
+          "person.capital_gains_asset_type",
+          "person.capital_gains_residential_property"
         ],
         "reviewed_exclusions": {
           "person.incapacity_benefit_reported": "The enhanced FRS stores this legacy reported-benefit input as an all-zero layer; the candidate must drop dead zero layers."
@@ -856,6 +858,31 @@
         "minimum_ess_fraction": 0.01
       },
       "notes": "Effective sample size must be at least 0.01 of rows. Release-blocking following PR #870 review; the numeric threshold is unchanged."
+    },
+    {
+      "id": "uk_stage_hmrc_cgt_asset_type_spine_summary",
+      "gate": "stage_health",
+      "phase": "transferred",
+      "criticality": "release_blocking",
+      "evidence_absent_blocks": true,
+      "parameters": {
+        "stage": "hmrc_cgt_asset_type_spine",
+        "check": "cgt_asset_type_summary",
+        "maximum_relative_deviation": 0.05
+      },
+      "notes": "Stage-time gate over the CGT asset-type receipt (microcosm#725): the realised residential-property taxpayer count and gains sit within the reviewed tolerance of the Table 8a 2024-25 totals on the individuals basis the flag was solved to, every liable gainer carries an asset type, and the Table 7 composition receipt is finite. The count is exact to one person by construction; the tolerance covers the systematic draw's gains noise, and the calibration binds the same two totals."
+    },
+    {
+      "id": "uk_capital_gains_asset_type_enum_domain",
+      "gate": "enum_domain",
+      "phase": "assembled",
+      "criticality": "release_blocking",
+      "parameters": {
+        "columns": [
+          "capital_gains_asset_type"
+        ]
+      },
+      "notes": "The person capital_gains_asset_type value must be one of the eight values the hmrc_cgt_asset_type_spine stage declares (none, sub_aea, the Chronicle Table 7 asset-type value ids); the build supplies the declared domain as evidence because the column is a frame input, not a PolicyEngine-UK enum (microcosm#725). Evaluated at the assembled boundary like the household-type enum."
     }
   ]
 }
