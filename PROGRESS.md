@@ -104,6 +104,35 @@ Every fail-closed pin re-derived by its own generator; never a hand-edited diges
   multispine pool contracts re-pinned through a new
   `tools/repin_us_pool_engine_contracts.py`.
 
+- **Step 3c — `ENGINE_PUBLIC_PARAMETER_FILES` is not on this branch.** The
+  brief's `tools/spec_seed_identity_diagnostics.py` pin set exists only on
+  unmerged branches (first added in `a5a066f90`); `git cat-file -e
+  origin/main:tools/spec_seed_identity_diagnostics.py` fails and
+  `ENGINE_PUBLIC_PARAMETER_FILES` appears nowhere in this tree. The brief was
+  written against the #893 file inventory. No equivalent import-time parameter
+  pin exists on `main`, so this step has no target here and nothing was
+  invented in its place.
+- **Step 3d — take-up contract** (`afaffae26`). `asserted_engine.constraint`
+  → `>=2.2.1,<3`, `inventory_built_against` → `2.2.1`, and the ACA
+  `engine_state_note` version. The repository's own fail-closed check,
+  `assert_take_up_contract_current()`, passes against the installed 2.2.1
+  engine: all seventeen `takes_up_*` flags present, no addition, no removal,
+  no entity/value_type/default/engine_class drift. No new
+  `populace_treatment` decision and no rate was introduced. `aca_take_up_seed`
+  is still absent from the whole 2.2.1 source tree, so the note's claim holds.
+- **Step 3f (partial) — source-stage and parity prose** (`afaffae26`). Each
+  mechanism claim re-verified against 2.2.1 through microcosm's own static
+  consumer index before its version string moved:
+  `is_incapable_of_self_care` 33 receipts (SNAP work registration and general
+  work requirements, federal and AR Medicaid work requirements, CDCC, many
+  state dependent-care deductions); `health_insurance_premiums` read by
+  exactly the five named state/local formulas; the 162(l) chain unchanged;
+  Early Head Start still `age < 3 | is_pregnant`; `uncapped_ssi` still the
+  SSI-eligible current-benefit candidate. Frozen generation-0 digests moved
+  with their files (`source_stages.json` dc58a0d7→7935d891,
+  `take_up_contract.json` a9e70fb3→282dbc4c; `support_spine.json` unchanged);
+  US bundle `spec_sha256` a521bf1934d799beef056a1bb999be91e7a2af5c15b124cf13725a837a100f20.
+
 ## Next
 
 - Verify the uncommitted version-literal and prose bumps against 2.2.1 source
