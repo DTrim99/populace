@@ -1157,6 +1157,7 @@ def run_preflight(
     engine_input_variables: Sequence[str] | None = None,
     export_mass_reviewed_exclusions: Mapping[str, str] | None = None,
     allow_gate_failed_base_pool: bool = False,
+    max_reported_spm_units: int = _MAX_REPORTED_SPM_UNITS,
 ) -> PreflightReport:
     """Load the real artifacts and run every preflight check (no solve).
 
@@ -1258,6 +1259,32 @@ def run_preflight(
             )
         )
 
+    # Check 5: SPM measurement composition (no engine, no solve).
+    #
+    # Graded on the selected pool when the selection mapped, because that is the
+    # population the release calibrates, exports and measures; on the base pool
+    # otherwise, which is still the right answer about the pool's own validity.
+    try:
+        checks.append(
+            check_spm_composition(
+                base_frame,
+                selected_frame,
+                max_reported=max_reported_spm_units,
+            )
+        )
+    except ValueError as exc:
+        checks.append(
+            CheckResult(
+                name="spm_composition",
+                status="SKIPPED",
+                summary=(
+                    "the pool carries no readable SPM composition inputs, so "
+                    "the classification rule cannot be evaluated"
+                ),
+                details={"reason": "composition_inputs_unavailable", "error": str(exc)},
+            )
+        )
+
     inputs = {
         "base_h5": str(base_h5),
         "base_pool_manifest": (
@@ -1274,6 +1301,7 @@ def run_preflight(
         "target_period": target_period,
         "relative_tolerance": float(relative_tolerance),
         "minimum_reference_total": float(minimum_reference_total),
+        "max_reported_spm_units": int(max_reported_spm_units),
     }
     return PreflightReport(
         checks=tuple(checks),
