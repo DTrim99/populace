@@ -1,13 +1,13 @@
 {
-  "source_fact_feed": "chronicle-uk-df35af7e-consumer-facts",
+  "source_fact_feed": "chronicle-uk-ec200856-consumer-facts",
   "target_period": 2025,
-  "candidate_count": 644,
-  "contract_target_count": 245,
-  "active_reference_count": 630,
+  "candidate_count": 646,
+  "contract_target_count": 247,
+  "active_reference_count": 631,
   "status_counts": {
-    "active": 630,
+    "active": 631,
     "no_fact_at_or_before_period": 7,
-    "signed_excluded": 7
+    "signed_excluded": 8
   },
   "geography_pins": {
     "obr.income_tax": {
@@ -1965,6 +1965,14 @@
       "geography_id": "K03000001"
     },
     "ons.household_energy_expenditure": {
+      "geography_level": "country",
+      "geography_id": "K02000001"
+    },
+    "ons.household_electricity_expenditure": {
+      "geography_level": "country",
+      "geography_id": "K02000001"
+    },
+    "ons.household_gas_expenditure": {
       "geography_level": "country",
       "geography_id": "K02000001"
     },
@@ -12592,17 +12600,44 @@
       ]
     },
     "ons.household_energy_expenditure": {
-      "status": "active",
+      "status": "signed_excluded",
       "candidates": [
         {
           "name": "ons.household_energy_expenditure",
+          "status": "signed_excluded",
+          "matched_fact_count_overall": 6,
+          "matched_fact_count_at_or_before_period": 6,
+          "signed_rationale": "ONS Consumer Trends COICOP 04.5 (electricity, gas and other fuels) carries liquid and solid fuels the frame does not model; chronicle #271 (chronicle#270) published the 04.5.1 electricity and 04.5.2 gas sub-classes, which ons.household_electricity_expenditure and ons.household_gas_expenditure bind per fuel on the frame's own columns. The total row is retained in the contract for registry parity and signed out here (microcosm#890 F1)."
+        }
+      ]
+    },
+    "ons.household_electricity_expenditure": {
+      "status": "active",
+      "candidates": [
+        {
+          "name": "ons.household_electricity_expenditure",
           "status": "active",
           "matched_fact_count_overall": 6,
           "matched_fact_count_at_or_before_period": 6,
           "resolved_period": 2025,
-          "resolved_value": 43427000000.0,
+          "resolved_value": 26522000000.0,
           "resolved_fact_period": "2025",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_a139145f4db5fea0260908f8"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_69cd660b943ae8f21761f76a"
+        }
+      ]
+    },
+    "ons.household_gas_expenditure": {
+      "status": "active",
+      "candidates": [
+        {
+          "name": "ons.household_gas_expenditure",
+          "status": "active",
+          "matched_fact_count_overall": 6,
+          "matched_fact_count_at_or_before_period": 6,
+          "resolved_period": 2025,
+          "resolved_value": 15339000000.0,
+          "resolved_fact_period": "2025",
+          "resolved_fact_key": "ledger_aggregate_fact_v2_b56be49c552300f6c02fc559"
         }
       ]
     },
