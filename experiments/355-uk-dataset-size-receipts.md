@@ -986,3 +986,29 @@ no release contract.
   failure, `--no-staged-dataset`, up-front refusals and dry run), dense assembler evidence tests,
   size-evaluation tolerance. Every existing driver test passes `--staging-local-only` through the
   shared flag helper.
+
+### Rehearsal on spine-q (2026-09-17, `data/ukds/acceptance/355-dataset-size/run_size_candidate_staging.sh`)
+
+The rehearsal is the size path at 100 epochs with local-only staging
+(`--dataset-households 55000 --epochs 100 --skip-holdout --selection-pi-hi 0.5 --baseline-pi-floor 0.001 --staging-local-only`),
+on the spine-q H5 (cf1f9dda…) from code 0cda403a (`git_dirty` 0, engine 2.98.0). Two input
+mismatches surfaced first, both about running the driver on today's main rather than about staging;
+each left the expected failure evidence.
+
+- **Feed.** With the `ec7169b` artifact the spine-q runs stood on, 631 national target references
+  failed to compile: main pins Chronicle `ec20085` (facts 47612c48…, manifest c91fa9ff…) since
+  #927/#937. The run refused in 130 s. Its telemetry closed as `failed` during
+  `target_compilation` with `error_type SystemExit` and the sanitised message only; because the
+  compile refusal is a `SystemExit`, the driver's `except Exception` wrote no Logbook row or error
+  receipt (pre-existing behaviour, worth a follow-up). Kept as
+  `…-staging-failed-compile-ec7169b/`.
+- **Ladder.** On `ec20085` with the `9c6d56b9…` ladder the pins file names, the ladder-versus-Chronicle
+  dispersion check refused: "NI DZ-to-PARLCON24 household dispersion exceeds the publisher oracle:
+  mean absolute delta 197.889, max absolute delta 694.000" (285 s, 5.1 GB). #887 (merged 2026-09-10)
+  rebuilt the ladder with NISRA's Data Zone lookup; the artifact from that build is
+  `bed3f13d3a82eea2d1f39248b71c0abf5ba6960a446ddd9415ae1dbcb7ae07fd` (present in the #887/#905/#929
+  worktrees; the ladder tool has not changed since). This `ValueError` took the full failure path:
+  telemetry `failed` at `target_compilation`, a `failed` Logbook row and an error receipt. Kept as
+  `…-staging-failed-ladder-9c6d56b9/`.
+
+Third attempt: feed `ec20085`, ladder `bed3f13d…`, same arguments; run id and results below.
