@@ -25,11 +25,11 @@ hatch anywhere in the producer or the validator.
 
 | # | Pin | Declared at | Enforced at |
 |---|---|---|---|
-| 1 | `PARENT_DATASET_SHA256` — the parent H5's bytes | `source_enrichment.py:56` | `build_us_spm_role_enrichment.py:117` (`"Only the exact reviewed BuildP parent can be enriched"`), then re-asserted as `expected_parent_sha256` into `derive_spm_role_source` (`:128`) and `append_native_spm_role` (`:158`), and again by the validator |
-| 2 | `PARENT_FILES` — four parent evidence files' SHA-256 | `source_enrichment.py:61` | `build_us_spm_role_enrichment.py:119` and, after copying, in the validator |
+| 1 | `PARENT_DATASET_SHA256` — the parent H5's bytes | `source_enrichment.py:56` | `build_us_spm_role_enrichment.py:117-118` (`"Only the exact reviewed BuildP parent can be enriched"`), then re-asserted as `expected_parent_sha256` into `derive_spm_role_source` (`:128`) and `append_native_spm_role` (`:158`), and again by the validator |
+| 2 | `PARENT_FILES` — four parent evidence files' SHA-256 | `source_enrichment.py:61` | `build_us_spm_role_enrichment.py:119-122` and, after copying, in the validator |
 | 3 | `PARENT_BUILD_ID` — the parent's declared release id | `source_enrichment.py:55` | echoed into the report's `parent` block and the build manifest's inherited-calibration block |
 | 4 | `EXPECTED_COUNTS` — six integers | `source_enrichment.py:111` | `_check_source_provenance`, strict equality with `type(...) is not int` |
-| 5 | `REFERENCE_EVIDENCE_SHA256` — the **derived role table's own bytes** | `build_us_spm_role_enrichment.py:37` (as `SOURCE_EVIDENCE_SHA256`, `source_enrichment.py:31`) | `build_us_spm_role_enrichment.py:139`: `"Reconstructed source evidence differs from reviewed BuildP roles"` |
+| 5 | `REFERENCE_EVIDENCE_SHA256` — the **derived role table's own bytes** | `build_us_spm_role_enrichment.py:37` (as `SOURCE_EVIDENCE_SHA256`, `source_enrichment.py:31`) | `build_us_spm_role_enrichment.py:139-141`: `"Reconstructed source evidence differs from reviewed BuildP roles"` |
 
 Pin 5 is the one that is easy to miss and the hardest to generalise: it is not a
 parent check at all. It hashes the CSV the producer just derived and refuses
