@@ -375,6 +375,8 @@ def vendored_rows(
         if isinstance(row.get("period_coverage"), Mapping)
         and str(row["period_coverage"].get("start_date")) == str(fiscal_start)
     ]
+
+
 _FEED_IDENTITY_KEYS = (
     "source_commit",
     "facts_sha256",

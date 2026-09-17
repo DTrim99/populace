@@ -416,13 +416,13 @@ _UK_GATE_BATTERY_SHIPPABLE_STATUSES = frozenset({"passed", "not_applicable"})
 # fingerprint derives from the manifest digest. Editing the spec moves all
 # three here in the same reviewed change.
 _UK_GATE_BATTERY_POLICY_SHA256 = (
-    "4456fa0956cde418ae23a60fe72a414428eefab446fd044aa14adf1b6e084fcd"
+    "211abff22b4eedf9cf69f4b43a6f77ca8966d61a386c1804c3fdb093b0e27aa0"
 )
 _UK_GATE_BATTERY_GATES_MANIFEST_SHA256 = (
-    "ff27efe67f3cdb8292dfe8da20a6a98cc20f4e1f77ba61eff2ba206b8eb2fc19"
+    "45a32eea167397367bd1d7310e237eb4161c9f6c308bd69a7a2a426d62ea64b4"
 )
 _UK_GATE_BATTERY_SPEC_FINGERPRINT = (
-    "61758f1d9700dd94564d592fafe36b4fc4881b8b77c785349d1756da0df2b0d4"
+    "48cbe794b5210c6b5204ae2b165a3e5b2ddc51b3d8459d4816c1bd92c074efad"
 )
 #: Spec entry id -> the legacy gate name whose observable detail checks
 #: apply unchanged (the battery re-keys the report by entry id; the gate
@@ -759,10 +759,10 @@ _UK_CERTIFICATION_PART_SCOPES: Mapping[str, frozenset[str]] = {
 _UK_CERTIFICATION_PART_DIGESTS: Mapping[str, Mapping[str, str]] = {
     "spine": {
         "gates_manifest_sha256": (
-            "f033f570a74cad4f0cef99e3e7624f17a083ddc72204625f548066bd4652525c"
+            "2764a907d4e2b43daa6c3b0b44d4970fccdf31a34684356c800b1781f5c02fe5"
         ),
         "policy_sha256": (
-            "6a054c1630d0728c0259a17a4c29bfdaccf0c937c6788b3a958ffa7895d02d43"
+            "c59f645c51ec234e91bd582df2a1576116f2c67183c2cb015f51d3f1a2be9ea7"
         ),
     },
     "calibration_seam": {
@@ -775,10 +775,10 @@ _UK_CERTIFICATION_PART_DIGESTS: Mapping[str, Mapping[str, str]] = {
     },
     "release_cut": {
         "gates_manifest_sha256": (
-            "7fbf9963c58a3c4ab165a0c1e1d6753243bf48fb685def436b7d394c8dabe57b"
+            "4becf8d00a08d319a26d33681b4bed159711a9873f6cae221af3d161929c5943"
         ),
         "policy_sha256": (
-            "e4146dd4102bb0371a11913c94b41d9ed0114f65d81ef8e9c431c24549edf1bc"
+            "a7250c519e79e22d366316cd4943f5f4bd2cc86a0e76b919ee2ff2eacb2335f3"
         ),
     },
 }
