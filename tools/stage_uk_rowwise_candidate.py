@@ -24,6 +24,7 @@ from pathlib import Path
 from microcosm.build.staging_dataset import (
     StagedDatasetBundle,
     local_only_staged_dataset,
+    refresh_sha256sums_entry,
     stage_bundle,
     validate_staged_dataset_delivery,
     write_sidecars,
@@ -153,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     manifest["staged_dataset"] = validate_staged_dataset_delivery(delivery)
     _rewrite_manifest(manifest_path, manifest)
+    refresh_sha256sums_entry(run_dir, MANIFEST_FILENAME)
     print(json.dumps(delivery, indent=2, sort_keys=True))
     return 0 if delivery["status"] != "failed" else 1
 

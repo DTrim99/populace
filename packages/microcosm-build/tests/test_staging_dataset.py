@@ -18,6 +18,7 @@ from microcosm.build.staging_dataset import (
     fetch_bundle,
     local_only_staged_dataset,
     parse_sha256sums,
+    refresh_sha256sums_entry,
     stage_bundle,
     validate_staged_dataset_delivery,
     write_sidecars,
@@ -375,3 +376,26 @@ def test_parse_sha256sums_rejects_paths_and_duplicates():
         parse_sha256sums(f"{'a' * 64}  file.h5\n{'b' * 64}  file.h5\n")
     with pytest.raises(StagedDatasetError, match="no files"):
         parse_sha256sums("\n")
+
+
+def test_refresh_sha256sums_entry_redigests_one_listed_file(tmp_path):
+    run_dir = _write_run(tmp_path)
+    bundle = StagedDatasetBundle.from_manifest(
+        run_dir, run_id=RUN_ID, manifest_name=MANIFEST
+    )
+    sums, _ = write_sidecars(bundle, repository=None)
+    before = dict((name, sha) for sha, name in parse_sha256sums(sums.read_text()))
+    (run_dir / MANIFEST).write_text(
+        json.dumps(
+            {**json.loads((run_dir / MANIFEST).read_text()), "staged_dataset": {}}
+        )
+    )
+    digest = refresh_sha256sums_entry(run_dir, MANIFEST)
+    after = dict((name, sha) for sha, name in parse_sha256sums(sums.read_text()))
+    assert digest == _sha((run_dir / MANIFEST).read_bytes()) == after[MANIFEST]
+    assert after[MANIFEST] != before[MANIFEST]
+    assert {k: v for k, v in after.items() if k != MANIFEST} == {
+        k: v for k, v in before.items() if k != MANIFEST
+    }
+    with pytest.raises(StagedDatasetError, match="does not list"):
+        refresh_sha256sums_entry(run_dir, "run.log")

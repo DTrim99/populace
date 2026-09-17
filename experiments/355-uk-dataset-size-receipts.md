@@ -1022,3 +1022,41 @@ Third attempt: feed `ec20085`, ladder `bed3f13d…`, same arguments; run id and 
   `…-staging-failed-spine-q-stale/`. A spine on main's stages (`spine-r`, code 0cda403a) is built
   with `834-childcare-tfc/build_twin_passthrough.sh … --staging-local-only` into
   `data/ukds/acceptance/spine-r-355/`.
+
+### spine-r (2026-09-17 18:01Z, `data/ukds/acceptance/spine-r-355/`)
+
+Built from the worktree at 0ab7ac4f (code identical to 0cda403a; the two commits between are
+receipts) with `build_twin_passthrough.sh … --staging-local-only`: 29 stages (`frs_spine`,
+`age_tail`, `frs_relationships`, …), `rules_engine` policyengine-uk 2.98.0, all 18 spine gates
+passed, `spine-r.h5` sha `3ce8756ac6ce070be4eabf44e6969e03698ce23531021b622eadb94ce83dda58`
+(169 MB). The spine builder's own staging worked as on main: sidecar `staging_delivery` mode
+`local_only`, run `uk-frs-spine-20260917T180117Z` under `spine-r-355/staging/runs/`. Pins for the
+rehearsal in `355-dataset-size/pins-spine-r-ec20085.txt`; run root `355-dataset-size/spine-r/`.
+
+### Rehearsal r1 on spine-r (2026-09-17 18:07–18:35Z, run `uk-local-candidate-f100-s42-20260917T180755Z-a244651d`)
+
+End to end for the first time: 21,449 targets (564 national, 19,874 local, 1,011 ladder) on the
+792,690-row pool; dense solve 100 epochs to loss 0.01956; the search settled after 4 probes
+(λ 3.16e-06, open mass 54,674 for 55,000, 43,681 certainties); refit loss 0.04559 on 55,000 rows
+from the floored Horvitz–Thompson baseline; gates blocked on `uk_local_area_support`,
+`uk_local_target_fit`, `uk_local_weight_ratio` (866 blocking lines, the 55k pattern Q50f showed);
+exit 1 by design, bundle written, 27.4 min wall, 12.0 GB peak RSS.
+
+Staging (local-only): the telemetry bundle validates; `run_manifest.json` 1.9 KiB, `events.ndjson`
+32.6 KiB, `calibration_progress.json` 17.9 KiB with 60 rows (10 dense with `phase` null, 40 probe
+rows with `budget_search` 1 and their λ, 10 refit rows tagged `size_refit`), two reviewed
+artifacts (`fit_summary.json` 16.1 KiB, `staged_dataset.json` 1.6 KiB); every file far under the
+5 MiB cap. Completed stages in order: input_pinning, target_compilation, cloning,
+surface_resolution, calibration (details: final loss, 55,000 realized, checkpoint written),
+gate_battery, holdout (skipped), output_bundle, dataset_staging (`skipped`, 9 files), complete.
+The manifest carries `staging_delivery` (mode local_only, run id) and `staged_dataset` (mode
+local_only, prefix `staged/<run_id>`, 9 files with digests); `staged_manifest.json` and
+`sha256sums.txt` written beside the bundle (374 MB: H5 237 MB, diagnostics 49 MB, registry 29 MB,
+two CSVs 47 MB, manifest 6 MB).
+
+Two warts, both fixed before the second rehearsal: the local `sha256sums.txt` listed the manifest
+as uploaded rather than as rewritten with the evidence blocks (the driver and the re-stage tool now
+refresh that line after the rewrite, so the local and the remote directory each verify themselves);
+and the manifest recorded `git_dirty: true` because the receipts draft was edited in the worktree
+while the run was going (the code was unchanged; never touch the run tree during a run). r1 is kept
+as `spine-r/…-staging-r1/` and is not the bundle staged on the Hub.

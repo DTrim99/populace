@@ -42,6 +42,7 @@ __all__ = [
     "fetch_bundle",
     "local_only_staged_dataset",
     "parse_sha256sums",
+    "refresh_sha256sums_entry",
     "sha256_file",
     "stage_bundle",
     "validate_staged_dataset_delivery",
@@ -306,6 +307,27 @@ def write_sidecars(
     sums_path = bundle.run_dir / SHA256SUMS_FILENAME
     sums_path.write_text(text, encoding="utf-8")
     return sums_path, staged_manifest_path
+
+
+def refresh_sha256sums_entry(run_dir: Path | str, name: str) -> str:
+    """Re-digest one listed file so the local sums stay self-verifying.
+
+    The build appends its evidence blocks to the manifest after the sidecars
+    were written and uploaded; the remote copy lists the manifest as
+    uploaded, the local copy must list the manifest as it now is.
+    """
+
+    directory = Path(run_dir)
+    sums_path = directory / SHA256SUMS_FILENAME
+    entries = parse_sha256sums(sums_path.read_text(encoding="utf-8"))
+    if name not in {listed for _, listed in entries}:
+        raise StagedDatasetError(f"{SHA256SUMS_FILENAME} does not list {name!r}.")
+    digest = sha256_file(directory / name)
+    text = "".join(
+        f"{digest if listed == name else sha}  {listed}\n" for sha, listed in entries
+    )
+    sums_path.write_text(text, encoding="utf-8")
+    return digest
 
 
 def parse_sha256sums(text: str) -> list[tuple[str, str]]:

@@ -62,9 +62,11 @@ from microcosm.build.staging_cli import (
     validate_staging_arguments,
 )
 from microcosm.build.staging_dataset import (
+    SHA256SUMS_FILENAME,
     StagedDatasetBundle,
     disabled_staged_dataset,
     local_only_staged_dataset,
+    refresh_sha256sums_entry,
     stage_bundle,
     write_sidecars,
 )
@@ -1498,6 +1500,12 @@ def _run_candidate(
             manifest["staging_delivery"] = _staging_delivery(telemetry)
             manifest["staged_dataset"] = staged_dataset
             _replace_manifest(output_paths["manifest"], manifest)
+            if (output_paths["manifest"].parent / SHA256SUMS_FILENAME).is_file():
+                # The uploaded copy lists the manifest as uploaded; the local
+                # copy lists the manifest as it now is, evidence included.
+                refresh_sha256sums_entry(
+                    output_paths["manifest"].parent, output_paths["manifest"].name
+                )
         state.artifact_location = local_artifact_reference(
             output_paths["dataset"],
             repository_hint=_REPOSITORY,

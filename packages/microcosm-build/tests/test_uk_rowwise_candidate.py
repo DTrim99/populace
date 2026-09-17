@@ -2775,7 +2775,10 @@ def test_candidate_build_stages_telemetry_locally_and_inventories_the_bundle(
     }
     for entry in manifest["outputs"].values():
         assert staged["files"][Path(entry["path"]).name]["sha256"] == entry["sha256"]
-    assert (out / "sha256sums.txt").is_file()
+    # The local sums verify the directory as it is, evidence blocks included.
+    for line in (out / "sha256sums.txt").read_text().splitlines():
+        digest, name = line.split("  ")
+        assert hashlib.sha256((out / name).read_bytes()).hexdigest() == digest, name
     inventory = json.loads((out / "staged_manifest.json").read_text())
     assert inventory["run_id"] == run_id and inventory["files"] == staged["files"]
     assert inventory["summary"]["releasable"] is True
@@ -2973,6 +2976,9 @@ def test_remote_staging_uploads_telemetry_and_the_bundle_in_one_commit(
         "staged_dataset"
     ]
     assert restaged["status"] == "already_staged"
+    for line in (out / "sha256sums.txt").read_text().splitlines():
+        digest, name = line.split("  ")
+        assert hashlib.sha256((out / name).read_bytes()).hexdigest() == digest, name
     assert restaged["run_id"] == run_id and restaged["revision"] == hub.sha
     assert len(hub.commits) == 1
 
