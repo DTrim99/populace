@@ -2102,6 +2102,16 @@ def _stat_identity(info: object) -> tuple[int, int, int, int, int]:
     )
 
 
+def _followed_identity(path: Path) -> tuple[object, ...]:
+    """The identity a member link resolves to, or why it resolves to nothing."""
+
+    try:
+        info = path.stat()
+    except OSError as error:
+        return ("absent", error.errno)
+    return (stat.S_IFMT(info.st_mode), _stat_identity(info))
+
+
 def _source_stat_signature(path: Path) -> tuple[object, ...]:
     """A read-free signature of everything ``source_content_key`` would read.
 
@@ -2112,6 +2122,16 @@ def _source_stat_signature(path: Path) -> tuple[object, ...]:
     removed moves it with no member's stat changing. Anything else contributes
     its stat identity alone, so an unexpected node type is never cached past a
     change.
+
+    A member that is a symlink contributes its target's identity as well.
+    ``_directory_identity`` selects members with ``is_file()`` and reads them
+    with ``read_bytes()``, and both follow the link, so the target's bytes are
+    inside the content key while the link's own five stat fields never move
+    when those bytes change. Following it here keeps the same member selection
+    on both sides, so such a change is a miss at the next node that declares
+    the source rather than a refusal deferred to run end. A link that resolves
+    to nothing contributes that fact and raises nothing, exactly as
+    ``_directory_identity`` skips it.
     """
 
     info = path.lstat()
@@ -2122,13 +2142,14 @@ def _source_stat_signature(path: Path) -> tuple[object, ...]:
     entries = []
     for candidate in sorted(path.rglob("*")):
         entry = candidate.lstat()
-        entries.append(
-            (
-                candidate.relative_to(path).as_posix(),
-                stat.S_IFMT(entry.st_mode),
-                _stat_identity(entry),
-            )
+        member = (
+            candidate.relative_to(path).as_posix(),
+            stat.S_IFMT(entry.st_mode),
+            _stat_identity(entry),
         )
+        if stat.S_ISLNK(entry.st_mode):
+            member = (*member, _followed_identity(candidate))
+        entries.append(member)
     return ("dir", _stat_identity(info), tuple(entries))
 
 
