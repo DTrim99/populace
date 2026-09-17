@@ -269,7 +269,7 @@ UK_GATE_BATTERY_ENTRIES = {
     "uk_ons_household_type_enum_domain": ("enum_domain", "assembled", "enum_domain"),
     "uk_capital_gains_asset_type_enum_domain": (
         "enum_domain",
-        "assembled",
+        "transferred",
         "enum_domain",
     ),
     "uk_uc_deduction_combination_enum_domain": (
