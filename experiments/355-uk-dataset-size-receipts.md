@@ -1060,3 +1060,29 @@ refresh that line after the rewrite, so the local and the remote directory each 
 and the manifest recorded `git_dirty: true` because the receipts draft was edited in the worktree
 while the run was going (the code was unchanged; never touch the run tree during a run). r1 is kept
 as `spine-r/…-staging-r1/` and is not the bundle staged on the Hub.
+
+### Rehearsal r2 on spine-r (2026-09-17 18:41–19:08Z, run `uk-local-candidate-f100-s42-20260917T184110Z-4a5f5af3`)
+
+Same arguments and inputs as r1, code db40e56c, tree untouched during the run: `git_dirty`
+false in the manifest. Deterministic against r1: identical `solve_diagnostics.csv` and
+`dataset_size_selection.csv` digests, dense loss 0.019561, search settled after 4 probes on
+λ 3.16e-06, refit loss 0.045593, gates blocked on the same three ids; 26.9 min wall, 13.2 GB peak.
+Telemetry bundle valid (60 calibration rows, six files under the cap, ten stages completed in
+order), `staging_delivery` and `staged_dataset` in the manifest, and the local `sha256sums.txt`
+verifies every listed file after the evidence rewrite. This is the bundle staged on the Hub with
+`tools/stage_uk_rowwise_candidate.py` (results below).
+
+### Staging r2 on the Hub (2026-09-17 19:1xZ)
+
+`tools/stage_uk_rowwise_candidate.py --run-dir …/spine-r/f100-k15-h55000-e100-p50-f001-s42-staging`
+against `policyengine/populace-uk-private`: the repository was reachable (read), the remote
+prefix was absent, and the single commit was refused by the Hub with 403 "you must use a write
+token to upload to a repository". The ambient credential on this machine is the **read** token
+`PEHF` (user juaristi22). The lane recorded `status failed`, `error_code UPLOAD_FAILED`, nine
+files with digests, no revision, exit 1, no exception text in the evidence, the bundle and sidecars
+intact for a re-stage; 11 s. Because a read token also passes the reachability pre-flight (it can
+see the private repository), the pre-flight and the re-stage tool now refuse a credential whose
+Hub role is `read` before any work, naming the write requirement. The real upload waits on a write
+credential in María's environment (`HF_TOKEN` or `hf auth login`), then
+`tools/stage_uk_rowwise_candidate.py --run-dir <r2>` stages this bundle, and the fetch-back and
+scorecard checks follow.

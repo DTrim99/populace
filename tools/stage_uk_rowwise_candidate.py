@@ -147,10 +147,18 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
             flush=True,
         )
+        storage = HuggingFaceDatasetStorage(repository, api=_hub_api())
+        try:
+            role = storage.credential_role()
+        except Exception:
+            role = None
+        if role == "read":
+            raise SystemExit(
+                f"error: the ambient Hugging Face token is read-only; staging to "
+                f"{repository} needs a write credential (HF_TOKEN or `hf auth login`)."
+            )
         delivery = stage_bundle(
-            bundle,
-            storage=HuggingFaceDatasetStorage(repository, api=_hub_api()),
-            prefix=UK_STAGED_DATASET_PREFIX,
+            bundle, storage=storage, prefix=UK_STAGED_DATASET_PREFIX
         )
     manifest["staged_dataset"] = validate_staged_dataset_delivery(delivery)
     _rewrite_manifest(manifest_path, manifest)

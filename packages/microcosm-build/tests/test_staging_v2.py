@@ -876,6 +876,25 @@ def test_storage_commits_several_files_at_once_and_reports_the_revision(tmp_path
     assert storage.download_file("staged/run/b.h5").read_bytes() == b"binary"
 
 
+def test_storage_reports_the_credential_role_when_the_backend_can(tmp_path):
+    class RoleApi(CommitApi):
+        def whoami(self):
+            return {"name": "x", "auth": {"accessToken": {"role": "read"}}}
+
+    assert (
+        HuggingFaceDatasetStorage(
+            "example/private", api=RoleApi(tmp_path)
+        ).credential_role()
+        == "read"
+    )
+    assert (
+        HuggingFaceDatasetStorage(
+            "example/private", api=CommitApi(tmp_path)
+        ).credential_role()
+        is None
+    )
+
+
 def test_storage_commit_refuses_a_revisionless_backend(tmp_path):
     class NoRevision(CommitApi):
         def create_commit(self, **kwargs):

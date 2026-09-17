@@ -1599,13 +1599,25 @@ def _preflight_staged_dataset(args: argparse.Namespace) -> None:
             f"remote dataset staging to {repo_id} needs a Hugging Face write "
             f"credential (HF_TOKEN or `hf auth login`); {hint}."
         )
+    storage = HuggingFaceDatasetStorage(repo_id, api=_hub_api())
     try:
-        _hub_api().repo_info(repo_id=repo_id, repo_type="dataset")
+        storage.head_revision()
     except Exception as error:
         raise ValueError(
             f"remote dataset staging cannot reach {repo_id} "
             f"({type(error).__name__}); {hint}."
         ) from error
+    try:
+        role = storage.credential_role()
+    except Exception:
+        role = None
+    if role == "read":
+        # A read token sees the private repository, so the reachability check
+        # passes; the upload at the end of the run would be refused (403).
+        raise ValueError(
+            f"remote dataset staging to {repo_id} needs a write credential; the "
+            f"ambient Hugging Face token is read-only; {hint}."
+        )
 
 
 def _create_staging_telemetry(

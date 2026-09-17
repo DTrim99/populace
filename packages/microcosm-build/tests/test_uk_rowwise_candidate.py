@@ -2575,7 +2575,8 @@ def _load_tool(name: str):
 class _FakeHub:
     """One fake Hub serving the telemetry repo and the private dataset repo."""
 
-    def __init__(self, *, fail_commit: bool = False) -> None:
+    def __init__(self, *, fail_commit: bool = False, role: str = "write") -> None:
+        self.role = role
         self.files: dict[tuple[str, str], bytes] = {}
         self.uploads: list[tuple[str, str]] = []
         self.commits: list[dict[str, object]] = []
@@ -2608,6 +2609,9 @@ class _FakeHub:
     def repo_info(self, *, repo_id, repo_type):
         assert repo_type == "dataset"
         return SimpleNamespace(sha=self.sha)
+
+    def whoami(self):
+        return {"name": "tester", "auth": {"accessToken": {"role": self.role}}}
 
     def create_commit(
         self, *, repo_id, operations, commit_message, repo_type, parent_commit
@@ -3097,7 +3101,26 @@ def test_remote_dataset_staging_is_refused_up_front_without_credential_or_repo(
     assert "do-not-record" not in str(info.value)
     assert not out.exists()
 
+    # A read token sees the private repository but cannot upload: refused
+    # before the spine is read, not after the solve (the Hub answers 403).
+    monkeypatch.setattr(builder, "_hub_api", lambda: _FakeHub(role="read"))
+    with pytest.raises(ValueError, match="read-only"):
+        builder.main(_build_args(input_h5, ladder_path, flags, out))
+    assert not out.exists()
+
+    # The re-stage tool refuses the same credential the same way.
+    stager = _load_tool("stage_uk_rowwise_candidate")
+    monkeypatch.setattr(stager, "_hub_api", lambda: _FakeHub(role="read"))
+    local_out = tmp_path / "local"
+    monkeypatch.setattr(builder, "_hub_token", lambda: None)
+    assert builder.main(
+        _build_args(input_h5, ladder_path, flags, local_out, "--staging-local-only")
+    ) in (0, 1)
+    with pytest.raises(SystemExit, match="read-only"):
+        stager.main(["--run-dir", str(local_out)])
+
     # A dry run plans without staging, so it needs neither credential nor repo.
+    capsys.readouterr()
     monkeypatch.setattr(builder, "_hub_token", lambda: None)
     assert (
         builder.main(_build_args(input_h5, ladder_path, flags, out, "--dry-run")) == 0

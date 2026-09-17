@@ -113,6 +113,22 @@ class HuggingFaceDatasetStorage:
             )
         )
 
+    def credential_role(self) -> str | None:
+        """The ambient credential's role as the Hub reports it (``read``, ``write``, …).
+
+        ``None`` when the backend cannot say; a fine-grained token reports
+        ``fineGrained`` and its scopes are only tested by the upload itself.
+        """
+
+        whoami = getattr(self._api(), "whoami", None)
+        if not callable(whoami):
+            return None
+        info = whoami()
+        auth = info.get("auth") if isinstance(info, Mapping) else None
+        token = auth.get("accessToken") if isinstance(auth, Mapping) else None
+        role = token.get("role") if isinstance(token, Mapping) else None
+        return str(role) if role else None
+
     def head_revision(self) -> str | None:
         """The default branch's current commit, when the backend reports one."""
 
