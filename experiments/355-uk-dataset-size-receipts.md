@@ -1012,3 +1012,13 @@ each left the expected failure evidence.
   `…-staging-failed-ladder-9c6d56b9/`.
 
 Third attempt: feed `ec20085`, ladder `bed3f13d…`, same arguments; run id and results below.
+
+- **Spine.** On `ec20085` with ladder `bed3f13d…`, the run compiled 20,885 local and 564 national
+  targets, cloned the 792,690-row pool, and refused in surface resolution:
+  `MeasureResolutionError: provider does not know household.ons_household_type` (550 s, 8.4 GB).
+  The spine-q H5 predates the `frs_relationships` stage (#903, merged 2026-09-11), whose column the
+  national registry on main now resolves. Telemetry closed as `failed` at `surface_resolution`
+  after recording the compile and clone details; Logbook row and error receipt written. Kept as
+  `…-staging-failed-spine-q-stale/`. A spine on main's stages (`spine-r`, code 0cda403a) is built
+  with `834-childcare-tfc/build_twin_passthrough.sh … --staging-local-only` into
+  `data/ukds/acceptance/spine-r-355/`.
