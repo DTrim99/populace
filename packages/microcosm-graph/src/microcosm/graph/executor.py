@@ -2538,6 +2538,7 @@ def run_graph(
     resume: ResumePolicy = "auto",
     decisions: tuple[Decision, ...] = (),
     _population_observer: Callable[[str, Population], None] | None = None,
+    _population_observer_detach: bool = True,
     _verification_epoch: Mapping[str, object] | None = None,
 ) -> RunManifest:
     """Execute a compiled graph with content-addressed reuse and receipts.
@@ -2549,6 +2550,17 @@ def run_graph(
     persistence, and an exception it raises refuses the run. It is never a
     kernel capability, enters no key or receipt, and an unreached node has no
     population to observe.
+
+    The detachment costs one full independent population and a temporary
+    serialized table buffer per reached node, which is the whole cost for an
+    observer that only reads. ``_population_observer_detach=False`` is that
+    observer's declaration that it will neither retain nor mutate what it is
+    given: no snapshot is allocated and the live admitted population is passed
+    instead. The declaration is the caller's, not the executor's -- in this
+    mode the executor no longer enforces that an observer cannot reach
+    execution state, so a mutating observer in it would corrupt the run. The
+    default is unchanged and still enforces it. The keyword enters no key, no
+    receipt and no cache record, and is meaningless without an observer.
 
     The private verification-epoch record is a caller's own counts mapping --
     a country runtime that scopes source verification around the whole run
@@ -2613,6 +2625,8 @@ def _execute_graph(
 
     if resume not in ("auto", "require", "forbid"):
         raise ValueError("resume must be 'auto', 'require', or 'forbid'.")
+    if type(_population_observer_detach) is not bool:
+        raise TypeError("_population_observer_detach must be a bool.")
     normalized_decisions: list[Decision] = []
     for decision in decisions:
         if isinstance(decision, Decision):
@@ -2931,7 +2945,10 @@ def _execute_graph(
             populations[node.id] = updated
 
         if _population_observer is not None:
-            _population_observer(node_id, _observer_snapshot(updated))
+            _population_observer(
+                node_id,
+                _observer_snapshot(updated) if _population_observer_detach else updated,
+            )
 
         if not hit:
             manifest_artifacts, record = _write_node(
