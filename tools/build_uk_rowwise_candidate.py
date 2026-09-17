@@ -858,7 +858,6 @@ def main(argv: list[str] | None = None) -> int:
 
     args = _parse_args(argv)
     _validate_cli_args(args)
-    _preflight_staged_dataset(args)
     if args.candidate_clone_counts is not None and not args.dry_run:
         raise ValueError("--candidate-clone-counts is valid only with --dry-run.")
     if _CONSERVE_MASS:
@@ -872,6 +871,9 @@ def main(argv: list[str] | None = None) -> int:
         # Dry runs plan without solving or writing and record no Logbook
         # row on any path, so they need no chain configuration.
         return _run_candidate(args, attempt=None)
+    # Argument refusals above cost nothing; the credential check reaches the
+    # Hub, so it runs last, still before any input is read.
+    _preflight_staged_dataset(args)
     started_at = time.perf_counter()
     started_ts = datetime.now(UTC)
     digest = preflight_digest(_UK_CANDIDATE_PIPELINE)
