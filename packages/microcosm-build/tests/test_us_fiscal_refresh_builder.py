@@ -12295,3 +12295,119 @@ def test_evidence_mode_conversion_is_pinned_structurally() -> None:
     assert len(owner_check_calls) == 5, (
         f"expected 5 owner-resolution sites in _main(), found {len(owner_check_calls)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# SPM measurement composition refusal
+# ---------------------------------------------------------------------------
+
+
+def _spm_frame(people: list[dict]) -> Frame:
+    """A US frame from ``{spm, age, **role columns}`` specs, one household."""
+    from microcosm.frame.units import US_SCHEMA
+
+    role_columns = (
+        "is_spm_independent_minor_role",
+        "is_household_head",
+        "is_household_spouse",
+    )
+    rows = []
+    for index, person in enumerate(people, start=1):
+        row = {
+            "person_id": index,
+            "person_household_id": 1,
+            "person_tax_unit_id": 1,
+            "person_spm_unit_id": int(person["spm"]),
+            "person_family_id": 1,
+            "person_marital_unit_id": index,
+            "age": float(person["age"]),
+        }
+        for column in role_columns:
+            if any(column in candidate for candidate in people):
+                row[column] = bool(person.get(column, False))
+        rows.append(row)
+    person_table = pd.DataFrame(rows)
+    return Frame(
+        {
+            "person": person_table,
+            "household": pd.DataFrame({"household_id": [1]}),
+            "tax_unit": pd.DataFrame({"tax_unit_id": [1]}),
+            "spm_unit": pd.DataFrame(
+                {"spm_unit_id": sorted({int(p["spm"]) for p in people})}
+            ),
+            "family": pd.DataFrame({"family_id": [1]}),
+            "marital_unit": pd.DataFrame(
+                {"marital_unit_id": person_table["person_marital_unit_id"].tolist()}
+            ),
+        },
+        US_SCHEMA,
+        {"household": Weights(np.array([100.0]), WeightKind.CALIBRATED)},
+    )
+
+
+def test__assert_spm_composition__minor_only_unit__refuses_by_name() -> None:
+    """The release must name the unit and the remedy, not re-raise the engine's
+    anonymous population-wide ``SPM_COMPOSITION_REQUIRED``."""
+    builder = _load_builder_module()
+    frame = _spm_frame([{"spm": 1, "age": 40}, {"spm": 2, "age": 16}])
+
+    with pytest.raises(RuntimeError) as error:
+        builder._assert_spm_composition(frame, stage="unit test")
+
+    message = str(error.value)
+    assert "Release gates failed: SPM measurement composition (unit test)" in message
+    assert "SPM_COMPOSITION_REQUIRED" in message
+    # The single-sourced remedy travels with the refusal.
+    assert "Remedy:" in message
+    assert "spm_unit_id(s): 2" in message
+
+
+def test__assert_spm_composition__every_unit_classified__returns_details() -> None:
+    builder = _load_builder_module()
+    frame = _spm_frame([{"spm": 1, "age": 40}, {"spm": 2, "age": 18}])
+
+    details = builder._assert_spm_composition(frame, stage="unit test")
+
+    assert details["n_units"] == 2
+    assert details["n_units_without_classified_adult"] == 0
+
+
+def test__assert_spm_composition__source_role_rescues_the_minor() -> None:
+    builder = _load_builder_module()
+    frame = _spm_frame(
+        [
+            {"spm": 1, "age": 40, "is_spm_independent_minor_role": False},
+            {"spm": 2, "age": 16, "is_spm_independent_minor_role": True},
+        ]
+    )
+
+    details = builder._assert_spm_composition(frame, stage="unit test")
+
+    assert details["role_source"] == "source_column"
+    assert details["n_units_without_classified_adult"] == 0
+
+
+def test__spm_composition_report__unclassifiable_frame__raises_for_the_advisory(
+    monkeypatch,
+) -> None:
+    """The pre-calibration advisory catches this; the graded point re-raises it.
+
+    A frame with no ``age`` column cannot be classified at all. The report
+    function must surface that as a ValueError naming the column, so the
+    advisory's ``except (KeyError, ValueError)`` can degrade to a notice while
+    the export-frame assertion still refuses.
+    """
+    builder = _load_builder_module()
+    frame = _spm_frame([{"spm": 1, "age": 40}])
+    person = frame.table("person").drop(columns=["age"])
+    stripped = Frame(
+        {
+            entity: (person if entity == "person" else frame.table(entity))
+            for entity in frame.entities
+        },
+        frame.schema,
+        {entity: frame.weights_for(entity) for entity in frame.weighted_entities},
+    )
+
+    with pytest.raises(ValueError, match="no 'age' column"):
+        builder._spm_composition_report(stripped)

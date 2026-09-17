@@ -10603,33 +10603,53 @@ def _main(argv: Sequence[str] | None = None) -> None:
     # operator is the pool-level number now rather than after the solve: a pool
     # that carries the defect needs the SPM independence role whether or not
     # today's selection happens to dodge it.
-    base_frame_spm_composition = _spm_composition_report(base_frame)
-    if base_frame_spm_composition.status != "PASS":
+    # Advisory means advisory: a pool that cannot be classified at all (no age
+    # column, no spm_unit table) must not abort the build from here. The export
+    # frame below is the graded point, and it raises with the same diagnosis.
+    try:
+        base_frame_spm_composition = _spm_composition_report(base_frame)
+    except (KeyError, ValueError) as error:
+        base_frame_spm_composition = None
         print(
-            "\n"
-            + "!" * 72
-            + f"\nBASE-POOL SPM COMPOSITION: {base_frame_spm_composition.summary}\n"
-            + "\n".join(base_frame_spm_composition.failures)
-            + "\nThis is advisory here — the export frame below is graded. "
-            "Preflight it next time: tools/preflight_us_release_gates.py\n" + "!" * 72
+            "BASE-POOL SPM COMPOSITION: not classifiable on the base frame "
+            f"({error}); the export frame below is still graded."
         )
-    if telemetry is not None:
-        telemetry.stage(
-            "base_frame_spm_composition",
-            message="Classified the base pool's SPM measurement composition.",
-            status=base_frame_spm_composition.status,
-            **{
-                key: value
-                for key, value in base_frame_spm_composition.details.items()
-                if key
-                in (
-                    "n_units",
-                    "n_units_without_classified_adult",
-                    "n_units_without_member_aged_18_or_over",
-                    "role_source",
-                )
-            },
-        )
+        if telemetry is not None:
+            telemetry.stage(
+                "base_frame_spm_composition",
+                status="skipped",
+                message="Base pool carries no readable SPM composition inputs.",
+                error=str(error),
+            )
+    if base_frame_spm_composition is not None:
+        if base_frame_spm_composition.status != "PASS":
+            print(
+                "\n"
+                + "!" * 72
+                + f"\nBASE-POOL SPM COMPOSITION: {base_frame_spm_composition.summary}\n"
+                + "\n".join(base_frame_spm_composition.failures)
+                + "\nThis is advisory here — the export frame below is graded. "
+                "Preflight it next time: tools/preflight_us_release_gates.py\n"
+                + "!"
+                * 72
+            )
+        if telemetry is not None:
+            telemetry.stage(
+                "base_frame_spm_composition",
+                message="Classified the base pool's SPM measurement composition.",
+                status=base_frame_spm_composition.status,
+                **{
+                    key: value
+                    for key, value in base_frame_spm_composition.details.items()
+                    if key
+                    in (
+                        "n_units",
+                        "n_units_without_classified_adult",
+                        "n_units_without_member_aged_18_or_over",
+                        "role_source",
+                    )
+                },
+            )
     if telemetry is not None:
         telemetry.stage("target_compilation", message="Materializing target frame.")
     target_compilation_started = time.perf_counter()
