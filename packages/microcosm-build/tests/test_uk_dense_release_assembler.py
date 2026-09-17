@@ -94,6 +94,24 @@ def _signed_report():
     return report
 
 
+def _staging_delivery(**overrides) -> dict:
+    """A validated version 2 telemetry receipt the run carried (local-only)."""
+
+    return {
+        "contract_version": 2,
+        "enabled": True,
+        "mode": "local_only",
+        "run_id": ATTEMPT,
+        "configured_repository": None,
+        "upload_attempts": 0,
+        "upload_successes": 0,
+        "read_back": "not_requested",
+        "last_error_code": None,
+        "opt_out_reason": None,
+        **overrides,
+    }
+
+
 def _candidate_dir(root: Path) -> tuple[Path, Path, Path]:
     candidate = root / "f100-k15-RC"
     (candidate / "logbook-spool").mkdir(parents=True)
@@ -263,6 +281,7 @@ def _candidate_dir(root: Path) -> tuple[Path, Path, Path]:
                 "adjudication": "synthetic decision",
             }
         },
+        "staging_delivery": _staging_delivery(),
         "identity": {
             "spine": {
                 "pin_verified": True,
@@ -412,10 +431,50 @@ def test_assembler_stages_a_contract_valid_dense_release(
         "--no-latest" in summary["publish_command"]
         and "populace-uk-private" in summary["publish_command"]
     )
+    # The national assembler's rule: the run's staging receipt rides into the
+    # build manifest unchanged, where publication reads it.
+    build_manifest = json.loads((release_dir / "build_manifest.json").read_text())
+    assert build_manifest["staging"] == _staging_delivery()
     # The contract re-validates the finished directory, and so does the pre-flight.
     dc.validate_release_dir(release_dir)
     preflight = _load("preflight_uk_local_release_candidate")
     assert preflight.main(["--release-dir", str(release_dir)]) == 0
+
+
+@pytest.mark.parametrize(
+    ("staging_delivery", "message"),
+    [
+        (None, "missing valid staging-delivery evidence"),
+        ({"contract_version": 2, "enabled": True}, "invalid staging-delivery evidence"),
+    ],
+)
+def test_assembler_refuses_a_run_without_staging_evidence(
+    tmp_path: Path, monkeypatch, staging_delivery, message
+) -> None:
+    monkeypatch.setenv("MICROCOSM_UK_TERMINAL_GATE_SIGNING_KEY", KEY)
+    assembler = _load("assemble_uk_dense_release_dir")
+    candidate, spine, incumbent = _candidate_dir(tmp_path)
+    manifest_path = candidate / "rowwise_candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    if staging_delivery is None:
+        del manifest["staging_delivery"]
+    else:
+        manifest["staging_delivery"] = staging_delivery
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(SystemExit, match=message):
+        assembler.main(
+            [
+                "--candidate-dir",
+                str(candidate),
+                "--spine-h5",
+                str(spine),
+                "--incumbent-manifest",
+                str(incumbent),
+                "--out-dir",
+                str(tmp_path / "releases"),
+            ]
+        )
+    assert not (tmp_path / "releases").exists()
 
 
 def test_assembler_refuses_a_dev_posture_run(tmp_path: Path, monkeypatch) -> None:

@@ -941,3 +941,48 @@ evaluation page's T6 tables).
 > **Erratum (2026-09-15, microcosm#929).** The "+3 to +12 %" on the VOA council-tax bands is the same keying artifact
 > as above (the Wales rollup summed into the England-pinned target); corrected, no VOA row diverges and the maximum
 > divergence is 6.2 % (`isc.private_school_students`); see the erratum under the D2 frozen-versus-recomputed paragraph.
+
+## Staging for the full build (María, 2026-09-17; plan `repos/uk-rowwise-staging-plan.md`)
+
+Branch `uk-rowwise-staging` (worktree `repos/populace-staging-rowwise`, cut from main d1196af1).
+Vocabulary settled with María: **staging** is telemetry to `runs/<run_id>/` in
+`policyengine/populace-uk-staging`; **publishing** is `publish_cli` into `releases/` of
+`policyengine/populace-uk-private` with or without moving `latest.json`; the **staged dataset** is
+the new lane, the run's outputs under `staged/<run_id>/` of the private repository, same run id,
+no release contract.
+
+### Code landed
+
+- `tools/build_uk_rowwise_candidate.py` adopts the shared `--staging-*` options and creates the
+  telemetry with the attempt (spine-builder shape; `run_kind=calibration`,
+  `operation_id=uk_rowwise_candidate`, `pipeline_id=uk-local-candidate`, `non_release=true`).
+  Stage events: `input_pinning`, `target_compilation`, `cloning`, `surface_resolution`,
+  `calibration`, `gate_battery`, `holdout`, `output_bundle`, `dataset_staging`. Epoch events reach
+  `calibration_progress` through a new `progress_events` fan-out on
+  `solve_uk_rowwise_weights_under_doctrine`, thinned in the driver to every tenth epoch and each
+  phase's last epoch (`_STAGING_EPOCH_EVERY = 10`): a 2,000-epoch size run emits up to 24,000
+  epochs (dense + ten full-length probes + refit) and the contract caps each file at 5 MiB. The
+  kernel's `budget_search: True` flag becomes `1` for the contract's integer field.
+- New country-neutral `microcosm.build.staging_dataset`: bundle from the manifest's `outputs`
+  (digests re-verified from disk), `staged_manifest.json` + `sha256sums.txt` sidecars, one
+  `create_commit` under `staged/<run_id>/`, idempotence on the outputs' digests
+  (`already_staged` / `REMOTE_DIFFERS`), best-effort with reviewed error codes, `fetch_bundle`.
+  `HuggingFaceDatasetStorage` gains `commit`, `head_revision`, `file_exists`, `download_file`;
+  `uk_runtime/staging.py` gains `UK_STAGED_DATASET_REPOSITORY`
+  (`policyengine/populace-uk-private`, env `POPULACE_UK_STAGED_DATASET_REPO_ID`) and the prefix
+  `staged`; `staging_cli` gains `--staged-dataset-repo-id` / `--no-staged-dataset`.
+- The manifest gains `staging_delivery` (v2) and `staged_dataset` (v1) after the bundle is on
+  disk (atomic rewrite; the uploaded manifest copy predates them, `staged_manifest.json` describes
+  the remote side). Two reviewed artifacts on the telemetry run: `staged_dataset.json` and
+  `fit_summary.json`. A remote dataset stage is refused up front without an ambient Hub credential
+  that can see the repository; an upload failure is recorded and never changes the exit code.
+- `tools/stage_uk_rowwise_candidate.py` (re-stage a finished directory) and
+  `tools/fetch_uk_staged_dataset.py` (digest-verified fetch by run id).
+- `tools/assemble_uk_dense_release_dir.py` requires `staging_delivery` and copies it into
+  `build_manifest.json` as `staging` (the national assembler's rule).
+- Tests: `test_staging_dataset.py` (20), storage/CLI additions in `test_staging_v2.py`, the solver
+  fan-out in `test_uk_local_rowwise.py`, seven driver tests in `test_uk_rowwise_candidate.py`
+  (local-only, size phases, `--no-staging`, remote upload + re-stage + fetch, recorded upload
+  failure, `--no-staged-dataset`, up-front refusals and dry run), dense assembler evidence tests,
+  size-evaluation tolerance. Every existing driver test passes `--staging-local-only` through the
+  shared flag helper.

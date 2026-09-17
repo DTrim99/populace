@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -84,6 +84,72 @@ class HuggingFaceDatasetStorage:
         )
         return Path(local).read_bytes()
 
+    def download_file(self, path_in_repo: str, *, revision: str | None = None) -> Path:
+        """Fetch one file through the Hub cache and return its local path.
+
+        Unlike :meth:`download` this never reads the bytes into memory, so it
+        serves population files as well as small documents.
+        """
+
+        api = self._api()
+        download = getattr(api, "hf_hub_download", None)
+        if download is None:
+            from huggingface_hub import hf_hub_download as download
+
+        local = download(
+            repo_id=self.repo_id,
+            filename=path_in_repo,
+            repo_type="dataset",
+            revision=revision,
+        )
+        return Path(local)
+
+    def file_exists(self, path_in_repo: str) -> bool:
+        return bool(
+            self._api().file_exists(
+                repo_id=self.repo_id,
+                filename=path_in_repo,
+                repo_type="dataset",
+            )
+        )
+
+    def head_revision(self) -> str | None:
+        """The default branch's current commit, when the backend reports one."""
+
+        info = self._api().repo_info(repo_id=self.repo_id, repo_type="dataset")
+        sha = (
+            info.get("sha") if isinstance(info, Mapping) else getattr(info, "sha", None)
+        )
+        return str(sha) if sha else None
+
+    def commit(
+        self,
+        operations: Sequence[Any],
+        *,
+        message: str,
+        parent_commit: str | None = None,
+    ) -> str:
+        """Write several files in one commit and return the new revision.
+
+        ``operations`` are ``huggingface_hub.CommitOperation`` values built by
+        the caller; pinning ``parent_commit`` makes a concurrent write fail
+        instead of silently interleaving.
+        """
+
+        info = self._api().create_commit(
+            repo_id=self.repo_id,
+            operations=list(operations),
+            commit_message=message,
+            repo_type="dataset",
+            parent_commit=parent_commit,
+        )
+        oid = (
+            info.get("oid") if isinstance(info, Mapping) else getattr(info, "oid", None)
+        )
+        if not isinstance(oid, str) or not oid.strip():
+            raise RuntimeError("The Hub commit reported no revision.")
+        return oid.strip()
+
 
 @dataclass(frozen=True)
 class UploadResult:
@@ -136,9 +202,7 @@ class BestEffortUploadSession:
             self.storage.upload(local_path, path_in_repo)
         except Exception as error:
             self.consecutive_failures += 1
-            became_disabled = (
-                self.consecutive_failures >= self.max_consecutive_failures
-            )
+            became_disabled = self.consecutive_failures >= self.max_consecutive_failures
             if became_disabled:
                 self.enabled = False
             return UploadResult(
