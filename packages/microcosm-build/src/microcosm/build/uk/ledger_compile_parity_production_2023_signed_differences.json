@@ -1,11 +1,11 @@
 {
- "compiled_count": 444,
+ "compiled_count": 445,
  "counts_by_kind": {
   "calibration_drift": 120,
   "fixture_only": 17,
-  "ledger_only": 312
+  "ledger_only": 313
  },
- "difference_count": 449,
+ "difference_count": 450,
  "differences": [
   {
    "fixture_value": 82000.0,
@@ -1878,8 +1878,15 @@
   },
   {
    "kind": "ledger_only",
-   "ledger_value": 52505000000.0,
-   "name": "ons.household_energy_expenditure",
+   "ledger_value": 30589000000.0,
+   "name": "ons.household_electricity_expenditure",
+   "period": 2023,
+   "reason": "Ledger-compiled row has no fixture counterpart at this comparison period."
+  },
+  {
+   "kind": "ledger_only",
+   "ledger_value": 20085000000.0,
+   "name": "ons.household_gas_expenditure",
    "period": 2023,
    "reason": "Ledger-compiled row has no fixture counterpart at this comparison period."
   },
