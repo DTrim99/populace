@@ -18,7 +18,7 @@ Part 1 complete and tested. Part 2 (design note) in progress. PR open as draft.
   resolvable by the role. None is all-under-15.
 - `is_spm_independent_minor_role` is absent.
 - ASEC origin coverage is **total**: all 907,382 persons carry a 22-digit
-  `source_person_id`, including all 474,859 `puf_tax_delta` clones. **Zero** SPM
+  `source_person_id`, including all 474,859 `puf_tax_detail` clones. **Zero** SPM
   units have no ASEC-origin member.
 - The raw ASEC columns the base carries cannot supply the rule: `SPM_HEAD` is
   absent, and `A_FAMTYP`/`A_FAMREL` are null for 66.9% of persons. The rule's
