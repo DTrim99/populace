@@ -158,6 +158,16 @@
       "schema_id": "legacy_json"
     },
     {
+      "path": "chronicle_feed.json",
+      "kind": "legacy_json",
+      "schema_id": "legacy_json"
+    },
+    {
+      "path": "chronicle_feed_scope.json",
+      "kind": "legacy_json",
+      "schema_id": "legacy_json"
+    },
+    {
       "path": "tax_expenditure_reforms.json",
       "kind": "legacy_json",
       "schema_id": "legacy_json"
