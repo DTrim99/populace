@@ -22,7 +22,7 @@ from microcosm.calibrate import (
     TargetSpec,
     calibrate,
 )
-from microcosm.frame import Frame, WeightKind, Weights
+from microcosm.frame import EntitySchema, Frame, WeightKind, Weights
 
 
 def _load_builder_module():
@@ -4339,12 +4339,23 @@ def test_main_writes_diagnostics_before_post_calibration_gate_failure(
     )
 
     class FakeFrame:
+        # Household-only, shaped like the real ``Frame`` contract: ``schema``
+        # is always present, and ``table`` raises ``ValueError`` for an entity
+        # the schema does not declare (``Frame.table``). That is what lets the
+        # pre-calibration SPM composition advisory degrade to a notice here
+        # instead of aborting the run before the gate under test.
+        schema = EntitySchema(group_entities=("household",))
+
         def n(self, entity):
             assert entity == "household"
             return 2 if terminal_mode == "puf_tail" else 4
 
         def table(self, entity):
-            assert entity == "household"
+            if entity != "household":
+                raise ValueError(
+                    f"Unknown entity {entity!r}; schema declares "
+                    f"{list(self.schema.entities)}."
+                )
             size = self.n("household")
             return pd.DataFrame({"household_id": np.arange(1, size + 1, dtype="int64")})
 
@@ -12411,3 +12422,33 @@ def test__spm_composition_report__unclassifiable_frame__raises_for_the_advisory(
 
     with pytest.raises(ValueError, match="no 'age' column"):
         builder._spm_composition_report(stripped)
+
+
+def test__spm_composition_report__frame_without_spm_units__raises_for_the_advisory() -> (
+    None
+):
+    """A real frame whose schema declares no ``spm_unit`` raises ``ValueError``.
+
+    ``Frame.table`` refuses an undeclared entity with ``ValueError``, so a
+    household-only pool degrades the pre-calibration advisory to a notice
+    through the same ``except (KeyError, ValueError)`` — no broader catch, and
+    no attribute the real frame lacks, is needed for that.
+    """
+    builder = _load_builder_module()
+    frame = Frame(
+        {
+            "person": pd.DataFrame(
+                {
+                    "person_id": [1, 2],
+                    "person_household_id": [1, 1],
+                    "age": [40.0, 16.0],
+                }
+            ),
+            "household": pd.DataFrame({"household_id": [1]}),
+        },
+        EntitySchema(group_entities=("household",)),
+        {"household": Weights(np.array([100.0]), WeightKind.CALIBRATED)},
+    )
+
+    with pytest.raises(ValueError, match="Unknown entity 'spm_unit'"):
+        builder._spm_composition_report(frame)
