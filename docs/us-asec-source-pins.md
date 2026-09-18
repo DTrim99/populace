@@ -50,14 +50,21 @@ uv run python tools/fetch_us_asec_sources.py
 `--asec-h5-sha256 YEAR=SHA256`, passed once per year, makes the builder refuse
 a `--asec-h5` input whose bytes differ from the declared digest. The check runs
 in `main()` before any stage, so a wrong input refuses in seconds rather than
-surfacing as drift hours later. It also refuses a malformed digest, a year
-named twice, a year no `--asec-h5` mapping provides, and, for a year with a
-canonical pin, a declared digest that differs from it: the flag can narrow
-nothing and re-pin nothing. The pins are locked into the checkpoint
-`run_config` (`asec_h5_sha256`), so a resume with different pins refuses, and
-forwarded to every staged child process.
+surfacing as drift hours later. Every pin is parsed and checked before any
+file is read: a pin without `--asec-h5`, a value that is not `YEAR=SHA256`, a
+year that is not an integer, a digest that is not 64 hexadecimal characters, a
+year named twice, a year no `--asec-h5` mapping provides, and, for a year with
+a canonical pin, a declared digest that differs from it (the flag can narrow
+nothing and re-pin nothing) all refuse with a message naming the value. Once
+any year is pinned, every `--asec-h5` year must be pinned, so a build is either
+fully pinned or not pinned at all. Then each pinned file is hashed in year
+order; a missing file and a digest mismatch refuse the same way. The pins are
+locked into the checkpoint `run_config` (`asec_h5_sha256`, a `{year: digest}`
+mapping with the digest lower-cased) so a resume with different pins refuses
+and an equivalently spelled pin resumes, and the raw values are forwarded to
+every staged child process.
 
 The flag is opt-in. Fixture-driven tests build from synthetic
 `census_cps_*.h5` files and are not held to the production digests. A
-certified from-scratch build passes it for all three years; the US release
-build rule records that requirement.
+certified from-scratch build passes it for all three years; nothing enforces
+that yet, and the US release build rule is where it belongs.

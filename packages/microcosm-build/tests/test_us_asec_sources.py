@@ -285,6 +285,20 @@ def test_verify_is_a_no_op_without_pins() -> None:
             [f"2022={_WRONG_SHA256}"],
             r"ASEC 2022 CLI pin differs from the canonical pin",
         ),
+        (["2022=a.h5"], ["2022abc"], r"must be YEAR=SHA256"),
+        (["2022=a.h5"], [f"twenty22={_FIXTURE_SHA256}"], r"year must be an integer"),
+        (["2022"], [f"2022={_FIXTURE_SHA256}"], r"ASEC source must be YEAR=PATH"),
+        (["y=a.h5"], [f"2022={_FIXTURE_SHA256}"], r"--asec-h5 'y=a.h5': the year"),
+        (
+            ["2018=a.h5", "2019=b.h5"],
+            [f"2018={_FIXTURE_SHA256}"],
+            r"pins \[2018\] but --asec-h5 also names \[2019\]",
+        ),
+        (
+            ["2019=missing-a.h5", "2022=missing-b.h5"],
+            [f"2019={_FIXTURE_SHA256}", f"2022={_WRONG_SHA256}"],
+            r"ASEC 2022 CLI pin differs from the canonical pin",
+        ),
     ],
     ids=[
         "no-source",
@@ -293,6 +307,12 @@ def test_verify_is_a_no_op_without_pins() -> None:
         "duplicate-year",
         "unmapped-year",
         "not-canonical",
+        "pin-without-equals",
+        "pin-year-not-integer",
+        "source-without-equals",
+        "source-year-not-integer",
+        "partial-pinning",
+        "canonical-before-any-hash",
     ],
 )
 def test_verify_refuses_malformed_or_divergent_pins(
@@ -301,10 +321,22 @@ def test_verify_refuses_malformed_or_divergent_pins(
     message: str,
 ) -> None:
     # No case names a file that exists: every refusal here fires before any
-    # byte is read, the canonical comparison included.
+    # byte is read, the canonical comparison included — also with two years,
+    # where the 2019 file would be hashed first if hashing were interleaved.
     builder = _load_tool_module("build_us_puf_support_base")
     with pytest.raises(SystemExit, match=message):
         builder._verify_asec_source_digests(_args(asec_h5, pins))
+
+
+def test_verify_refuses_a_pinned_file_that_does_not_exist(tmp_path: Path) -> None:
+    builder = _load_tool_module("build_us_puf_support_base")
+    missing = tmp_path / "census_cps_2019.h5"
+    with pytest.raises(
+        SystemExit, match=rf"ASEC 2019 source {re.escape(str(missing))} does not exist"
+    ):
+        builder._verify_asec_source_digests(
+            _args([f"2019={missing}"], [f"2019={_FIXTURE_SHA256}"])
+        )
 
 
 def test_verify_refuses_bytes_that_differ_from_the_declared_digest(
@@ -375,11 +407,20 @@ def test_pins_are_forwarded_to_stage_children_and_locked_in_the_run_config(
         "_builder_code_identity",
         lambda: {"source_sha256": "builder"},
     )
-    pin = f"2022={_FIXTURE_SHA256}"
+    monkeypatch.setattr(
+        builder,
+        "ASEC_SOURCE_ARTIFACTS",
+        MappingProxyType({2022: _fixture_artifact()}),
+    )
+    # Upper case with surrounding whitespace: forwarded verbatim to the stage
+    # children, locked normalized so an equivalent resume compares equal.
+    pin = f"2022= {_FIXTURE_SHA256.upper()} "
     args = _parse_asec_build_args(builder, tmp_path, ["--asec-h5-sha256", pin])
     command = builder._stage_cli_args(args, "source_construction")
     assert command[command.index("--asec-h5-sha256") + 1] == pin
-    assert builder._stage_run_config(args)["asec_h5_sha256"] == [pin]
+    assert builder._stage_run_config(args)["asec_h5_sha256"] == {
+        "2022": _FIXTURE_SHA256
+    }
 
     unpinned = _parse_asec_build_args(builder, tmp_path, [])
     assert "--asec-h5-sha256" not in builder._stage_cli_args(
