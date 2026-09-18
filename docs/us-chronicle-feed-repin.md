@@ -160,6 +160,7 @@ What that means for releases: the `--base-h5` arm of
 `--exact-k` arm requires `--ledger-manifest-sha256` and therefore an
 artifact directory, and cannot use this pin until Chronicle either records
 an `authority` for those alignments or relaxes the schema for
-`source_label` relations. That is a Chronicle decision; the builder fails
-closed without `--skip-artifact`, and a later pin at a commit that fixes it
-records the manifest digest in the same declaration.
+`source_label` relations. That is a Chronicle decision, tracked as
+[PolicyEngine/chronicle#277](https://github.com/PolicyEngine/chronicle/issues/277);
+the builder fails closed without `--skip-artifact`, and a later pin at a
+commit that fixes it records the manifest digest in the same declaration.
