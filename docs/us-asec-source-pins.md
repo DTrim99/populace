@@ -30,7 +30,7 @@ rosters agree, so there is one source of truth.
 ## Fetching
 
 `fetch_asec_source(year)` returns a verified local path. It checks the archived
-`policyengine-us-data` checkout's storage directory and
+US data repository checkout's storage directory and
 `~/.cache/microcosm/asec/` first, to spare a 300 MB transfer on machines that
 already hold the file, then downloads the pinned revision through
 `huggingface_hub`. Every candidate, the download included, must match the
