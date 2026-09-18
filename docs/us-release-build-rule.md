@@ -30,8 +30,12 @@ exactly one Chronicle-owned label for every dimension a target selects on, and
 refuses to substitute the identifier. The pinned US feed
 (`consumer_facts_buildn_v9_4.jsonl`, `b3c08356…`, named in
 `us/target_parity_manifest.json` and `us/target_parity_feed_families.json`)
-predates those labels, so target compilation refuses in about 50 seconds on both
-release arms. Every other stage waits behind this one.
+predates those labels, so target compilation refuses. The refusal was measured
+on the `--base-h5` arm, 49.59 seconds in. The pool arm never reached target
+compilation in that attempt, and it cannot take the bare pinned feed at all,
+because `--exact-k` needs an artifact directory with a manifest; the compile
+call is shared, so the same validator stands in front of it. Every other stage
+waits behind this one.
 
 Chronicle main writes the labels (`dimension_labels`, `dimension_value_labels`,
 `layout.groupby_dimension_label`), and the UK feed on main is already pinned to
@@ -39,9 +43,14 @@ such an export (`uk/chronicle_feed.json`). The US needs a fresh export, the two
 parity resources regenerated together with
 `tools/build_us_target_parity_manifest.py`, and a `us/chronicle_feed.json` that
 records the export the way the UK file does. `chronicle build-bundle` takes one
-`--year`; the pinned US feed spans tax years 2020 to 2023, calendar years 2023
-and 2024, and fiscal years 2026 to 2029, so the export's scope is settled before
-it runs.
+`--year`, and the pinned US feed carries many periods: tax years 2020 to 2026,
+fiscal years 2023, 2024 and 2026 to 2029, calendar years 2018, 2023 and 2024,
+and the months 2024-12 and 2025-12 (counted from the feed's own rows). One
+`--year 2023` export at Chronicle `c5e5bf8` reproduces 555 of the feed's 586
+record sets, every row labelled; the rest, including the JCT tax expenditures
+and the CBO revenue projections that age dollar targets, sit in other years'
+bundles. So the export's scope is settled, and its coverage compared with the
+pinned feed record set by record set, before anything is re-pinned.
 
 ### 2. Nothing in the build emits the SPM independence role
 
@@ -72,8 +81,9 @@ Decided 17 September 2026:
 ### 3. The July selection does not map onto a rebuilt base
 
 `check_selection_carryover` (`us_runtime/release_gate_preflight.py:313`) failed
-on the rebuilt base: 15,228 capital-gains own-tail donors sit on tax units the
-frozen July identity list does not name
+on the rebuilt base: 15,228 capital-gains own-tail donors sit in households the
+frozen July identity list does not name (the list names households, and the
+selection mask is household-level, so those donors' tax units are dropped)
 (`assert_puf_capital_gains_tail_survives_selection`,
 `us_runtime/puf_capital_gains_tail.py:465`). The release tool does not require a
 selection source (`--selection-source-manifest` is optional, and the reduction
