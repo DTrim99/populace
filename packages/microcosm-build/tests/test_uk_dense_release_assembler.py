@@ -441,6 +441,46 @@ def test_assembler_stages_a_contract_valid_dense_release(
     assert preflight.main(["--release-dir", str(release_dir)]) == 0
 
 
+def test_assembler_override_assembles_a_pre_lane_run_with_a_recorded_opt_out(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("MICROCOSM_UK_TERMINAL_GATE_SIGNING_KEY", KEY)
+    assembler = _load("assemble_uk_dense_release_dir")
+    candidate, spine, incumbent = _candidate_dir(tmp_path)
+    manifest_path = candidate / "rowwise_candidate_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    del manifest["staging_delivery"]
+    manifest_path.write_text(json.dumps(manifest))
+    # The incumbent surface evaluation pins the manifest bytes it evaluated.
+    surface_path = candidate / "incumbent_surface_evaluation.json"
+    evaluation = json.loads(surface_path.read_text())
+    evaluation["identity"]["candidate_manifest_sha256"] = _sha(manifest_path)
+    surface_path.write_text(json.dumps(evaluation))
+    out = tmp_path / "releases"
+    argv = [
+        "--candidate-dir",
+        str(candidate),
+        "--spine-h5",
+        str(spine),
+        "--incumbent-manifest",
+        str(incumbent),
+        "--out-dir",
+        str(out),
+    ]
+    with pytest.raises(SystemExit, match="--allow-missing-staging"):
+        assembler.main(argv)
+    assert not out.exists()
+    assert assembler.main([*argv, "--allow-missing-staging"]) == 0
+    capsys.readouterr()
+    build_manifest = json.loads(
+        (out / UK_DENSE_RELEASE_ID / "build_manifest.json").read_text()
+    )
+    assert build_manifest["staging"]["mode"] == "disabled"
+    assert build_manifest["staging"]["enabled"] is False
+    assert "--allow-missing-staging" in build_manifest["staging"]["opt_out_reason"]
+    dc.validate_release_dir(out / UK_DENSE_RELEASE_ID)
+
+
 @pytest.mark.parametrize(
     ("staging_delivery", "message"),
     [
@@ -461,19 +501,22 @@ def test_assembler_refuses_a_run_without_staging_evidence(
     else:
         manifest["staging_delivery"] = staging_delivery
     manifest_path.write_text(json.dumps(manifest))
+    argv = [
+        "--candidate-dir",
+        str(candidate),
+        "--spine-h5",
+        str(spine),
+        "--incumbent-manifest",
+        str(incumbent),
+        "--out-dir",
+        str(tmp_path / "releases"),
+    ]
     with pytest.raises(SystemExit, match=message):
-        assembler.main(
-            [
-                "--candidate-dir",
-                str(candidate),
-                "--spine-h5",
-                str(spine),
-                "--incumbent-manifest",
-                str(incumbent),
-                "--out-dir",
-                str(tmp_path / "releases"),
-            ]
-        )
+        assembler.main(argv)
+    if staging_delivery is not None:
+        # The override covers absent evidence only; invalid evidence stays refused.
+        with pytest.raises(SystemExit, match=message):
+            assembler.main([*argv, "--allow-missing-staging"])
     assert not (tmp_path / "releases").exists()
 
 

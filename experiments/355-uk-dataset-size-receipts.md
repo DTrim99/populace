@@ -1018,7 +1018,8 @@ Third attempt: feed `ec20085`, ladder `bed3f13d…`, same arguments; run id and 
   `MeasureResolutionError: provider does not know household.ons_household_type` (550 s, 8.4 GB).
   The spine-q H5 predates the `frs_relationships` stage (#903, merged 2026-09-11), whose column the
   national registry on main now resolves. Telemetry closed as `failed` at `surface_resolution`
-  after recording the compile and clone details; Logbook row and error receipt written. Kept as
+  after recording the compile and clone details; Logbook row and error receipt written. Run
+  `uk-local-candidate-f100-s42-20260917T175007Z-2acb7634`, kept as
   `…-staging-failed-spine-q-stale/`. A spine on main's stages (`spine-r`, code 0cda403a) is built
   with `834-childcare-tfc/build_twin_passthrough.sh … --staging-local-only` into
   `data/ukds/acceptance/spine-r-355/`.
@@ -1072,13 +1073,13 @@ order), `staging_delivery` and `staged_dataset` in the manifest, and the local `
 verifies every listed file after the evidence rewrite. This is the bundle staged on the Hub with
 `tools/stage_uk_rowwise_candidate.py` (results below).
 
-### Staging r2 on the Hub (2026-09-17 19:1xZ)
+### Staging r2 on the Hub (2026-09-17, immediately after r2 closed; 2026-09-18 second attempt)
 
 `tools/stage_uk_rowwise_candidate.py --run-dir …/spine-r/f100-k15-h55000-e100-p50-f001-s42-staging`
 against `policyengine/populace-uk-private`: the repository was reachable (read), the remote
 prefix was absent, and the single commit was refused by the Hub with 403 "you must use a write
-token to upload to a repository". The ambient credential on this machine is the **read** token
-`PEHF` (user juaristi22). The lane recorded `status failed`, `error_code UPLOAD_FAILED`, nine
+token to upload to a repository". The credential cached on the build machine has the Hub role
+`read`. The lane recorded `status failed`, `error_code UPLOAD_FAILED`, nine
 files with digests, no revision, exit 1, no exception text in the evidence, the bundle and sidecars
 intact for a re-stage; 11 s. Because a read token also passes the reachability pre-flight (it can
 see the private repository), the pre-flight and the re-stage tool now refuse a credential whose
@@ -1086,3 +1087,14 @@ Hub role is `read` before any work, naming the write requirement. The real uploa
 credential in María's environment (`HF_TOKEN` or `hf auth login`), then
 `tools/stage_uk_rowwise_candidate.py --run-dir <r2>` stages this bundle, and the fetch-back and
 scorecard checks follow.
+
+Second attempt (2026-09-18, María's shell) with a fine-grained write token: refused again with
+403, recorded again as `UPLOAD_FAILED`. The token's `repo.write` scope covered only her own user
+namespace, not the `policyengine` organisation that owns the repository, and a fine-grained token
+reports the role `fineGrained`, so the read-only pre-flight passed it. The pre-flight and the
+re-stage tool now read the token's scopes from the Hub and refuse a credential without
+`repo.write` on the repository or its owner; a scope the Hub does not describe is warned about and
+proven by the upload. Vahid's review also had the re-stage tool keep the driver's record when the
+same outputs are already uploaded (the bundle's own commit, not the repository head), made the epoch
+thinning size-aware with a content refusal reported rather than raised from inside the solve, and
+gave the dense assembler `--allow-missing-staging` for runs built before the lane.

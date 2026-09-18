@@ -23,6 +23,7 @@ from pathlib import Path
 
 from microcosm.build.staging_dataset import (
     StagedDatasetBundle,
+    delivery_covers_bundle,
     local_only_staged_dataset,
     refresh_sha256sums_entry,
     stage_bundle,
@@ -119,6 +120,18 @@ def main(argv: list[str] | None = None) -> int:
             "release_posture": manifest.get("release_posture"),
         },
     )
+    existing = manifest.get("staged_dataset")
+    if delivery_covers_bundle(existing, bundle, repository=repository):
+        # Already on the Hub with these very outputs: keep the driver's record
+        # (its revision is the bundle's commit) and touch nothing on disk.
+        print(
+            f"already staged at {existing['repository']}/{existing['prefix']} "
+            f"(revision {existing['revision']}); nothing to do.",
+            file=sys.stderr,
+            flush=True,
+        )
+        print(json.dumps(existing, indent=2, sort_keys=True))
+        return 0
     telemetry = manifest.get("staging_delivery")
     write_sidecars(
         bundle,
@@ -149,13 +162,15 @@ def main(argv: list[str] | None = None) -> int:
         )
         storage = HuggingFaceDatasetStorage(repository, api=_hub_api())
         try:
-            role = storage.credential_role()
+            can_write = storage.credential_can_write()
         except Exception:
-            role = None
-        if role == "read":
+            can_write = None
+        if can_write is False:
             raise SystemExit(
-                f"error: the ambient Hugging Face token is read-only; staging to "
-                f"{repository} needs a write credential (HF_TOKEN or `hf auth login`)."
+                f"error: the ambient Hugging Face token cannot write {repository}: "
+                "it is read-only or not scoped to this repository or its owner "
+                "(a fine-grained token needs repo.write on the repository or on "
+                f"{repository.split('/', 1)[0]}); set HF_TOKEN or `hf auth login`."
             )
         delivery = stage_bundle(
             bundle, storage=storage, prefix=UK_STAGED_DATASET_PREFIX

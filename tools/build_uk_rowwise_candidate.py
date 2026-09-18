@@ -184,6 +184,9 @@ _STAGING_OPERATION_ID = "uk_rowwise_candidate"
 # which would breach the cap mid-run. Forwarding every tenth epoch and the
 # last epoch of each phase keeps the loss curve and stays near 0.8 MB.
 _STAGING_EPOCH_EVERY = 10
+# ...and never more than this many forwarded epochs per run, whatever --epochs
+# says: the stride grows with the run so the cap holds by construction.
+_STAGING_MAX_EPOCH_ROWS = 2400
 _STAGED_DATASET_PHASES = {
     "uploaded": "dataset_staged",
     "already_staged": "dataset_staged",
@@ -1256,6 +1259,7 @@ def _run_candidate(
             pool_rows=int(problem.matrix.shape[1]),
             dataset_households=args.dataset_households,
             epochs=int(args.epochs),
+            epoch_every=_staging_epoch_every(args),
             resumed_from_checkpoint=resume_checkpoint is not None,
         )
         solve = solve_uk_rowwise_weights_under_doctrine(
@@ -1284,7 +1288,9 @@ def _run_candidate(
             progress_events=(
                 None
                 if telemetry is None
-                else _thinned_epochs(telemetry.calibration_progress)
+                else _thinned_epochs(
+                    telemetry.calibration_progress, every=_staging_epoch_every(args)
+                )
             ),
         )
         _validate_solve_result(solve, problem=problem)
@@ -1605,20 +1611,41 @@ def _preflight_staged_dataset(args: argparse.Namespace) -> None:
     try:
         storage.head_revision()
     except Exception as error:
+        # The transport's own message is not chained: it can carry request
+        # URLs and identifiers, and the type name is enough to act on.
         raise ValueError(
             f"remote dataset staging cannot reach {repo_id} "
             f"({type(error).__name__}); {hint}."
-        ) from error
+        ) from None
+    _require_write_credential(storage, hint=hint)
+
+
+def _require_write_credential(storage: HuggingFaceDatasetStorage, *, hint: str) -> None:
+    """Refuse a credential that can see the repository but cannot write it.
+
+    A read token, or a fine-grained token scoped to another owner, passes the
+    reachability check and is refused by the Hub with 403 only when the upload
+    starts, hours later. The scope is read from the Hub's own description of
+    the token; when it cannot be read the upload itself is the proof.
+    """
+
     try:
-        role = storage.credential_role()
+        can_write = storage.credential_can_write()
     except Exception:
-        role = None
-    if role == "read":
-        # A read token sees the private repository, so the reachability check
-        # passes; the upload at the end of the run would be refused (403).
+        can_write = None
+    if can_write is False:
         raise ValueError(
-            f"remote dataset staging to {repo_id} needs a write credential; the "
-            f"ambient Hugging Face token is read-only; {hint}."
+            f"remote dataset staging to {storage.repo_id} needs a write credential: "
+            "the ambient Hugging Face token is read-only or is not scoped to this "
+            "repository or its owner (a fine-grained token needs repo.write on "
+            f"{storage.repo_id} or on {storage.repo_id.split('/', 1)[0]}); {hint}."
+        )
+    if can_write is None:
+        print(
+            "warning: the Hugging Face credential's write scope could not be read; "
+            "the upload at the end of the run will prove it.",
+            file=sys.stderr,
+            flush=True,
         )
 
 
@@ -1655,6 +1682,21 @@ def _stage(
         telemetry.stage(stage_id, event_status=event_status, **details)
 
 
+def _staging_epoch_every(args: argparse.Namespace) -> int:
+    """The epoch stride that keeps the forwarded rows under the row budget.
+
+    A dense run solves once; a size run solves the pool, up to ``budget_iters``
+    full-length probes and the refit. The stride is at least
+    ``_STAGING_EPOCH_EVERY`` and grows so at most ``_STAGING_MAX_EPOCH_ROWS``
+    epochs are forwarded, keeping ``calibration_progress.json`` and
+    ``events.ndjson`` under the contract's 5 MiB cap for any ``--epochs``.
+    """
+
+    solves = 1 if args.dataset_households is None else 2 + _BUDGET_ITERS
+    total = int(args.epochs) * solves
+    return max(_STAGING_EPOCH_EVERY, -(-total // _STAGING_MAX_EPOCH_ROWS))
+
+
 def _thinned_epochs(
     sink: Callable[[Mapping[str, Any]], None], *, every: int = _STAGING_EPOCH_EVERY
 ) -> Callable[[dict[str, object]], None]:
@@ -1662,11 +1704,16 @@ def _thinned_epochs(
 
     The kernel flags probe epochs with ``budget_search: True``; the staging
     contract records that field as an integer or null, so the flag becomes 1
-    (the national command never runs a budget search and never met this).
+    (the national command never runs a budget search and never met this). A
+    contract or content refusal from the telemetry is reported once and stops
+    the forwarding: the solve must never abort on its own progress report.
     """
 
+    disabled = False
+
     def callback(event: dict[str, object]) -> None:
-        if event.get("kind") != "calibration_epoch":
+        nonlocal disabled
+        if disabled or event.get("kind") != "calibration_epoch":
             return
         epoch = int(event["epoch"])
         epochs = int(event["epochs"])
@@ -1676,7 +1723,17 @@ def _thinned_epochs(
         budget_search = forwarded.get("budget_search")
         if isinstance(budget_search, bool):
             forwarded["budget_search"] = 1 if budget_search else None
-        sink(forwarded)
+        try:
+            sink(forwarded)
+        except StagingContractError as error:
+            disabled = True
+            print(
+                "warning: staging telemetry refused a calibration progress row "
+                f"({type(error).__name__}); epoch progress is no longer forwarded, "
+                "the solve continues.",
+                file=sys.stderr,
+                flush=True,
+            )
 
     return callback
 
@@ -1717,12 +1774,30 @@ def _finalize_staging_telemetry(
 ) -> None:
     if telemetry is None:
         return
-    telemetry.complete(message="UK rowwise candidate staging run completed.")
+    try:
+        telemetry.complete(message="UK rowwise candidate staging run completed.")
+    except StagingContractError as error:
+        _warn_telemetry("could not close the staging run", error)
+        return
     try:
         if args.staging_read_back:
+            # Requested explicitly, so a failed read-back is the run's failure,
+            # as on the national command.
             telemetry.verify_remote()
     finally:
-        telemetry.validate_local_bundle()
+        try:
+            telemetry.validate_local_bundle()
+        except StagingContractError as error:
+            _warn_telemetry("the local staging bundle does not validate", error)
+
+
+def _warn_telemetry(what: str, error: BaseException) -> None:
+    print(
+        f"warning: {what} ({type(error).__name__}: {error}); the build's own "
+        "evidence is unaffected.",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 def _staging_delivery(telemetry: StagingTelemetryV2 | None) -> dict[str, Any]:

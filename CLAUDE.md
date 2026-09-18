@@ -103,7 +103,11 @@ publishes without the flag. Never publish or promote artifacts as a side
 effect of another task. A UK rowwise run's **staged** bundle
 (`staged/<run_id>/` in the private repository, written by the build itself)
 is inspection evidence, not a release: it never moves `releases/` or
-`latest.json` and is not loadable through the certified loader.
+`latest.json` and is not loadable through the certified loader. The build's
+default is to upload that bundle (hundreds of megabytes of licensed microdata)
+to the private repository; when you run `tools/build_uk_rowwise_candidate.py`
+yourself, pass `--staging-local-only` unless the operator asked for a staged
+upload.
 
 The US native-SPM-role source-enrichment lane is a separate release type:
 `tools/build_us_spm_role_enrichment.py` creates a local candidate from the exact

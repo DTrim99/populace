@@ -113,21 +113,92 @@ class HuggingFaceDatasetStorage:
             )
         )
 
-    def credential_role(self) -> str | None:
-        """The ambient credential's role as the Hub reports it (``read``, ``write``, …).
-
-        ``None`` when the backend cannot say; a fine-grained token reports
-        ``fineGrained`` and its scopes are only tested by the upload itself.
-        """
-
+    def _access_token(self) -> Mapping[str, Any] | None:
         whoami = getattr(self._api(), "whoami", None)
         if not callable(whoami):
             return None
         info = whoami()
         auth = info.get("auth") if isinstance(info, Mapping) else None
         token = auth.get("accessToken") if isinstance(auth, Mapping) else None
-        role = token.get("role") if isinstance(token, Mapping) else None
+        return token if isinstance(token, Mapping) else None
+
+    def credential_role(self) -> str | None:
+        """The ambient credential's role as the Hub reports it.
+
+        ``read`` and ``write`` are the classic roles; a fine-grained token
+        reports ``fineGrained`` and carries its scopes separately (see
+        :meth:`credential_can_write`). ``None`` when the backend cannot say.
+        """
+
+        token = self._access_token()
+        role = token.get("role") if token else None
         return str(role) if role else None
+
+    def credential_can_write(self) -> bool | None:
+        """Whether the ambient credential may write this repository.
+
+        ``True`` for a classic write token or a fine-grained token whose
+        scopes grant ``repo.write`` on the repository, its owner (user or
+        organisation) or globally; ``False`` for a read token or a fine-grained
+        token scoped elsewhere; ``None`` when the backend cannot say, in which
+        case only the upload itself proves the scope.
+        """
+
+        token = self._access_token()
+        if token is None:
+            return None
+        role = str(token.get("role") or "")
+        if role == "read":
+            return False
+        if role == "write":
+            return True
+        if role != "fineGrained":
+            return None
+        fine = token.get("fineGrained")
+        fine = fine if isinstance(fine, Mapping) else {}
+        if "repo.write" in (fine.get("global") or []):
+            return True
+        owner = self.repo_id.split("/", 1)[0]
+        for scope in fine.get("scoped") or []:
+            if not isinstance(scope, Mapping):
+                continue
+            entity = scope.get("entity")
+            entity = entity if isinstance(entity, Mapping) else {}
+            name = str(entity.get("name") or "")
+            kind = str(entity.get("type") or "")
+            covers = name == self.repo_id or (
+                kind in {"user", "org"} and name == owner
+            )
+            if covers and "repo.write" in (scope.get("permissions") or []):
+                return True
+        return False
+
+    def last_commit(self, path_in_repo: str) -> str | None:
+        """The commit that last changed ``path_in_repo``, when the backend reports it."""
+
+        paths_info = getattr(self._api(), "get_paths_info", None)
+        if not callable(paths_info):
+            return None
+        entries = paths_info(
+            repo_id=self.repo_id,
+            paths=[path_in_repo],
+            expand=True,
+            repo_type="dataset",
+        )
+        for entry in entries or []:
+            commit = (
+                entry.get("last_commit")
+                if isinstance(entry, Mapping)
+                else getattr(entry, "last_commit", None)
+            )
+            oid = (
+                commit.get("oid")
+                if isinstance(commit, Mapping)
+                else getattr(commit, "oid", None)
+            )
+            if oid:
+                return str(oid)
+        return None
 
     def head_revision(self) -> str | None:
         """The default branch's current commit, when the backend reports one."""
@@ -218,7 +289,9 @@ class BestEffortUploadSession:
             self.storage.upload(local_path, path_in_repo)
         except Exception as error:
             self.consecutive_failures += 1
-            became_disabled = self.consecutive_failures >= self.max_consecutive_failures
+            became_disabled = (
+                self.consecutive_failures >= self.max_consecutive_failures
+            )
             if became_disabled:
                 self.enabled = False
             return UploadResult(

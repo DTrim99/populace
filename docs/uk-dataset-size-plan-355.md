@@ -101,8 +101,8 @@ run id (the Logbook build id unless `--staging-run-id` is given). A size run
 stays `releasable=false`; staging does not change that, it makes the
 candidate inspectable. The run needs an ambient `HF_TOKEN` that can see the
 private repository, or `--staging-local-only` to keep everything on disk
-(`--no-staging` records a deliberate opt-out, `--no-staged-dataset` keeps only
-the bundle local). The command ends with a `staged dataset:` line naming the
+(`--no-staging` records a deliberate opt-out, `--no-staged-dataset` runs the
+telemetry alone). The command ends with a `staged dataset:` line naming the
 repository, prefix and revision, and the manifest carries `staging_delivery`
 and `staged_dataset`. Fetch a staged bundle with
 `tools/fetch_uk_staged_dataset.py --run-id <run_id>`; re-stage a finished

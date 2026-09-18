@@ -38,6 +38,7 @@ __all__ = [
     "StagedDatasetBundle",
     "StagedDatasetError",
     "StagedFile",
+    "delivery_covers_bundle",
     "disabled_staged_dataset",
     "fetch_bundle",
     "local_only_staged_dataset",
@@ -458,6 +459,30 @@ def validate_staged_dataset_delivery(payload: Mapping[str, Any]) -> dict[str, An
     return record
 
 
+def delivery_covers_bundle(
+    delivery: Any, bundle: StagedDatasetBundle, *, repository: str | None
+) -> bool:
+    """Whether an existing delivery record already accounts for this bundle.
+
+    True when the record says the same outputs reached ``repository`` (status
+    ``uploaded`` or ``already_staged``); a re-stage is then a no-op that must
+    keep the record's revision rather than overwrite it.
+    """
+
+    if not isinstance(delivery, Mapping) or repository is None:
+        return False
+    try:
+        record = validate_staged_dataset_delivery(delivery)
+    except StagedDatasetError:
+        return False
+    return (
+        record["status"] in ("uploaded", "already_staged")
+        and record["repository"] == repository
+        and record["run_id"] == bundle.run_id
+        and _same_digests(record["files"], bundle.digests())
+    )
+
+
 def disabled_staged_dataset(reason: str) -> dict[str, Any]:
     """Explicit evidence for a deliberate staged-dataset opt-out."""
 
@@ -567,8 +592,13 @@ def stage_bundle(
             )
         remote_files = remote.get("files") if isinstance(remote, Mapping) else None
         if _same_digests(remote_files, bundle.digests()):
+            # The bundle's own commit, not the repository head at re-run time.
+            try:
+                revision = storage.last_commit(remote_manifest) or head
+            except Exception:
+                revision = head
             return validate_staged_dataset_delivery(
-                {**record, "status": "already_staged", "revision": head}
+                {**record, "status": "already_staged", "revision": revision}
             )
         _warn(
             f"{remote_prefix} already holds a different bundle; refusing to "
@@ -626,6 +656,13 @@ def stage_bundle(
 
 
 def _same_digests(remote: Any, local: Mapping[str, Mapping[str, Any]]) -> bool:
+    """Compare the outputs' digests only.
+
+    The manifest is deliberately excluded: the local copy gains its evidence
+    blocks after the upload, so its digest differs from the uploaded copy by
+    construction while the dataset it describes is unchanged.
+    """
+
     if not isinstance(remote, Mapping) or set(remote) != set(local):
         return False
     for name, entry in local.items():

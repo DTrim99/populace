@@ -99,8 +99,8 @@ def add_staged_dataset_arguments(
     The finished bundle follows the staging mode switch: ``--no-staging``
     keeps nothing, ``--staging-local-only`` keeps the bundle and its sidecars
     on disk, and the default uploads it to ``repository`` under
-    ``staged/<run_id>/``. ``--no-staged-dataset`` keeps telemetry remote while
-    the bundle stays local.
+    ``staged/<run_id>/``. ``--no-staged-dataset`` runs telemetry alone: the
+    bundle is neither inventoried nor uploaded.
     """
 
     parser.add_argument(
@@ -117,8 +117,8 @@ def add_staged_dataset_arguments(
         "--no-staged-dataset",
         action="store_true",
         help=(
-            "Keep the finished bundle local while staging telemetry still runs; "
-            "--no-staging already disables both."
+            "Run staging telemetry alone: the finished bundle is neither "
+            "inventoried nor uploaded (--no-staging already disables both)."
         ),
     )
 

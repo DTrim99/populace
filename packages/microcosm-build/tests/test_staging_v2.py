@@ -903,3 +903,96 @@ def test_storage_commit_refuses_a_revisionless_backend(tmp_path):
     storage = HuggingFaceDatasetStorage("example/private", api=NoRevision(tmp_path))
     with pytest.raises(RuntimeError, match="no revision"):
         storage.commit([], message="empty")
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ({"role": "read"}, False),
+        ({"role": "write"}, True),
+        (
+            {
+                "role": "fineGrained",
+                "fineGrained": {"global": ["repo.write"], "scoped": []},
+            },
+            True,
+        ),
+        (
+            {
+                "role": "fineGrained",
+                "fineGrained": {
+                    "global": [],
+                    "scoped": [
+                        {
+                            "entity": {"type": "org", "name": "example"},
+                            "permissions": ["repo.write"],
+                        }
+                    ],
+                },
+            },
+            True,
+        ),
+        (
+            {
+                "role": "fineGrained",
+                "fineGrained": {
+                    "global": [],
+                    "scoped": [
+                        {
+                            "entity": {"type": "dataset", "name": "example/private"},
+                            "permissions": ["repo.content.read", "repo.write"],
+                        }
+                    ],
+                },
+            },
+            True,
+        ),
+        (
+            {
+                "role": "fineGrained",
+                "fineGrained": {
+                    "global": ["discussion.write"],
+                    "scoped": [
+                        {
+                            "entity": {"type": "user", "name": "someone"},
+                            "permissions": ["repo.write"],
+                        }
+                    ],
+                },
+            },
+            False,
+        ),
+        (
+            {
+                "role": "fineGrained",
+                "fineGrained": {
+                    "global": [],
+                    "scoped": [
+                        {
+                            "entity": {"type": "org", "name": "example"},
+                            "permissions": ["repo.content.read"],
+                        }
+                    ],
+                },
+            },
+            False,
+        ),
+        ({"role": "mystery"}, None),
+    ],
+)
+def test_storage_reads_whether_the_credential_can_write_this_repository(
+    tmp_path, token, expected
+):
+    class TokenApi(CommitApi):
+        def whoami(self):
+            return {"name": "x", "auth": {"accessToken": token}}
+
+    storage = HuggingFaceDatasetStorage("example/private", api=TokenApi(tmp_path))
+    assert storage.credential_can_write() is expected
+    # No whoami on the backend: the scope is unknown, never assumed.
+    assert (
+        HuggingFaceDatasetStorage(
+            "example/private", api=CommitApi(tmp_path)
+        ).credential_can_write()
+        is None
+    )

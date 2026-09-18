@@ -399,3 +399,56 @@ def test_refresh_sha256sums_entry_redigests_one_listed_file(tmp_path):
     }
     with pytest.raises(StagedDatasetError, match="does not list"):
         refresh_sha256sums_entry(run_dir, "run.log")
+
+
+class RecordingHub(FakeHub):
+    """FakeHub that also answers get_paths_info with each file's last commit."""
+
+    def __init__(self, root: Path, **kwargs) -> None:
+        super().__init__(root, **kwargs)
+        self.commit_of: dict[str, str] = {}
+
+    def create_commit(self, **kwargs):
+        info = super().create_commit(**kwargs)
+        for operation in kwargs["operations"]:
+            self.commit_of[operation.path_in_repo] = self.sha
+        return info
+
+    def get_paths_info(self, *, repo_id, paths, expand, repo_type):
+        assert expand and repo_type == "dataset"
+        return [
+            SimpleNamespace(path=p, last_commit=SimpleNamespace(oid=self.commit_of[p]))
+            for p in paths
+            if p in self.commit_of
+        ]
+
+
+def test_already_staged_records_the_bundles_own_commit_not_the_head(tmp_path):
+    from microcosm.build.staging_dataset import delivery_covers_bundle
+
+    run_dir = _write_run(tmp_path)
+    bundle = StagedDatasetBundle.from_manifest(
+        run_dir, run_id=RUN_ID, manifest_name=MANIFEST
+    )
+    write_sidecars(bundle, repository="policyengine/populace-uk-private")
+    hub = RecordingHub(tmp_path)
+    first = stage_bundle(bundle, storage=_storage(hub))
+    staged_at = first["revision"]
+    # Another commit moves the repository head after the bundle landed.
+    hub.sha = "f" * 40
+    again = stage_bundle(bundle, storage=_storage(hub))
+    assert again["status"] == "already_staged"
+    assert again["revision"] == staged_at != hub.sha
+    assert delivery_covers_bundle(
+        first, bundle, repository="policyengine/populace-uk-private"
+    )
+    assert delivery_covers_bundle(
+        again, bundle, repository="policyengine/populace-uk-private"
+    )
+    assert not delivery_covers_bundle(first, bundle, repository="other/repo")
+    assert not delivery_covers_bundle(
+        {**first, "status": "failed", "revision": None, "error_code": "UPLOAD_FAILED"},
+        bundle,
+        repository="policyengine/populace-uk-private",
+    )
+    assert not delivery_covers_bundle(None, bundle, repository="x/y")

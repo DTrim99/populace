@@ -177,11 +177,18 @@ not consulted: a staged bundle is not a release and cannot be loaded as one.
 Modes follow the staging switch. The default uploads telemetry and the bundle;
 `--staging-local-only` keeps both on disk (the sidecars are still written);
 `--no-staging` disables both and records the opt-out; `--no-staged-dataset`
-keeps telemetry remote and the bundle local. The repository is
-`--staged-dataset-repo-id` (environment `POPULACE_UK_STAGED_DATASET_REPO_ID`).
-Because the upload closes a multi-hour run, the command refuses to start a
-remote dataset stage without an ambient Hub credential (`HF_TOKEN`) that can
-see the repository; the telemetry stays best-effort with no pre-flight.
+runs telemetry alone, with the bundle neither inventoried nor uploaded. The
+repository is `--staged-dataset-repo-id` (environment
+`POPULACE_UK_STAGED_DATASET_REPO_ID`). Because the upload closes a multi-hour
+run, the command refuses to start a remote dataset stage without an ambient
+Hub credential (`HF_TOKEN`) that can see the repository **and** write it: a
+read token, or a fine-grained token scoped to another owner, is refused up
+front rather than by the Hub's 403 hours later (a fine-grained token needs
+`repo.write` on the repository or on the `policyengine` organisation). The
+telemetry stays best-effort with no pre-flight. Forwarded epochs are thinned to
+at most 2,400 rows per run, whatever `--epochs` says, so the telemetry files
+stay under the contract's 5 MiB cap; a content refusal from the telemetry is
+reported once and stops the forwarding without touching the solve.
 
 The manifest gains two evidence blocks after the bundle is on disk:
 `staging_delivery`, the validated version 2 telemetry receipt, and
@@ -202,9 +209,11 @@ or whose upload failed, with:
 uv run python tools/stage_uk_rowwise_candidate.py --run-dir <run directory>
 ```
 
-It is idempotent on the outputs' digests: an identical remote bundle is
-`already_staged`; a different one under the same run id is refused
-(`REMOTE_DIFFERS`). Fetch a bundle for a scorecard, an evaluation leg or the
+It is idempotent on the outputs' digests: a directory whose manifest already
+records the same outputs as uploaded is left untouched (the driver's revision
+stands); an identical remote bundle the manifest does not know about is
+recorded as `already_staged` with the bundle's own commit; a different bundle
+under the same run id is refused (`REMOTE_DIFFERS`). Fetch a bundle for a scorecard, an evaluation leg or the
 dashboard's local-directory mode with:
 
 ```bash
@@ -217,7 +226,10 @@ or `--staging-local-only` for new runs, and deleting `staged/<run_id>/` on the
 Hub for a bundle that must not remain (its manifest keeps the record). The
 dense release assembler applies the national rule to this command's runs: it
 requires the manifest's `staging_delivery` receipt and copies it into
-`build_manifest.json` as `staging`, where publication reads it.
+`build_manifest.json` as `staging`, where publication reads it. A dense run
+built before this lane carries no receipt; `--allow-missing-staging` assembles
+it with a recorded disabled-staging opt-out naming the override, the same
+posture publication's `--allow-missing-staging` grants.
 
 ## Smoke verification
 
