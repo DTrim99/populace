@@ -1,8 +1,8 @@
 {
   "label": "-full",
   "inputs": {
-    "control": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/control/control.h5",
-    "candidate": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/candidate/candidate.h5"
+    "control": "control.h5",
+    "candidate": "candidate.h5"
   },
   "control_provenance": {
     "h5": "control.h5",

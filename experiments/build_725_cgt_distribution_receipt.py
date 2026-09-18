@@ -260,8 +260,10 @@ def main() -> int:
     frames = {"control": _frame(args.control), "candidate": _frame(args.candidate)}
     receipt: dict[str, object] = {
         "label": args.label,
+        # File names only: the provenance blocks below carry commit, digest,
+        # seeds and pin, and a home-directory path is not evidence.
         "inputs": {
-            k: str(v)
+            k: v.name
             for k, v in (("control", args.control), ("candidate", args.candidate))
         },
     }

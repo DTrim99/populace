@@ -1,8 +1,8 @@
 {
   "label": "-tilt",
   "inputs": {
-    "control": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/control/control.h5",
-    "candidate": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/candidate-tilt/candidate-tilt.h5"
+    "control": "control.h5",
+    "candidate": "candidate-tilt.h5"
   },
   "control_provenance": {
     "h5": "control.h5",

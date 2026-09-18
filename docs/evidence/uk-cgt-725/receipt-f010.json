@@ -1,8 +1,8 @@
 {
   "label": "-f010",
   "inputs": {
-    "control": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/control-f010/control-f010.h5",
-    "candidate": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/candidate-f010/candidate-f010.h5"
+    "control": "control-f010.h5",
+    "candidate": "candidate-f010.h5"
   },
   "control_provenance": {
     "h5": "control-f010.h5",
