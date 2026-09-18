@@ -147,6 +147,7 @@ from microcosm.build.us_runtime import (
     with_us_workers_compensation,
     write_puf_capital_gains_tail_manifest,
 )
+from microcosm.build.us_runtime.asec_sources import ASEC_SOURCE_ARTIFACTS
 from microcosm.build.us_runtime.h5_io import (
     assert_h5_unchanged,
     refuse_denied_frame,
@@ -285,6 +286,15 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--asec-h5",
         action="append",
         help="Raw ASEC source as YEAR=PATH. Pass once per source year.",
+    )
+    parser.add_argument(
+        "--asec-h5-sha256",
+        action="append",
+        help=(
+            "Expected SHA-256 of one --asec-h5 input, as YEAR=SHA256. Pass "
+            "once per source year. Verified before any stage runs; a year "
+            "with a pinned canonical digest refuses a differing pin."
+        ),
     )
     parser.add_argument("--target-year", default=PERIOD, type=int)
     parser.add_argument(
@@ -481,11 +491,66 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+def _verify_asec_source_digests(args: argparse.Namespace) -> None:
+    """Refuse a raw ASEC input whose bytes differ from its declared digest.
+
+    ``--asec-h5-sha256 YEAR=SHA256`` declares what each ``--asec-h5`` file
+    must hash to. A year with a pinned canonical digest
+    (:data:`microcosm.build.us_runtime.asec_sources.ASEC_SOURCE_ARTIFACTS`)
+    additionally refuses a CLI pin that differs from the canonical one, the
+    way the pool arm refuses a divergent ACS rent pin — the flag can narrow
+    nothing and re-pin nothing. Runs before any stage, so a wrong input
+    refuses in seconds rather than surfacing as drift hours later.
+    """
+
+    declared = getattr(args, "asec_h5_sha256", None) or ()
+    if not declared:
+        return
+    if args.asec_h5 is None:
+        raise SystemExit("--asec-h5-sha256 requires --asec-h5.")
+    paths: dict[int, Path] = {}
+    for value in args.asec_h5:
+        raw_year, raw_path = value.split("=", 1)
+        paths[int(raw_year)] = Path(raw_path)
+    pins: dict[int, str] = {}
+    for value in declared:
+        raw_year, _, raw_sha = value.partition("=")
+        sha = raw_sha.strip().lower()
+        if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+            raise SystemExit(
+                f"--asec-h5-sha256 {value!r}: the digest must be 64 "
+                "hexadecimal characters."
+            )
+        year = int(raw_year)
+        if year in pins:
+            raise SystemExit(f"--asec-h5-sha256 names year {year} twice.")
+        if year not in paths:
+            raise SystemExit(
+                f"--asec-h5-sha256 names year {year}, which no --asec-h5 "
+                "mapping provides."
+            )
+        pins[year] = sha
+    for year, sha in sorted(pins.items()):
+        canonical = ASEC_SOURCE_ARTIFACTS.get(year)
+        if canonical is not None and sha != canonical.sha256:
+            raise SystemExit(
+                f"ASEC {year} CLI pin differs from the canonical pin: got "
+                f"{sha}, expected {canonical.sha256}."
+            )
+        actual = _sha256(paths[year])
+        if actual != sha:
+            raise SystemExit(
+                f"ASEC {year} source {paths[year]} failed digest "
+                f"verification: expected {sha}, got {actual}."
+            )
+
+
 def main(argv: list[str] | None = None) -> None:
     """Dispatch the byte-identical legacy path or checkpoint scaffolding."""
 
     args = _parse_args() if argv is None else _parse_args(argv)
 
+    _verify_asec_source_digests(args)
     stage = getattr(args, "stage", "all")
     checkpoint_dir = getattr(args, "checkpoint_dir", None)
     if stage != "all":
@@ -558,6 +623,8 @@ def _stage_cli_args(args: argparse.Namespace, stage: str) -> list[str]:
     else:
         for value in args.asec_h5:
             command.extend(("--asec-h5", value))
+        for value in getattr(args, "asec_h5_sha256", None) or ():
+            command.extend(("--asec-h5-sha256", value))
     command.extend(("--target-year", str(args.target_year)))
     if args.asec_max_households is not None:
         command.extend(("--asec-max-households", str(args.asec_max_households)))
@@ -683,6 +750,7 @@ def _stage_run_config(args: argparse.Namespace) -> dict[str, object]:
             args.allow_geography_ladder_gate_failures
         ),
         "asec_h5": asec_sources,
+        "asec_h5_sha256": sorted(getattr(args, "asec_h5_sha256", None) or ()) or None,
         "asec_max_households": args.asec_max_households,
         "asec_2023_weeks_unemployed_source": path(
             args.asec_2023_weeks_unemployed_source
