@@ -11,9 +11,20 @@ large enough to change how the dataset is built carries a from-scratch build and
 certification receipt from its own tree before it merges. Main carries the same
 build as a standing check afterwards.
 
-A dataset earns default status separately, by beating the incumbent on held-out
-cells. Publication stays a human step: `tools/publish_release.sh` moves
-`latest.json`, and only that makes a release the certified default.
+A dataset earns default status separately, by beating the incumbent. The rule
+main enforces is microcosm#578's: the candidate beats the incumbent on the
+frozen comparison register, both rescored on it, with strict improvement
+(`_exact_k_frozen_register_fit_gate`,
+`tools/build_us_fiscal_refresh_release.py:6897`). That gate runs on the
+`--exact-k` arm only (`:11149`), and that arm takes a pool manifest, which is
+mutually exclusive with `--base-h5`. A `--base-h5` release runs no improvement
+gate. Main has no US held-out test: the rotated-fold holdout in
+`microcosm.build.holdout` is imported by the UK runtime and UK tools only. So a
+US release says it beats the incumbent on the frozen register, and says it beats
+it on held-out cells only once a US holdout exists and has run.
+
+Publication stays a human step: `tools/publish_release.sh` moves `latest.json`,
+and only that makes a release the certified default.
 
 ## What stands between main and that build
 
@@ -39,7 +50,8 @@ waits behind this one.
 
 Chronicle main writes the labels (`dimension_labels`, `dimension_value_labels`,
 `layout.groupby_dimension_label`), and the UK feed on main is already pinned to
-such an export (`uk/chronicle_feed.json`). The US needs a fresh export, the two
+such an export (`uk/chronicle_feed.json`). The re-pin was approved on 18
+September 2026. The US needs a fresh export, the two
 parity resources regenerated together with
 `tools/build_us_target_parity_manifest.py`, and a `us/chronicle_feed.json` that
 records the export the way the UK file does. `chronicle build-bundle` takes one
@@ -78,6 +90,10 @@ Decided 17 September 2026:
   poverty measurement the 104 rows exist to check.
 - No adult is invented where the source delivers none.
 
+Decided 18 September 2026: the role reaches a dataset built from raw sources as
+a build-stage input leaf that carries the source role. Build P's enrichment
+lane stays pinned to Build P.
+
 ### 3. The July selection does not map onto a rebuilt base
 
 `check_selection_carryover` (`us_runtime/release_gate_preflight.py:313`) failed
@@ -96,6 +112,10 @@ A dataset built this way is a new lineage, not a replay of Build P: no frozen
 support, a different capital-gains tail stratum, a different congressional
 district assignment and a different feed identity.
 
+Decided 18 September 2026: the next certified default may be a new lineage. The
+`--exact-k` arm refuses a frozen selection source outright, so the July
+selection is out of scope there, not merely inconvenient.
+
 `--dense-default-dataset` is diagnostic only. A release build leaves it unset,
 so the default is the sparse dataset that runs on standard machines.
 
@@ -107,6 +127,12 @@ donor is already on the Hub. The three processed CPS ASEC files
 (`census_cps_2022.h5`, `census_cps_2023.h5`, `census_cps_2024.h5`) exist only in
 an untracked directory on the build machine. They derive from public Census
 files. The base stage records their digests and compares them to nothing.
+
+Decided 18 September 2026: the three files are mirrored, unchanged, to a public
+PolicyEngine dataset repository on Hugging Face; microcosm pins revision, digest
+and size and fetches them as it fetches the SIPP donor; the base stage verifies
+the digest it is given. `us/spec/sources.yaml` is generated from a sealed
+six-role receipt and does not change until a real build re-cuts it.
 
 ## Measured stage times
 
