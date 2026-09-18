@@ -23,8 +23,10 @@ gate. Main has no US held-out test: the rotated-fold holdout in
 US release says it beats the incumbent on the frozen register, and says it beats
 it on held-out cells only once a US holdout exists and has run.
 
-Publication stays a human step: `tools/publish_release.sh` moves `latest.json`,
-and only that makes a release the certified default.
+Publication stays a human step: `tools/publish_release.sh` wraps
+`microcosm-publish-release`, which uploads `latest.json` last
+(`microcosm.data.release.publish_release`), and only that pointer makes a
+release the certified default.
 
 ## What stands between main and that build
 
@@ -68,11 +70,16 @@ pinned feed record set by record set, before anything is re-pinned.
 
 In policyengine-us 2.2.1 one SPM unit with no classified adult (age 18 or over,
 or age 15 or over with `is_spm_independent_minor_role`) refuses the SPM
-measurement for the whole population. The release gate evaluates 104
-`in_poverty` rows (`us/state_spm_poverty_levels.json`) on one whole-dataset
-simulation, and `tools/build_us_fiscal_refresh_release.py` calls that after
-calibration, export and the NPZ write (`_write_reform_validation`, near
-`:11725`).
+measurement for the whole population. The first whole-dataset simulation of the
+written release file is the reform-coverage smoke gate
+(`tools/build_us_fiscal_refresh_release.py:11657`), which runs after the export
+write (`:11641`) and before the calibration NPZ (`:11723`); its LIHEAP probe
+reaches SPM composition through `spm_unit_benefits`
+(`tools/build_us_release_input_coverage_manifest.py:513-520`), so a population
+with such a unit refuses there. The reform-validation diagnostics that follow
+the NPZ (`_write_reform_validation`, near `:11725`; 104 `in_poverty` rows from
+`us/state_spm_poverty_levels.json` on one whole-dataset simulation) would
+refuse the same way; they record, they do not gate.
 
 The certified default passes because `tools/build_us_spm_role_enrichment.py`
 added the role afterwards, and that tool accepts only Build P's exact bytes
