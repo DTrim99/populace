@@ -566,8 +566,8 @@ def test_signed_out_rows_are_recorded_not_dropped():
         if entry["status"] == "signed_excluded"
     }
     assert signed == {
-        *((target_id, '"age_0_to_15"') for target_id in AGE_BAND_TARGETS),
-        *((target_id, '"gain_0_to_2999"') for target_id in GAIN_BAND_TARGETS),
+        *((target_id, "age_0_to_15") for target_id in AGE_BAND_TARGETS),
+        *((target_id, "gain_0_to_2999") for target_id in GAIN_BAND_TARGETS),
     }
     assert all(
         membership["targets"][target_id]["status"] == "active"

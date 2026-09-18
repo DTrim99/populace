@@ -833,10 +833,12 @@ def _cgt_asset_type_summary_gate(
 
     The stage solves the logistic exactly in expectation and realises it by
     systematic sampling. This gate holds the solve to its targets, the
-    realised weighted count to within one person of the expectation (the
-    draw's deterministic bound), and the realised gains to the wider of the
-    reviewed relative band and the draw's own sampling noise (a multiple of
-    the Bernoulli sigma the stage reports), so a tiny frame is judged by its
+    realised weighted count to within one carrier row's weight of the
+    expectation (``max_liable_weight``, the weighted systematic walk's
+    deterministic bound; about 3,300 people at full scale), and the realised
+    gains to the wider of the reviewed relative band and a multiple of the
+    Bernoulli sigma the stage reports, which overstates a systematic draw's
+    noise and so is a conservative envelope, so a tiny frame is judged by its
     noise floor and a production frame by the band. Every liable gainer must
     carry an asset type and the composition receipt must be finite
     (microcosm#725).

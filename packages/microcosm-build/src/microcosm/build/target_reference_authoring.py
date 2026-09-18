@@ -348,7 +348,12 @@ def author_target_references(
                                 )
                             ]
                         ),
-                        "signed_row": {"dimension": row_key[0], "value": row_key[1]},
+                        # The row key carries the value JSON-encoded so it can
+                        # be hashed; the membership record shows the value itself.
+                        "signed_row": {
+                            "dimension": row_key[0],
+                            "value": json.loads(row_key[1]),
+                        },
                         "signed_rationale": rationale,
                     }
                 )

@@ -1958,8 +1958,11 @@ def _assert_cgt_spine_stage_parameters(stage: SourceStageSpec) -> None:
             ),
             "deterministic": True,
             "cell_means": (
-                "Table 3 2024-25 published cell means, with suppressed-count "
-                "cells at the band-total mean, repaired into the band"
+                "ratios of the published Table 3 2024-25 cell gains to cell "
+                "taxpayers, both rounded by the publisher (counts to the nearest "
+                "thousand, amounts to the nearest million), so derived rather "
+                "than published numbers; suppressed-count cells take the "
+                "band-total mean; every mean is repaired into its band"
             ),
         },
         "sub_aea_remainder": {

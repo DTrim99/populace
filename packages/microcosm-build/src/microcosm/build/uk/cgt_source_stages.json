@@ -20,7 +20,7 @@
         {
           "role": "policy_parameters",
           "kind": "versioned_parameter_tree",
-          "dependency": "policyengine-uk>=2.88 via microcosm-build[uk]",
+          "dependency": "policyengine-uk>=2.98.0 via microcosm-build[uk]",
           "parameters": [
             "gov.hmrc.income_tax.allowances.personal_allowance.amount",
             "gov.hmrc.income_tax.allowances.personal_allowance.maximum_ANI",
@@ -153,7 +153,7 @@
           "seed_base": 552,
           "seed_mixing": "seed combined with the build period; each walk draws its rounding offset in cell order then pooled-fallback order, then each plan draws its quantile jitter, income bands ascending and gain bands highest first",
           "deterministic": true,
-          "cell_means": "Table 3 2024-25 published cell means, with suppressed-count cells at the band-total mean, repaired into the band"
+          "cell_means": "ratios of the published Table 3 2024-25 cell gains to cell taxpayers, both rounded by the publisher (counts to the nearest thousand, amounts to the nearest million), so derived rather than published numbers; suppressed-count cells take the band-total mean; every mean is repaired into its band"
         },
         {
           "kind": "sub_aea_remainder",

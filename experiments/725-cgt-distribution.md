@@ -23,6 +23,16 @@ adds an asset-type stage. This note measures what changed.
   `data/ukds/acceptance/725-cgt-distribution/build_725.sh`, `calibrate_725.sh`.
 - Published rows: the vendored `hmrc_cgt_conditioning_facts.json` (Tables 1, 2.1a, 3, 5, 6 for 2024-25)
   and `hmrc_cgt_asset_type_facts.json` (Tables 7, 8a, 8b).
+- Provenance. Every receipt under `docs/evidence/uk-cgt-725/` records, per twin, the build commit
+  (`TREE_HEAD`), the H5 digest, the declared stage seeds, the time period, the sampling receipt where the
+  rung was sampled and the Chronicle pin the conditioning resource was vendored from. The commits this note
+  cites are the pre-rebase hashes the twins were built from; they are reachable from the tag
+  `uk-cgt-725-measured-pre-rebase` (c658f0e7, on main d69a543e). After the rebase onto main d1196af1
+  (2026-09-18) the same changes are, in order: a00d85fa → 955622fd, cb36adcd → 2e48ddd4, 10b31f76 →
+  6d0721fc, 6a90cbe8 → fab0c439, d7ec3ea1 → 6210b0c6, fc72f873 → 408de878, 523f8f5b → d0968051,
+  19f7e184 → da39c391, 468cca5b → 37a91c54, b88190e8 → 72a113d8, 93c5b185 → b18d4226, 9bd4d8ce → 3ba335ff,
+  c658f0e7 → d6376f37. The measurement was not re-run after the rebase: #927 and #937 change stages
+  upstream of the CGT stages without touching their inputs.
 
 ## Part A — 10 % rung (sample seed 42)
 
@@ -160,10 +170,12 @@ when the split-plus-tilt round below took the plain names).
 **Defect found on main during this round.** The national calibration tool refused both twins on the three
 UC element measure exclusions microcosm#882 authored under their metric names (`dwp/uc/elements/carer`,
 `childcare`, `housing`); the registry names specs by reference id, so the entries matched nothing and
-`tools/calibrate_uk_national_dataset.py` has refused every national calibration since 15 September. The
-branch renames the entries to `dwp.uc.households_carer_element` and siblings (commit 523f8f5b) with their
-reasons, adjudication and window unchanged; the control run used a corrected copy of the register through
-`--measure-exclusions` so the two solves excluded the same targets.
+`tools/calibrate_uk_national_dataset.py` had refused every national calibration since 15 September. The
+branch renamed the entries for its own runs (pre-rebase commit 523f8f5b) and the control run used a
+corrected copy of the register through `--measure-exclusions`, so the two solves excluded the same
+targets. PR #937 carried the fix to main first (the housing entry keyed by reference id, the carer and
+childcare rows retired on the 2.98.0 twin evidence), so after the rebase this branch no longer touches
+`calibration_measure_exclusions.json`.
 
 ## Part D — split plus tilt (session 3, María's ruling on the 16–24 rows)
 
@@ -244,6 +256,15 @@ inside its stratum. Rank order is unchanged.
   29.0 %), while within the older groups the lottery of which cells received the heavy top-band rows still
   shows (75–84 £24.7bn against £11.7bn; 65–74 £16.6bn against £24.3bn; 35–44 £21.9bn against £11.8bn).
   Residential 202,679 taxpayers against 202,630 on 325 rows, £12.71bn against £12.24bn.
+- *Three disclosures the receipts now carry.* The open band's cell means are ratios of two rounded publisher
+  numbers (2,000 taxpayers over £37,479m gives the £18.7m the £200k+ cell draws on), clamped into the band
+  and replaced by the band-total mean where the count is suppressed: derived, not published. The Table 8a
+  residential totals are restated on the individuals basis by the Table 8b share taken on the UK Property
+  service channel and applied to the whole total, the Self Assessment-only channel included, which assumes
+  that channel's trust share equals the service channel's: a ruling, recorded in the PR's rulings comment.
+  The Table 5 region rows apply one national individuals share to every area; Table 5 does not publish the
+  split by area, so areas where trusts are over-represented are overstated and the rest understated by an
+  amount the publication cannot bound.
 - *Calibration* (`calibration-comparison.json`, `target-comparison.csv`; the PR head). All 77 CGT rows
   inside the fence, 74 within 10 %, 69 within 5 %, 63 within 1 %. The 16–24 rows fit: gains −4.5 %, tax
   +0.1 %, count −0.05 %. Gains total −1.5 % (control −9.5 %), taxpayers −0.2 %. The £5m+ band now fits both

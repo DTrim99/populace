@@ -827,8 +827,11 @@ def _add_uk_membership_accounting(
                 "share through the scaled_by_ratio operation, and Table 2.1a "
                 "size-of-gain bands under the incumbent banded names (the "
                 "0-2,999 band below the 2024 annual exempt amount is signed "
-                "out). Table 2.1a publishes no tax column, so liability binds "
-                "nationally and by age band only."
+                "out). Chronicle's Table 2.1a package emits taxpayers and gains "
+                "only, although the published sheet also carries an amounts-of-"
+                "tax column, so liability binds nationally and by age band; a "
+                "liability-by-size-of-gain family becomes possible once Chronicle "
+                "emits that column."
             ),
         },
         {

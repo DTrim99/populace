@@ -4,6 +4,97 @@
     "control": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/control/control.h5",
     "candidate": "/Users/mariajuaristi/Desktop/PolicyEngine/data/ukds/acceptance/725-cgt-distribution/candidate-tilt3/candidate-tilt3.h5"
   },
+  "control_provenance": {
+    "h5": "control.h5",
+    "build_commit": "d69a543e5d7f0ac01e73c9c6eb4645b0d4b8b9b6",
+    "h5_sha256": "c6909bdaa9d264e6b052ff7bb4d2e2a16fc5c8766038a2e298cb7ee8cb4a7c90",
+    "time_period": "2024",
+    "declared_seeds": {
+      "age_tail": {
+        "age": 0
+      },
+      "cgt_band_donors": {
+        "stack_band_donor_households": 1
+      },
+      "cgt_incidence_clone": {
+        "cgt_prior_amount": 0
+      },
+      "etb_services": {
+        "etb_services": 0
+      },
+      "etb_vat": {
+        "etb_vat": 0
+      },
+      "frs_brma": {
+        "brma": 0
+      },
+      "frs_household_draws": {
+        "household_owns_tv": 0,
+        "main_residential_property_purchased_is_first_home": 0,
+        "property_purchased": 0,
+        "would_evade_tv_licence_fee": 0
+      },
+      "frs_person_draws": {
+        "attends_private_school_random_draw": 0,
+        "would_claim_marriage_allowance": 0,
+        "would_claim_scp": 0
+      },
+      "frs_take_up": {
+        "child_benefit_opts_out": 0,
+        "maximum_extended_childcare_hours_usage": 0,
+        "would_claim_child_benefit": 0,
+        "would_claim_extended_childcare": 0,
+        "would_claim_pc": 0,
+        "would_claim_targeted_childcare": 0,
+        "would_claim_tfc": 0,
+        "would_claim_uc": 0,
+        "would_claim_universal_childcare": 0
+      },
+      "hmrc_cgt_gains_spine": {
+        "within_band_draws": 552
+      },
+      "hmrc_spi_income_spine": {
+        "donor_bootstrap": 42,
+        "stage1": 42,
+        "stage2": 43
+      },
+      "lcfs_consumption": {
+        "bridge_donor_column_via_qrf": 0,
+        "has_fuel_consumption": 0,
+        "lcfs_consumption": 0
+      },
+      "salary_sacrifice": {
+        "salary_sacrifice": 42,
+        "salary_sacrifice_conversion": 2024
+      },
+      "spi_support_channel": {
+        "stack_zero_weight_donors": 42
+      },
+      "student_loans": {
+        "student_loan_plan_2": 42,
+        "student_loan_plan_5": 42
+      },
+      "uc_capital_coherence": {
+        "frs_benunit_capital": 0
+      },
+      "uc_deduction_attributes": {
+        "uc_deduction_random_draw": 0,
+        "uc_deduction_type_random_draw": 0
+      },
+      "uc_reporter_redraw": {
+        "universal_credit_reported": 44
+      },
+      "was_wealth": {
+        "was_wealth": 0
+      }
+    },
+    "sampling": null,
+    "stochastic_contract_sha256": "c0c506e18e8c0537b715a6710a72452ee79116e9f7ec9f915b9e2d101883573b",
+    "uk_frame_content_identity": "759e22ba7afdaad9b0411e051508d550e7f24c03898db8829d32f28b2a06039e",
+    "source_vintages": {
+      "frs": "2024_25"
+    }
+  },
   "control_headline": {
     "liable_taxpayers": 357787.8291737345,
     "liable_gains": 63762165202.22745,
@@ -92,6 +183,106 @@
       ],
       "stage": "hmrc_cgt_gains_spine",
       "taxpayer_mass": 357787.8291737345
+    }
+  },
+  "candidate_provenance": {
+    "h5": "candidate-tilt3.h5",
+    "build_commit": "9bd4d8cea10fe9e8608ff8a3497b2d56c95022f4",
+    "h5_sha256": "f3dbbeb7e1303c08d980ea90434e5a42a591cf95742b9d481e84b5eb17ff6390",
+    "time_period": "2024",
+    "declared_seeds": {
+      "age_tail": {
+        "age": 0
+      },
+      "cgt_band_donors": {
+        "stack_band_donor_households": 1
+      },
+      "cgt_incidence_clone": {
+        "cgt_prior_amount": 0
+      },
+      "etb_services": {
+        "etb_services": 0
+      },
+      "etb_vat": {
+        "etb_vat": 0
+      },
+      "frs_brma": {
+        "brma": 0
+      },
+      "frs_household_draws": {
+        "household_owns_tv": 0,
+        "main_residential_property_purchased_is_first_home": 0,
+        "property_purchased": 0,
+        "would_evade_tv_licence_fee": 0
+      },
+      "frs_person_draws": {
+        "attends_private_school_random_draw": 0,
+        "would_claim_marriage_allowance": 0,
+        "would_claim_scp": 0
+      },
+      "frs_take_up": {
+        "child_benefit_opts_out": 0,
+        "maximum_extended_childcare_hours_usage": 0,
+        "would_claim_child_benefit": 0,
+        "would_claim_extended_childcare": 0,
+        "would_claim_pc": 0,
+        "would_claim_targeted_childcare": 0,
+        "would_claim_tfc": 0,
+        "would_claim_uc": 0,
+        "would_claim_universal_childcare": 0
+      },
+      "hmrc_cgt_asset_type_spine": {
+        "assign_main_asset_type": 554,
+        "assign_residential_property_flag": 553
+      },
+      "hmrc_cgt_gains_spine": {
+        "within_band_draws": 552
+      },
+      "hmrc_spi_income_spine": {
+        "donor_bootstrap": 42,
+        "stage1": 42,
+        "stage2": 43
+      },
+      "lcfs_consumption": {
+        "bridge_donor_column_via_qrf": 0,
+        "has_fuel_consumption": 0,
+        "lcfs_consumption": 0
+      },
+      "salary_sacrifice": {
+        "salary_sacrifice": 42,
+        "salary_sacrifice_conversion": 2024
+      },
+      "spi_support_channel": {
+        "stack_zero_weight_donors": 42
+      },
+      "student_loans": {
+        "student_loan_plan_2": 42,
+        "student_loan_plan_5": 42
+      },
+      "uc_capital_coherence": {
+        "frs_benunit_capital": 0
+      },
+      "uc_deduction_attributes": {
+        "uc_deduction_random_draw": 0,
+        "uc_deduction_type_random_draw": 0
+      },
+      "uc_reporter_redraw": {
+        "universal_credit_reported": 44
+      },
+      "was_wealth": {
+        "was_wealth": 0
+      }
+    },
+    "sampling": null,
+    "stochastic_contract_sha256": "c0c506e18e8c0537b715a6710a72452ee79116e9f7ec9f915b9e2d101883573b",
+    "uk_frame_content_identity": "71e73288d4c553af9469e13300485a9ae896e1204ccc7c507ee3b7097cefe938",
+    "source_vintages": {
+      "frs": "2024_25"
+    },
+    "chronicle_feed": {
+      "source_commit": "c5e5bf8aa84960c1a200ee47303b19c953092d0f",
+      "resource": "hmrc_cgt_conditioning_facts.json",
+      "resource_sha256": "f5bb0ad93fff3332b7ae8fb580f002d13207b3f95e44a3103c50108279d94797"
     }
   },
   "candidate_headline": {

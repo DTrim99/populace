@@ -1047,7 +1047,7 @@ def test_row_level_signed_exclusion_skips_one_fanout_row_and_keeps_the_target_ac
         ("ons.age.by_band.band_b", "signed_excluded"),
     ]
     signed = target["candidates"][1]
-    assert signed["signed_row"] == {"dimension": "synthetic_band", "value": '"band_b"'}
+    assert signed["signed_row"] == {"dimension": "synthetic_band", "value": "band_b"}
     assert signed["signed_rationale"] == "no under-16 carriers"
     assert signed["matched_fact_count_overall"] == 1
     assert authored.membership_report["status_counts"] == {

@@ -194,6 +194,49 @@ def _asset_types(frame: pd.DataFrame) -> pd.DataFrame | None:
     return table
 
 
+def _provenance(h5: Path) -> dict[str, object]:
+    """What the twin was built from: commit, digest, seeds, feed pin, sampling.
+
+    The build launcher writes ``TREE_HEAD`` next to the H5 and the spine
+    tool writes the ``.build.json`` sidecar and the ``.h5.sha256`` digest;
+    the Chronicle pin is the one the CGT conditioning resource records
+    (absent on a control built before the vendored resource existed).
+    """
+
+    provenance: dict[str, object] = {"h5": h5.name}
+    head = h5.parent / "TREE_HEAD"
+    if head.exists():
+        provenance["build_commit"] = head.read_text(encoding="utf-8").strip()
+    digest = h5.with_suffix(".h5.sha256")
+    if digest.exists():
+        provenance["h5_sha256"] = digest.read_text(encoding="utf-8").split()[0]
+    sidecar = h5.with_suffix(".build.json")
+    if sidecar.exists():
+        payload = json.loads(sidecar.read_text(encoding="utf-8"))
+        for key in (
+            "time_period",
+            "declared_seeds",
+            "sampling",
+            "stochastic_contract_sha256",
+            "uk_frame_content_identity",
+            "source_vintages",
+        ):
+            if key in payload:
+                provenance[key] = payload[key]
+        conditioning = (
+            (payload.get("stage_evidence") or {})
+            .get("hmrc_cgt_gains_spine", {})
+            .get("allocation", {})
+            .get("conditioning")
+        )
+        if isinstance(conditioning, dict):
+            provenance["chronicle_feed"] = {
+                key: conditioning.get(key)
+                for key in ("source_commit", "resource", "resource_sha256")
+            }
+    return provenance
+
+
 def _stage_evidence(sidecar: Path) -> dict[str, object]:
     if not sidecar.exists():
         return {}
@@ -223,6 +266,7 @@ def main() -> int:
         },
     }
     for name, frame in frames.items():
+        receipt[f"{name}_provenance"] = _provenance(args.__dict__[name])
         receipt[f"{name}_headline"] = _headline(frame)
         tables = _summaries(frame)
         for table_name, table in tables.items():

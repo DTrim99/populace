@@ -1779,7 +1779,7 @@
     "hmrc_cgt_asset_type_spine": {
       "artifacts": [
         {
-          "dependency": "policyengine-uk>=2.88 via microcosm-build[uk]",
+          "dependency": "policyengine-uk>=2.98.0 via microcosm-build[uk]",
           "dependency_discipline": "deferred inside uk_cgt_policy_parameters; the base package never imports policyengine-uk at import time",
           "instant_rule": "raw dated parameter files evaluated at 1 June of the build period's tax year",
           "kind": "versioned_parameter_tree",
@@ -1901,7 +1901,7 @@
     "hmrc_cgt_gains_spine": {
       "artifacts": [
         {
-          "dependency": "policyengine-uk>=2.88 via microcosm-build[uk]",
+          "dependency": "policyengine-uk>=2.98.0 via microcosm-build[uk]",
           "dependency_discipline": "deferred inside uk_cgt_policy_parameters; the base package never imports policyengine-uk at import time",
           "instant_rule": "raw dated parameter files evaluated at 1 June of the build period's tax year",
           "kind": "versioned_parameter_tree",
@@ -2024,7 +2024,7 @@
         {
           "bottom_band_floor": "annual exempt amount plus one pound",
           "bounded_band_family": "truncated exponential matched to the cell's published mean",
-          "cell_means": "Table 3 2024-25 published cell means, with suppressed-count cells at the band-total mean, repaired into the band",
+          "cell_means": "ratios of the published Table 3 2024-25 cell gains to cell taxpayers, both rounded by the publisher (counts to the nearest thousand, amounts to the nearest million), so derived rather than published numbers; suppressed-count cells take the band-total mean; every mean is repaired into its band",
           "deterministic": true,
           "kind": "within_band_draws",
           "mean_repair_margin": 0.02,

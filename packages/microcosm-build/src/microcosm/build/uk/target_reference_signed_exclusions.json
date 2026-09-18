@@ -72,6 +72,7 @@
       "tracking": "microcosm#725",
       "approved_by": "juaristi22",
       "approved_on": "2026-09-16",
+      "adjudication": "https://github.com/PolicyEngine/microcosm/pull/939#issuecomment-5728012221",
       "row": {
         "dimension": "age_band",
         "value": "age_0_to_15"
@@ -84,6 +85,7 @@
       "tracking": "microcosm#725",
       "approved_by": "juaristi22",
       "approved_on": "2026-09-16",
+      "adjudication": "https://github.com/PolicyEngine/microcosm/pull/939#issuecomment-5728012221",
       "row": {
         "dimension": "age_band",
         "value": "age_0_to_15"
@@ -96,6 +98,7 @@
       "tracking": "microcosm#725",
       "approved_by": "juaristi22",
       "approved_on": "2026-09-16",
+      "adjudication": "https://github.com/PolicyEngine/microcosm/pull/939#issuecomment-5728012221",
       "row": {
         "dimension": "age_band",
         "value": "age_0_to_15"
@@ -108,6 +111,7 @@
       "tracking": "microcosm#467",
       "approved_by": "juaristi22",
       "approved_on": "2026-09-16",
+      "adjudication": "https://github.com/PolicyEngine/microcosm/pull/939#issuecomment-5728012221",
       "row": {
         "dimension": "cgt_gain_band",
         "value": "gain_0_to_2999"
@@ -120,6 +124,7 @@
       "tracking": "microcosm#467",
       "approved_by": "juaristi22",
       "approved_on": "2026-09-16",
+      "adjudication": "https://github.com/PolicyEngine/microcosm/pull/939#issuecomment-5728012221",
       "row": {
         "dimension": "cgt_gain_band",
         "value": "gain_0_to_2999"
