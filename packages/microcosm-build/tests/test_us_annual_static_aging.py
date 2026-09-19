@@ -146,6 +146,18 @@ def test_small_actual_calibration_exports_independent_years(inputs):
     assert receipt["column_series"]["employment_income_before_lsr"] in receipt["totals"]
 
 
+def test_base_h5_symlink_to_extensionless_cache_blob(inputs):
+    base = inputs["base_h5"]
+    blob = base.with_name("cached-blob-without-extension")
+    base.rename(blob)
+    base.symlink_to(blob)
+    manifest = annual.build_annual_static_aging(**inputs)
+    assert manifest["base"]["path"] == str(base)
+    assert (
+        inputs["output_dir"] / "populace_us_2024.h5"
+    ).read_bytes() == blob.read_bytes()
+
+
 def test_existing_output_is_rejected_before_work(inputs, monkeypatch):
     output = inputs["output_dir"]
     output.mkdir()

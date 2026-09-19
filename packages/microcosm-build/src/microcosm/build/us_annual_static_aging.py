@@ -231,7 +231,11 @@ def build_annual_static_aging(
         raise ValueError("end_year must be an integer after integer base_year")
     if not parent_release.strip():
         raise ValueError("parent_release must identify the pinned base release")
-    base, ssa = Path(base_h5).resolve(), Path(ssa_csv).resolve()
+    # Hugging Face snapshot paths are .h5 symlinks to extensionless blobs.
+    # Keep the logical suffix required by the native loader; hashing and reads
+    # still follow the link to authenticate the actual bytes.
+    base = Path(base_h5).expanduser().absolute()
+    ssa = Path(ssa_csv).expanduser().absolute()
     _check_pin(base, base_sha256)
     _check_pin(ssa, ssa_sha256)
     model_kwargs = {
