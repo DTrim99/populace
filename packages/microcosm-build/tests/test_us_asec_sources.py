@@ -299,6 +299,11 @@ def test_verify_is_a_no_op_without_pins() -> None:
             [f"2019={_FIXTURE_SHA256}", f"2022={_WRONG_SHA256}"],
             r"ASEC 2022 CLI pin differs from the canonical pin",
         ),
+        (
+            ["2019=a.h5", "2019=b.h5"],
+            [f"2019={_FIXTURE_SHA256}"],
+            r"Duplicate --asec-h5 mapping for year 2019",
+        ),
     ],
     ids=[
         "no-source",
@@ -313,6 +318,7 @@ def test_verify_is_a_no_op_without_pins() -> None:
         "source-year-not-integer",
         "partial-pinning",
         "canonical-before-any-hash",
+        "duplicate-source-year",
     ],
 )
 def test_verify_refuses_malformed_or_divergent_pins(
@@ -378,6 +384,43 @@ def test_verify_accepts_matching_bytes_for_pinned_and_unpinned_years(
         )
         is None
     )
+
+
+def _receipt(**digests: str) -> dict:
+    return {
+        "kind": "pooled_asec",
+        "sources": [
+            {"year": int(year), "sha256": sha} for year, sha in digests.items()
+        ],
+    }
+
+
+def test_receipt_digests_must_equal_the_locked_pins() -> None:
+    builder = _load_tool_module("build_us_puf_support_base")
+    pinned = _args(["2019=a.h5"], [f"2019={_FIXTURE_SHA256}"])
+    assert (
+        builder._require_receipt_digests_match_pins(
+            pinned, _receipt(**{"2019": _FIXTURE_SHA256})
+        )
+        is None
+    )
+    assert (
+        builder._require_receipt_digests_match_pins(
+            _args(["2019=a.h5"], None), _receipt(**{"2019": _WRONG_SHA256})
+        )
+        is None
+    ), "no pins, nothing to compare"
+    with pytest.raises(
+        SystemExit,
+        match=rf"ASEC 2019 source construction read bytes with sha256 {_WRONG_SHA256}",
+    ):
+        builder._require_receipt_digests_match_pins(
+            pinned, _receipt(**{"2019": _WRONG_SHA256})
+        )
+    with pytest.raises(SystemExit, match=r"records no digest for it"):
+        builder._require_receipt_digests_match_pins(
+            pinned, _receipt(**{"2018": _FIXTURE_SHA256})
+        )
 
 
 def _parse_asec_build_args(builder, tmp_path: Path, extra: list[str]):

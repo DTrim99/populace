@@ -499,16 +499,12 @@ def _asec_source_year(raw_year: str, *, flag: str, value: str) -> int:
 
 
 def _asec_source_paths(args: argparse.Namespace) -> dict[int, Path]:
-    """Map each --asec-h5 YEAR=PATH to its path; refuse a malformed mapping."""
+    """Map each --asec-h5 YEAR=PATH to its path; refuse a malformed or repeated one."""
 
-    paths: dict[int, Path] = {}
-    for value in args.asec_h5:
-        if "=" not in value:
-            raise SystemExit(f"ASEC source must be YEAR=PATH, got {value!r}.")
-        raw_year, raw_path = value.split("=", 1)
-        year = _asec_source_year(raw_year, flag="--asec-h5", value=value)
-        paths[year] = Path(raw_path)
-    return paths
+    try:
+        return _parse_asec_source_paths(args.asec_h5)
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
 
 
 def _parse_asec_source_pins(args: argparse.Namespace) -> dict[int, str] | None:
@@ -565,6 +561,38 @@ def _parse_asec_source_pins(args: argparse.Namespace) -> dict[int, str] | None:
                 f"{sha}, expected {canonical.sha256}."
             )
     return pins
+
+
+def _require_receipt_digests_match_pins(
+    args: argparse.Namespace, receipt: Mapping[str, object]
+) -> None:
+    """Refuse a source-construction receipt whose read bytes differ from the pins.
+
+    The pre-stage check hashes each --asec-h5 file before any stage runs; the
+    receipt records the digest of the bytes the stage actually read. With pins
+    locked in the run config, the two must agree, so a file swapped between
+    the check and the read, or a checkpointed receipt that disagrees with the
+    locked pins on resume, refuses here at no extra I/O.
+    """
+
+    pins = _parse_asec_source_pins(args)
+    if pins is None:
+        return
+    recorded = {
+        int(entry["year"]): str(entry["sha256"]) for entry in receipt.get("sources", ())
+    }
+    for year, sha in sorted(pins.items()):
+        actual = recorded.get(year)
+        if actual is None:
+            raise SystemExit(
+                f"ASEC {year} is pinned but the source construction receipt "
+                "records no digest for it."
+            )
+        if actual != sha:
+            raise SystemExit(
+                f"ASEC {year} source construction read bytes with sha256 "
+                f"{actual}, but the locked pin is {sha}."
+            )
 
 
 def _verify_asec_source_digests(args: argparse.Namespace) -> None:
@@ -1787,6 +1815,9 @@ def _run_outer_stage(args: argparse.Namespace) -> None:
     )
     if args.stage in runtime.context.completed:
         if args.stage == "source_construction" and args.asec_h5 is not None:
+            _require_receipt_digests_match_pins(
+                args, runtime.metadata["source_construction"]
+            )
             loaded = runtime.load("source_construction")
             _ensure_asec_raw_stage_checkpoint(
                 args,
@@ -3140,7 +3171,7 @@ def _load_base_frame_from_args(args: argparse.Namespace) -> tuple[Frame, dict]:
         sources,
         target_year=args.target_year,
     )
-    return frame, {
+    receipt: dict[str, object] = {
         "kind": "pooled_asec",
         "target_year": args.target_year,
         "sources": [
@@ -3159,6 +3190,8 @@ def _load_base_frame_from_args(args: argparse.Namespace) -> tuple[Frame, dict]:
         ),
         "metadata": metadata,
     }
+    _require_receipt_digests_match_pins(args, receipt)
+    return frame, receipt
 
 
 def _support_spine_spec_from_args(args: argparse.Namespace) -> SupportSpineSpec | None:
@@ -3263,7 +3296,12 @@ def _parse_asec_source_paths(values: list[str]) -> dict[int, Path]:
         if "=" not in value:
             raise ValueError(f"ASEC source must be YEAR=PATH, got {value!r}.")
         raw_year, raw_path = value.split("=", 1)
-        year = int(raw_year)
+        try:
+            year = int(raw_year)
+        except ValueError:
+            raise ValueError(
+                f"--asec-h5 {value!r}: the year must be an integer."
+            ) from None
         if year in paths:
             raise ValueError(f"Duplicate --asec-h5 mapping for year {year}.")
         paths[year] = Path(raw_path)
