@@ -678,7 +678,7 @@ def test_annual_cut_passes_real_release_contract(
     assert {"annual_manifest.json", "annual_acceptance.json"}.issubset(
         prepared.filenames
     )
-    assert {"annual_2030.h5", "populace_us_2024.h5"}.issubset(prepared.root_artifacts)
+    assert {"annual_2025.h5", "populace_us_2024.h5"}.issubset(prepared.root_artifacts)
 
 
 def test_annual_cut_uploads_exact_artifacts_without_latest(
@@ -693,7 +693,7 @@ def test_annual_cut_uploads_exact_artifacts_without_latest(
         update_latest=False,
     )
     uploads = dict(hub.uploads)
-    assert uploads["annual_2030.h5"] == (artifact_root / "annual_2030.h5").read_bytes()
+    assert uploads["annual_2025.h5"] == (artifact_root / "annual_2025.h5").read_bytes()
     assert (
         uploads["populace_us_2024.h5"]
         == (artifact_root / "populace_us_2024.h5").read_bytes()
@@ -701,7 +701,7 @@ def test_annual_cut_uploads_exact_artifacts_without_latest(
     for name in (
         "annual_manifest.json",
         "annual_acceptance.json",
-        "projection_2030.json",
+        "projection_2025.json",
         "release_manifest.json",
     ):
         assert (

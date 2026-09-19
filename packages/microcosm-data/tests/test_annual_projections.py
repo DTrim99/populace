@@ -54,7 +54,7 @@ def candidate(tmp_path):
     root = tmp_path / "artifacts"
     root.mkdir()
     mapping = {
-        "populace_us_2024": {"2024": "populace_us_2024", "2030": "populace_us_2030"}
+        "populace_us_2024": {"2024": "populace_us_2024", "2025": "populace_us_2025"}
     }
     manifest = {
         "metadata": {"dataset_years": mapping},
@@ -100,7 +100,7 @@ def candidate(tmp_path):
         "model": dict(evidence["model"]),
         "runtime": dict(evidence["runtime"]["versions"]),
     }
-    for year in (2024, 2030):
+    for year in (2024, 2025):
         key = f"populace_us_{year}"
         path = root / f"{key}.h5"
         _h5(path, year)
@@ -142,15 +142,15 @@ def candidate(tmp_path):
             },
         }
     evidence["base"]["sha256"] = manifest["artifacts"]["populace_us_2024"]["sha256"]
-    projection_path = release / "projection_2030.json"
+    projection_path = release / "projection_2025.json"
     projection_path.write_text(
-        json.dumps({"base_year": 2024, "year": 2030, "factors": {}})
+        json.dumps({"base_year": 2024, "year": 2025, "factors": {}})
     )
-    evidence["artifacts"]["populace_us_2030"]["projection_receipt"] = {
+    evidence["artifacts"]["populace_us_2025"]["projection_receipt"] = {
         "path": projection_path.name,
         "sha256": _sha(projection_path),
     }
-    manifest["artifacts"]["projection_2030"] = {
+    manifest["artifacts"]["projection_2025"] = {
         "path": f"releases/{release.name}/{projection_path.name}",
         "sha256": _sha(projection_path),
         "revision": f"{release.name}-annual-20260919T220000Z-a1b2c3d4",
@@ -184,11 +184,11 @@ def add_annual_extension(release, root):
     manifest = json.loads((release / "release_manifest.json").read_text())
     base_key = manifest["default_datasets"]["national"]
     base = manifest["artifacts"][base_key]
-    projected = root / "annual_2030.h5"
+    projected = root / "annual_2025.h5"
     shutil.copyfile(root / base["path"], projected)
     with h5py.File(projected, "r+") as store:
         row = store["_time_period/table"][:]
-        row["values"] = 2030
+        row["values"] = 2025
         store["_time_period/table"][:] = row
         rows = {
             entity: len(store[f"{entity}/table"])
@@ -210,7 +210,7 @@ def add_annual_extension(release, root):
         "commit": "a" * 40,
         "source_tree_sha256": "b" * 64,
     }
-    mapping = {base_key: {"2024": base_key, "2030": "annual_2030"}}
+    mapping = {base_key: {"2024": base_key, "2025": "annual_2025"}}
     evidence = {
         "schema_version": 1,
         "kind": "us_annual_static_aging_candidate",
@@ -234,7 +234,7 @@ def add_annual_extension(release, root):
         "runtime": runtime,
         "years": {},
     }
-    manifest["artifacts"]["annual_2030"] = {
+    manifest["artifacts"]["annual_2025"] = {
         "kind": "microdata",
         "path": projected.name,
         "sha256": _sha(projected),
@@ -258,15 +258,15 @@ def add_annual_extension(release, root):
                 )
             },
         }
-    projection_path = release / "projection_2030.json"
+    projection_path = release / "projection_2025.json"
     projection_path.write_text(
-        json.dumps({"base_year": 2024, "year": 2030, "factors": {}})
+        json.dumps({"base_year": 2024, "year": 2025, "factors": {}})
     )
-    evidence["artifacts"]["annual_2030"]["projection_receipt"] = {
+    evidence["artifacts"]["annual_2025"]["projection_receipt"] = {
         "path": projection_path.name,
         "sha256": _sha(projection_path),
     }
-    manifest["artifacts"]["projection_2030"] = {
+    manifest["artifacts"]["projection_2025"] = {
         "kind": "diagnostics",
         "path": f"releases/{release.name}/{projection_path.name}",
         "sha256": _sha(projection_path),
@@ -308,13 +308,47 @@ def test_accepted_files_match_year_identity_and_hash(candidate):
     release, root, manifest, *_ = candidate
     result = validate_annual_projection_extension(release, manifest, artifact_root=root)
     assert result.revision == f"{release.name}-annual-20260919T220000Z-a1b2c3d4"
-    assert result.projected_artifacts == {"populace_us_2030"}
+    assert result.projected_artifacts == {"populace_us_2025"}
     assert set(result.additional_artifacts) == {
         "annual_manifest",
         "annual_acceptance",
-        "populace_us_2030",
-        "projection_2030",
+        "populace_us_2025",
+        "projection_2025",
     }
+
+
+def test_annual_family_rejects_missing_middle_year(candidate):
+    release, root, manifest, evidence, acceptance, save = candidate
+    old_key, key = "populace_us_2025", "populace_us_2026"
+    mapping = manifest["metadata"]["dataset_years"]["populace_us_2024"]
+    del mapping["2025"]
+    mapping["2026"] = key
+    path = root / f"{key}.h5"
+    _h5(path, 2026)
+    sha = _sha(path)
+    artifact = manifest["artifacts"][key] = manifest["artifacts"].pop(old_key)
+    artifact.update(path=path.name, sha256=sha)
+    record = evidence["artifacts"][key] = evidence["artifacts"].pop(old_key)
+    record.update(year=2026, sha256=sha)
+    receipt_path = release / "projection_2026.json"
+    receipt_path.write_text(
+        json.dumps({"base_year": 2024, "year": 2026, "factors": {}})
+    )
+    record["projection_receipt"] = {
+        "path": receipt_path.name,
+        "sha256": _sha(receipt_path),
+    }
+    receipt_artifact = manifest["artifacts"]["projection_2026"] = manifest[
+        "artifacts"
+    ].pop("projection_2025")
+    receipt_artifact.update(
+        path=f"releases/{release.name}/{receipt_path.name}", sha256=_sha(receipt_path)
+    )
+    accepted = acceptance["years"]["2026"] = acceptance["years"].pop("2025")
+    accepted.update(dataset=key, sha256=sha)
+    save()
+    with pytest.raises(ValueError, match="cover every year"):
+        validate_annual_projection_extension(release, manifest, artifact_root=root)
 
 
 @pytest.mark.parametrize(
@@ -329,19 +363,19 @@ def test_accepted_files_match_year_identity_and_hash(candidate):
 )
 def test_annual_extension_requires_immutable_uniform_cut(candidate, revision):
     release, root, manifest, *_ = candidate
-    manifest["artifacts"]["populace_us_2030"]["revision"] = revision
+    manifest["artifacts"]["populace_us_2025"]["revision"] = revision
     with pytest.raises(ValueError, match="revision|annual cut"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
 
 
 def test_nested_root_artifact_cannot_be_shadowed_by_release_file(candidate):
     release, root, manifest, *_ = candidate
-    relative = "annual/populace_us_2030.h5"
+    relative = "annual/populace_us_2025.h5"
     (root / "annual").mkdir()
     (release / "annual").mkdir()
-    shutil.copyfile(root / "populace_us_2030.h5", root / relative)
+    shutil.copyfile(root / "populace_us_2025.h5", root / relative)
     shutil.copyfile(root / relative, release / relative)
-    manifest["artifacts"]["populace_us_2030"]["path"] = relative
+    manifest["artifacts"]["populace_us_2025"]["path"] = relative
     with pytest.raises(ValueError, match="exact release prefix"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
 
@@ -361,13 +395,13 @@ def test_nested_root_artifact_cannot_be_shadowed_by_release_file(candidate):
 )
 def test_per_year_projection_receipt_must_be_delivered(candidate, problem):
     release, root, manifest, evidence, _, save = candidate
-    record = evidence["artifacts"]["populace_us_2030"]
-    artifact = manifest["artifacts"]["projection_2030"]
-    path = release / "projection_2030.json"
+    record = evidence["artifacts"]["populace_us_2025"]
+    artifact = manifest["artifacts"]["projection_2025"]
+    path = release / "projection_2025.json"
     if problem == "missing_reference":
         del record["projection_receipt"]
     elif problem == "undeclared":
-        del manifest["artifacts"]["projection_2030"]
+        del manifest["artifacts"]["projection_2025"]
     elif problem == "missing_file":
         path.unlink()
     elif problem == "bare_path":
@@ -392,13 +426,13 @@ def test_per_year_projection_receipt_must_be_delivered(candidate, problem):
 def test_incomplete_or_stale_acceptance_refuses(candidate, problem):
     release, root, manifest, _, acceptance, save = candidate
     if problem == "missing_year":
-        del acceptance["years"]["2030"]
+        del acceptance["years"]["2025"]
     elif problem == "failed_runtime":
-        acceptance["years"]["2030"]["checks"]["runtime"] = "pending"
+        acceptance["years"]["2025"]["checks"]["runtime"] = "pending"
     elif problem == "changed_sha":
-        acceptance["years"]["2030"]["sha256"] = "0" * 64
+        acceptance["years"]["2025"]["sha256"] = "0" * 64
     else:
-        acceptance["years"]["2035"] = acceptance["years"]["2030"]
+        acceptance["years"]["2035"] = acceptance["years"]["2025"]
     save()
     with pytest.raises(ValueError, match="acceptance"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
@@ -407,11 +441,11 @@ def test_incomplete_or_stale_acceptance_refuses(candidate, problem):
 @pytest.mark.parametrize("problem", ["year", "person", "negative_weight", "nan_weight"])
 def test_native_content_checks_do_not_trust_receipt_claims(candidate, problem):
     release, root, manifest, evidence, acceptance, save = candidate
-    key = "populace_us_2030"
+    key = "populace_us_2025"
     path = root / f"{key}.h5"
     _h5(
         path,
-        2035 if problem == "year" else 2030,
+        2035 if problem == "year" else 2025,
         person_id=2 if problem == "person" else 1,
         weight=-1
         if problem == "negative_weight"
@@ -422,7 +456,7 @@ def test_native_content_checks_do_not_trust_receipt_claims(candidate, problem):
     sha = _sha(path)
     manifest["artifacts"][key]["sha256"] = sha
     evidence["artifacts"][key]["sha256"] = sha
-    acceptance["years"]["2030"]["sha256"] = sha
+    acceptance["years"]["2025"]["sha256"] = sha
     save()
     with pytest.raises(ValueError, match="year|person_id|weights"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
@@ -430,7 +464,7 @@ def test_native_content_checks_do_not_trust_receipt_claims(candidate, problem):
 
 def test_changed_h5_bytes_refuse(candidate):
     release, root, manifest, *_ = candidate
-    with (root / "populace_us_2030.h5").open("ab") as stream:
+    with (root / "populace_us_2025.h5").open("ab") as stream:
         stream.write(b"changed")
     with pytest.raises(ValueError, match="sha256"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
@@ -457,24 +491,24 @@ def test_missing_acceptance_does_not_certify_candidate(candidate):
 )
 def test_noncanonical_artifact_paths_refuse(candidate, path):
     release, root, manifest, *_ = candidate
-    manifest["artifacts"]["populace_us_2030"]["path"] = path
+    manifest["artifacts"]["populace_us_2025"]["path"] = path
     with pytest.raises(ValueError, match="relative path"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
 
 
 @pytest.mark.parametrize(
-    "path", ["releases/release-id/nested/2030.h5", "releases/another/2030.h5"]
+    "path", ["releases/release-id/nested/2025.h5", "releases/another/2025.h5"]
 )
 def test_release_paths_must_match_the_publishers_upload_layout(candidate, path):
     release, root, manifest, *_ = candidate
-    manifest["artifacts"]["populace_us_2030"]["path"] = path
+    manifest["artifacts"]["populace_us_2025"]["path"] = path
     with pytest.raises(ValueError, match="bare filenames|another release"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)
 
 
 def test_bare_release_local_path_cannot_publish_at_wrong_location(candidate):
     release, root, manifest, *_ = candidate
-    source = root / "populace_us_2030.h5"
+    source = root / "populace_us_2025.h5"
     (release / source.name).write_bytes(source.read_bytes())
     with pytest.raises(ValueError, match="exact release prefix"):
         validate_annual_projection_extension(release, manifest, artifact_root=root)

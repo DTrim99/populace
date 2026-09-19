@@ -308,10 +308,17 @@ def validate_annual_projection_extension(
         years = _object(mapping, f"annual family {family!r}")
         if not years or years.get(str(base_year)) != base_key:
             raise ValueError("annual family must include its unchanged base year")
+        if any(
+            not isinstance(year, str) or not _YEAR.fullmatch(year) for year in years
+        ):
+            raise ValueError("annual year keys must be four-digit decimal strings")
+        declared_years = {int(year) for year in years}
+        if declared_years != set(range(base_year, max(declared_years) + 1)):
+            raise ValueError(
+                "annual family must cover every year from its base through its last year"
+            )
         seen: set[str] = set()
         for year_text, key in years.items():
-            if not isinstance(year_text, str) or not _YEAR.fullmatch(year_text):
-                raise ValueError("annual year keys must be four-digit decimal strings")
             if not isinstance(key, str) or key in seen or int(year_text) < base_year:
                 raise ValueError(
                     "annual artifacts must be unique and no earlier than their source"

@@ -408,10 +408,10 @@ def test_annual_cut_preserves_source_enrichment_qualification(
     assert {
         "annual_manifest.json",
         "annual_acceptance.json",
-        "projection_2030.json",
+        "projection_2025.json",
         enrichment.COMPATIBILITY_FILE,
     }.issubset(prepared.filenames)
-    assert set(prepared.root_artifacts) == {"populace_us_2024.h5", "annual_2030.h5"}
+    assert set(prepared.root_artifacts) == {"populace_us_2024.h5", "annual_2025.h5"}
 
 
 @pytest.mark.parametrize(

@@ -84,7 +84,9 @@ publication decision; this module supplies no certification override.
    paths at the repository root; give both reports and every per-year
    projection receipt their exact `releases/<base_release>/filename.json`
    paths. The gate verifies each per-year receipt's hash and years against
-   the candidate manifest. Pin all artifacts to one
+   the candidate manifest and requires every year from the base through the
+   last declared year, so policy lookbacks retain their annual inputs.
+   Pin all artifacts to one
    `<base_release>-annual-<YYYYMMDDTHHMMSSZ>-<hex8>` tag and their exact hashes.
    Complete source-enrichment certification before this step: that operation
    writes base-tag compatibility metadata.
