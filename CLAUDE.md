@@ -140,6 +140,11 @@ The independent US annual static-aging candidate builder lives in
 and writes local annual H5 files without running the base graph or publishing.
 See [the annual candidate guide](docs/us-annual-static-aging.md). Its completion
 manifest is build evidence, not release certification.
+Optional annual release metadata invokes additional artifact, identity, and
+acceptance checks within the normal release gates. Annual cuts use one pinned
+`<base_release>-annual-<YYYYMMDDTHHMMSSZ>-<hex8>` tag and cannot update latest
+pointers. Qualify source-enrichment bases before adding annual metadata; use
+the candidate guide's qualification order and tag-only publication route.
 
 ## Root journals are history, not state
 

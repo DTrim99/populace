@@ -61,3 +61,44 @@ normal immutable repository/revision pins, authenticate the parent, and run
 independent demographic, monetary, identity, and runtime acceptance checks.
 That process supplies the separate annual projection acceptance report and
 publication decision; this module supplies no certification override.
+
+## Qualification and publication order
+
+1. Qualify the base release under its existing contract with the intended
+   country, Core, wrapper, and calculator wheels. Source-enrichment bases also
+   require the exact original parent H5 and their producer-source evidence.
+   Merely downloading an older bundle and rerunning compatibility does not
+   update its producer-source pins. If those pins no longer qualify, reproduce
+   the base bundle with reviewed producer code and prove preservation before
+   adding annual artifacts.
+2. Run independent checks on the saved annual files. Record schema, source
+   identity, year, demographics, input aggregates, and runtime acceptance for
+   every declared year, including the base year. Runtime checks must exercise
+   the intended wrapper and model with the earlier annual inputs that policy
+   formulas need. Bind the acceptance report to the candidate manifest hash,
+   model commit and source hash, and country/Core versions.
+3. Add `metadata.dataset_years`, `metadata.annual_projection_manifest`, and
+   `metadata.annual_projection_acceptance` to the qualified release manifest.
+   The latter two values name artifact keys for the candidate manifest and
+   the separate schema-1 `us_annual_projection_acceptance` report. Keep H5
+   paths at the repository root; give both reports and every per-year
+   projection receipt their exact `releases/<base_release>/filename.json`
+   paths. The gate verifies each per-year receipt's hash and years against
+   the candidate manifest. Pin all artifacts to one
+   `<base_release>-annual-<YYYYMMDDTHHMMSSZ>-<hex8>` tag and their exact hashes.
+   Complete source-enrichment certification before this step: that operation
+   writes base-tag compatibility metadata.
+4. Run normal publisher preparation with the artifact root, annual tag, and
+   `update_latest=False`. For source enrichment, also supply the original
+   parent H5 and compatibility wheels. The annual extension adds checks; the
+   publisher still enforces every original base-release gate. Publish with
+   `tag_only=True` to preserve the existing main-branch files as well as both
+   latest pointers.
+5. Certify the wrapper against the explicit annual revision and release
+   manifest, then release the wrapper and update consumers. Certification
+   must retain the complete year map and exact annual artifact pins.
+
+The annual tag cannot become `latest.json` through this route. It augments the
+same accepted base population; it does not promote another agent's new graph
+candidate. A later graph release can supply a new base only after passing its
+own qualification, followed by a fresh annual build and acceptance.

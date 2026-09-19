@@ -1,9 +1,10 @@
 # Static aging
 
 `microcosm.calibrate.static_aging` projects a base-year frame to later years.
-It reweights a fixed cross-section independently for each year. The proposed
-operator remains subject to the cross-sectional-versus-longitudinal design
-decision in [#333](https://github.com/PolicyEngine/microcosm/issues/333).
+It reweights a fixed cross-section independently for each year and supplies
+annual budget-window estimates. Dynamics remains the separate path for
+individual trajectories. See the design decision in
+[#333](https://github.com/PolicyEngine/microcosm/issues/333).
 
 ## The split
 
@@ -85,12 +86,12 @@ Both `frame_for` and the US dataset exporter apply factors in float64.
 
 ## What it is not
 
-The base cross-section is reweighted once per year with no person identity
-across years. No transition happens: employment status stays at its
-base-year distribution by age, so a projected downturn appears only as slower
-per-capita income growth spread over everyone. That is the Dynamics
-operator's job (sequencing step 6), and this step is replaced, not extended,
-when it lands.
+Static aging reweights the base cross-section once per year. Each output keeps
+the source record IDs and memberships, but those IDs do not track individual
+lives across years. The operator leaves employment status and other
+demographic columns unchanged; weights change their representation. Monetary
+factors change income amounts without simulating employment transitions.
+Dynamics will model those transitions and individual trajectories.
 
 ## Country adapters
 
@@ -101,3 +102,41 @@ series, including the source totals behind derived `_per_capita` parameters,
 come back as totals; other series come back as indices.
 `multi_year_dataset` exports a base-year bundle plus its projected years as a
 `USMultiYearDataset`, which the engine treats as already extended.
+
+## Annual release integration
+
+The publication layout uses one H5 per year with the existing single-year
+entity-table format. The in-memory multi-year container can supply each
+year's `USSingleYearDataset`; consumers do not need a combined on-disk file.
+Each annual file keeps the base tables, columns, row counts, IDs, and
+memberships. The year, household weights, and mapped monetary values change.
+Floating-point precision and compression can change the file's byte size.
+
+Annual projections run downstream of an explicitly pinned accepted base.
+A new graph build must pass its own release gates before it can supply that
+base. Projection evidence records the parent release and H5 hash, source year,
+projection year, model and projection-input identities, and annual checks.
+The base's calibration receipt does not certify its projected years.
+
+Producer release metadata maps a dataset family to its annual artifact keys:
+
+```json
+{
+  "dataset_years": {
+    "populace_us_2024": {
+      "2024": "populace_us_2024",
+      "2030": "populace_us_2030",
+      "2035": "populace_us_2035"
+    }
+  }
+}
+```
+
+This example abbreviates the mapping; a release through 2035 lists every
+supported year. Each value references a normal revision- and hash-pinned
+artifact. The wrapper validates the mapping during certification, checks the
+file's stored year, and refuses unavailable years. Cache identities include
+the actual artifact and relevant runtime versions.
+
+Local annual candidates are build evidence. Publication and wrapper
+certification follow their separate acceptance checks.
