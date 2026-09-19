@@ -135,6 +135,12 @@ A sealed deny-list in `microcosm.build.us_runtime.h5_io` overrides this opt-in
 for known-excluded publications while preserving their scoring-only diagnostic
 path.
 
+The independent US annual static-aging candidate builder lives in
+`microcosm.build.us_annual_static_aging`; it consumes a pinned published parent
+and writes local annual H5 files without running the base graph or publishing.
+See [the annual candidate guide](docs/us-annual-static-aging.md). Its completion
+manifest is build evidence, not release certification.
+
 ## Root journals are history, not state
 
 The root `PROGRESS*.md`, `FINAL_REPORT.md`, `*_COVERAGE_PROGRESS.md`, and
