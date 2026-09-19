@@ -423,6 +423,33 @@ def test_receipt_digests_must_equal_the_locked_pins() -> None:
         )
 
 
+def test_completed_stage_reentry_reads_the_receipt_under_base_source() -> None:
+    builder = _load_tool_module("build_us_puf_support_base")
+    pinned = _args(["2019=a.h5"], [f"2019={_FIXTURE_SHA256}"])
+    # The shape _source_construction_stage returns and StageRuntime stores.
+    stage_metadata = {
+        "base_source": _receipt(**{"2019": _FIXTURE_SHA256}),
+        "base_rows": 3,
+        "base_household_weight_total": 1.0,
+        "weeks_unemployed_source_path": None,
+    }
+    assert (
+        builder._require_completed_source_receipt_matches_pins(pinned, stage_metadata)
+        is None
+    )
+    stage_metadata["base_source"] = _receipt(**{"2019": _WRONG_SHA256})
+    with pytest.raises(SystemExit, match=r"read bytes with sha256"):
+        builder._require_completed_source_receipt_matches_pins(pinned, stage_metadata)
+    with pytest.raises(SystemExit, match=r"records no digest for it"):
+        builder._require_completed_source_receipt_matches_pins(pinned, {"base_rows": 3})
+    assert (
+        builder._require_completed_source_receipt_matches_pins(
+            _args(["2019=a.h5"], None), {"base_rows": 3}
+        )
+        is None
+    ), "no pins, nothing to compare"
+
+
 def _parse_asec_build_args(builder, tmp_path: Path, extra: list[str]):
     return builder._parse_args(
         [

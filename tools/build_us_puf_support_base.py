@@ -595,6 +595,23 @@ def _require_receipt_digests_match_pins(
             )
 
 
+def _require_completed_source_receipt_matches_pins(
+    args: argparse.Namespace, stage_metadata: Mapping[str, object]
+) -> None:
+    """The completed-stage re-entry check: the receipt sits under ``base_source``.
+
+    ``StageRuntime.metadata["source_construction"]`` is the stage-level mapping
+    ``_source_construction_stage`` returned, and the pooled_asec receipt with
+    its ``sources`` list is its ``base_source`` entry (the same level
+    ``_ensure_asec_raw_stage_checkpoint`` reads).
+    """
+
+    receipt = stage_metadata.get("base_source")
+    _require_receipt_digests_match_pins(
+        args, receipt if isinstance(receipt, Mapping) else {}
+    )
+
+
 def _verify_asec_source_digests(args: argparse.Namespace) -> None:
     """Refuse a raw ASEC input whose bytes differ from its declared digest.
 
@@ -1815,7 +1832,7 @@ def _run_outer_stage(args: argparse.Namespace) -> None:
     )
     if args.stage in runtime.context.completed:
         if args.stage == "source_construction" and args.asec_h5 is not None:
-            _require_receipt_digests_match_pins(
+            _require_completed_source_receipt_matches_pins(
                 args, runtime.metadata["source_construction"]
             )
             loaded = runtime.load("source_construction")
