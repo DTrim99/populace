@@ -45,12 +45,15 @@ diagnostics file, hashes its actual bytes, and only then constructs and signs
 the terminal gate evidence. There is no `--calibration-diagnostics-sha256` to
 supply, and no way for the receipt to claim an identity the file does not have.
 
-Solve parameters are per-run overrides, not defaults. The campaign settings are
-`--epochs 1500 --target-weight-rule family_equal`; each override is validated
-through the doctrine dataclass and echoed as an explicit deviation in the
-manifest, diagnostics and build record. `--release-candidate` refuses every
-override flag, and refuses `--measure-exclusions`, so a release candidate is
-always solved under declared doctrine against the committed target surface.
+Solve parameters are per-run overrides of the declared doctrine. Since the
+2026-09-20 ruling (microcosm#823) the doctrine is the campaign posture itself:
+1,500 epochs, `family_equal`, learning rate 0.02, seed 0, so a doctrine run
+passes no solve flags and records no overrides; `--target-weight-rule uniform`
+or another `--epochs` is validated through the doctrine dataclass and echoed
+as an explicit deviation in the manifest, diagnostics and build record.
+`--release-candidate` refuses every override flag, and refuses
+`--measure-exclusions`, so a release candidate is always solved under declared
+doctrine against the committed target surface.
 
 Signing the terminal gate report needs
 `MICROCOSM_UK_TERMINAL_GATE_SIGNING_KEY` in the environment.

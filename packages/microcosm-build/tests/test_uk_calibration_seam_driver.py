@@ -219,7 +219,7 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
     assert call["calibration_year"] == 2025
     assert call["exclusion_receipt"] == {"excluded": "reviewed"}
     assert call["doctrine"].epochs == 128
-    assert call["doctrine_overrides"] == {"epochs": {"default": 256, "effective": 128}}
+    assert call["doctrine_overrides"] == {"epochs": {"default": 1500, "effective": 128}}
     assert isinstance(call["measure_resolver"], FakeResolver)
     assert (
         call["measure_resolver"].kwargs["simulation_source"] == call["paths"].input_h5

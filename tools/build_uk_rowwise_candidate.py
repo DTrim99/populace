@@ -8,6 +8,13 @@ the policy engine, solving, or writing output files.
 
 The pinned Ledger arguments are mandatory; ``--households-only`` binds only
 the Chronicle census-household constituency targets from the same registry.
+
+``--release-role`` declares which UK dataset line the run builds and is
+required: ``dense`` is the joint K-clone surface described above under the
+local doctrine; ``national`` builds the certified national line without
+cloning, on national targets only, under the calibration-seam doctrine
+(microcosm#823). The role fixes every solve default and refuses the other
+role's flags, so the declared role is checked against the parameters.
 """
 
 from __future__ import annotations
@@ -79,11 +86,6 @@ from microcosm.build.staging_v2 import (
 from microcosm.build.target_materialization import resolve_target_measures
 from microcosm.build.uk_runtime import (
     UK_GATE_REGISTRY,
-    UK_LOCAL_CLONE_COUNT,
-    UK_LOCAL_MAX_WEIGHT_RATIO,
-    UK_LOCAL_SOLVE_DOCTRINE,
-    UK_LOCAL_SOLVE_EPOCHS,
-    UK_LOCAL_TARGET_LOSS_CAP,
     CalibrationFrameAdapter,
     UKLadderRowwiseDatasetResult,
     UkOaLadder,
@@ -144,6 +146,12 @@ from microcosm.build.uk_runtime.national_sampling import (
     UK_SAMPLE_SEED_DEFAULT,
     sample_uk_spine_frame,
 )
+from microcosm.build.uk_runtime.rowwise_posture import (
+    UK_ROWWISE_DENSE_POSTURE,
+    UK_ROWWISE_RELEASE_ROLES,
+    UKRowwisePosture,
+    uk_rowwise_posture,
+)
 from microcosm.build.uk_runtime.staging import (
     UK_STAGED_DATASET_PREFIX,
     UK_STAGED_DATASET_REPOSITORY,
@@ -154,16 +162,15 @@ from microcosm.frame import Frame, MassChangeRecord
 
 BOUND_TARGET_FAMILIES = ("census_households/constituency",)
 BOUND_NATIONAL_TARGETS: tuple[str, ...] = ()
-CANDIDATE_FILENAME_TEMPLATE = "microcosm_uk_{calibration_year}_local.h5"
-LOCAL_GATE_REPORT_FILENAME_TEMPLATE = (
-    "microcosm_uk_{calibration_year}_local.local_gates.json"
-)
 MANIFEST_FILENAME = "rowwise_candidate_manifest.json"
 SOLVE_DIAGNOSTICS_FILENAME = "solve_diagnostics.csv"
 CALIBRATION_DIAGNOSTICS_FILENAME = "calibration_diagnostics.json"
 AREA_SUPPORT_FILENAME = "area_support_summary.csv"
 PAST_CAP_FILENAME = "past_cap_census.json"
 LOCAL_REGISTRY_FILENAME = "local_target_registry.json"
+#: National-role outputs (the calibration seam's evidence shape).
+BUILD_RECORD_FILENAME = "build_record.json"
+NATIONAL_REGISTRY_FILENAME = "national_target_registry.json"
 DENSE_REFERENCE_DIAGNOSTICS_FILENAME = "dense_reference_diagnostics.csv"
 DATASET_SIZE_SELECTION_FILENAME = "dataset_size_selection.csv"
 
@@ -174,9 +181,17 @@ _CONSERVE_MASS = False
 _TARGET_RECORDS: int | None = None
 _L0_LAMBDA = 0.0
 _BUDGET_ITERS = 10
-_UK_CANDIDATE_PIPELINE = "uk-local-candidate"
-_LOCAL_GATE_POLICY_SUFFIX = "local_candidate"
-_STAGING_OPERATION_ID = "uk_rowwise_candidate"
+# The dense role's Logbook pipeline and gate-policy suffix, kept as module
+# names for the Logbook helpers and the contract-pin tests; the posture
+# record (``rowwise_posture.py``) is the source of truth for both roles.
+_UK_CANDIDATE_PIPELINE = UK_ROWWISE_DENSE_POSTURE.pipeline
+_LOCAL_GATE_POLICY_SUFFIX = UK_ROWWISE_DENSE_POSTURE.gate_policy_suffix
+# Best-effort telemetry upload cadence. The Hub allows about 128 commits per
+# hour per repository and one cycle is up to eight single-file commits, so
+# the shared 30-second default exhausts the budget on a multi-hour solve
+# and loses uploads (the v20 national run did); five minutes keeps a
+# 1,500-epoch run well inside it.
+_STAGING_UPLOAD_INTERVAL_SECONDS = 300.0
 # Staging telemetry keeps one row per forwarded epoch in
 # calibration_progress.json and one event in events.ndjson, both under the
 # contract's 5 MiB remote cap. A size run at 2,000 epochs solves the dense
@@ -219,11 +234,22 @@ class _LadderAssignment:
 def _new_candidate_build_id(
     *, seed: int, timestamp: datetime, rung: str = "f100"
 ) -> str:
+    """The dense role's attempt id; the national role mints the seam's."""
+
     instant = timestamp.astimezone(UTC)
     return (
-        f"uk-local-candidate-{rung}-s{seed}-"
+        f"{UK_ROWWISE_DENSE_POSTURE.build_id_prefix}{rung}-s{seed}-"
         f"{instant.strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:8]}"
     )
+
+
+def _posture_of(args: argparse.Namespace) -> UKRowwisePosture:
+    """The release-role posture bound to parsed arguments."""
+
+    posture = getattr(args, "_posture", None)
+    if not isinstance(posture, UKRowwisePosture):
+        raise RuntimeError("arguments carry no release-role posture; parse them first.")
+    return posture
 
 
 def _candidate_clone_counts_argument(value: str) -> tuple[int, ...]:
@@ -578,7 +604,9 @@ def _size_checkpoint_identity(
     checkpointed dense solve and search were made with. The draw threshold is
     deliberately absent: re-drawing at another threshold is the point.
     """
+    posture = _posture_of(args)
     return {
+        "release_role": posture.role,
         "dataset_pin": dict(pins["dataset"]),
         "ladder_pin": dict(pins["ladder"]),
         "ledger_facts_sha256": args.ledger_facts_sha256,
@@ -587,7 +615,7 @@ def _size_checkpoint_identity(
         "selection_seed": int(
             args.seed if args.selection_seed is None else args.selection_seed
         ),
-        "n_clones": int(args.n_clones),
+        "n_clones": None if args.n_clones is None else int(args.n_clones),
         "dataset_households": args.dataset_households,
         "epochs": int(args.epochs),
         "learning_rate": float(args.learning_rate),
@@ -604,7 +632,7 @@ def _size_checkpoint_identity(
         # The solve doctrine the dense solve and the search run under: a
         # resume after a doctrine change must refuse, not run under the old
         # bound while the manifest declares the new one.
-        "doctrine": _doctrine_bounds(),
+        "doctrine": _doctrine_bounds(posture),
     }
 
 
@@ -688,6 +716,18 @@ def _record_candidate_error(
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--release-role",
+        choices=UK_ROWWISE_RELEASE_ROLES,
+        required=True,
+        help=(
+            "Which UK dataset line this run builds: 'national' (no cloning, "
+            "national targets only, the calibration-seam doctrine) or 'dense' "
+            "(the K-clone joint national + local surface under the local "
+            "doctrine). The role supplies every unset solve default and "
+            "refuses the other role's flags."
+        ),
+    )
+    parser.add_argument(
         "--input-h5",
         type=Path,
         required=True,
@@ -701,8 +741,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--ladder",
         type=Path,
-        required=True,
-        help="Full-UK OA geography ladder NPZ.",
+        help="Full-UK OA geography ladder NPZ (required by the dense role).",
     )
     parser.add_argument(
         "--ladder-sha256",
@@ -716,8 +755,28 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--register-json", type=Path)
     parser.add_argument(
         "--target-weight-rule",
-        choices=("uniform", "grain_equal"),
-        default=UK_LOCAL_SOLVE_DOCTRINE.target_weight_rule,
+        choices=("uniform", "grain_equal", "family_equal"),
+        help=(
+            "Target-weighting rule; defaults to the role's doctrine "
+            "(dense: grain_equal, national: family_equal). Any other admitted "
+            "rule is a receipted override."
+        ),
+    )
+    parser.add_argument(
+        "--target-loss-cap",
+        type=float,
+        help=(
+            "National role only: receipted override of the seam doctrine's "
+            "per-target loss cap."
+        ),
+    )
+    parser.add_argument(
+        "--allow-unpinned-feed",
+        action="store_true",
+        help=(
+            "National role only: allow a Ledger artifact whose feed commit is "
+            "not the committed Chronicle pin (development runs)."
+        ),
     )
     parser.add_argument("--release-candidate", action="store_true")
     parser.add_argument(
@@ -737,13 +796,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         help="Exact output household count after informed L0 and refit; pool clone K is unchanged. Candidate-only until size certification.",
     )
-    parser.add_argument("--n-clones", type=int, default=UK_LOCAL_CLONE_COUNT)
+    parser.add_argument(
+        "--n-clones",
+        type=int,
+        help="Dense role only; defaults to the doctrine clone count.",
+    )
     parser.add_argument(
         "--candidate-clone-counts",
         type=_candidate_clone_counts_argument,
         help="Dry-run only comma-separated candidate clone counts.",
     )
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--seed", type=int, help="Defaults to the role's seed.")
     parser.add_argument(
         "--selection-seed",
         type=int,
@@ -812,7 +875,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--sample-seed",
         type=int,
-        default=UK_SAMPLE_SEED_DEFAULT,
+        help=f"Dense role only; defaults to {UK_SAMPLE_SEED_DEFAULT}.",
     )
     parser.add_argument(
         "--engine-blocks",
@@ -826,12 +889,17 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Survey year recorded for lineage (calibration uses the FRS release year).",
     )
     parser.add_argument("--source-lineage-modulus", type=int)
-    parser.add_argument("--epochs", type=int, default=UK_LOCAL_SOLVE_EPOCHS)
-    parser.add_argument("--learning-rate", type=float, default=0.15)
+    parser.add_argument(
+        "--epochs", type=int, help="Defaults to the role's doctrine solve length."
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        help="Defaults to the role's learning rate (dense 0.15, national 0.02).",
+    )
     parser.add_argument(
         "--expected-constituency-vintage",
-        default="2024_pcon",
-        help="Constituency vintage required from the ladder.",
+        help="Dense role only: constituency vintage required from the ladder.",
     )
     parser.add_argument(
         "--dry-run",
@@ -848,12 +916,56 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "POPULACE_LOGBOOK_PREV_ROW_DIGEST is used, then genesis null."
         ),
     )
-    add_staging_arguments(parser, repository=UK_STAGING_REPOSITORY)
+    add_staging_arguments(
+        parser,
+        repository=UK_STAGING_REPOSITORY,
+        default_upload_interval_seconds=_STAGING_UPLOAD_INTERVAL_SECONDS,
+    )
     add_staged_dataset_arguments(parser, repository=UK_STAGED_DATASET_REPOSITORY)
     args = parser.parse_args(argv)
     validate_staging_arguments(parser, args)
     validate_staged_dataset_arguments(parser, args)
+    _resolve_role_arguments(args)
     return args
+
+
+#: Solve arguments whose argparse default is ``None`` so an explicit value can
+#: be told from the role's default: the other role's refusal table keys on
+#: what was actually given.
+_ROLE_DEFAULTED_ARGUMENTS = (
+    "n_clones",
+    "seed",
+    "sample_seed",
+    "epochs",
+    "learning_rate",
+    "target_weight_rule",
+    "expected_constituency_vintage",
+)
+
+
+def _resolve_role_arguments(args: argparse.Namespace) -> UKRowwisePosture:
+    """Bind the declared role's posture and fill its defaults into unset arguments."""
+
+    posture = uk_rowwise_posture(args.release_role)
+    args._explicit_arguments = frozenset(
+        name for name in _ROLE_DEFAULTED_ARGUMENTS if getattr(args, name) is not None
+    )
+    if args.n_clones is None:
+        args.n_clones = posture.clone_count
+    if args.seed is None:
+        args.seed = posture.seed
+    if args.sample_seed is None:
+        args.sample_seed = UK_SAMPLE_SEED_DEFAULT
+    if args.epochs is None:
+        args.epochs = posture.epochs
+    if args.learning_rate is None:
+        args.learning_rate = posture.learning_rate
+    if args.target_weight_rule is None:
+        args.target_weight_rule = posture.target_weight_rule
+    if args.expected_constituency_vintage is None:
+        args.expected_constituency_vintage = posture.expected_constituency_vintage
+    args._posture = posture
+    return posture
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -861,6 +973,14 @@ def main(argv: list[str] | None = None) -> int:
 
     args = _parse_args(argv)
     _validate_cli_args(args)
+    posture = _posture_of(args)
+    if posture.role == "national":
+        raise NotImplementedError(
+            "--release-role national is declared and validated here, but its "
+            "build flow (delegation to the calibration seam) lands in the next "
+            "increment of microcosm#823; run tools/calibrate_uk_national_dataset.py "
+            "until then."
+        )
     if args.candidate_clone_counts is not None and not args.dry_run:
         raise ValueError("--candidate-clone-counts is valid only with --dry-run.")
     if _CONSERVE_MASS:
@@ -879,7 +999,7 @@ def main(argv: list[str] | None = None) -> int:
     _preflight_staged_dataset(args)
     started_at = time.perf_counter()
     started_ts = datetime.now(UTC)
-    digest = preflight_digest(_UK_CANDIDATE_PIPELINE)
+    digest = preflight_digest(posture.pipeline)
     state = AttemptState(
         build_id=_new_candidate_build_id(
             seed=args.seed,
@@ -967,8 +1087,10 @@ def _run_candidate(
             append_phase(state, "configured")
             append_phase(state, "inputs_pinned")
         national_frame, _national_provenance = load_uk_national_frame(input_h5)
-        calibration_year = int(load_uk_frs_release().calibration_year)
+        frs_release = load_uk_frs_release()
+        calibration_year = int(frs_release.calibration_year)
         args._calibration_year = calibration_year
+        args._frs_vintage = str(frs_release.vintage)
         if args.households_only:
             args._spine_provenance = {}
         else:
@@ -1005,8 +1127,8 @@ def _run_candidate(
             )
         output_paths = _output_paths(
             out_dir,
-            source_year=source_year,
-            calibration_year=calibration_year,
+            posture=_posture_of(args),
+            vintage=args._frs_vintage,
         )
         _validate_output_paths(
             output_paths,
@@ -1053,11 +1175,12 @@ def _run_candidate(
                 "uprating: "
                 + str(joint_inputs["census_household_uprating"].get("reason"))
             )
+        posture = _posture_of(args)
         doctrine, doctrine_override = uk_local_doctrine_with_overrides(
-            UK_LOCAL_SOLVE_DOCTRINE,
+            posture.doctrine,
             (
                 {}
-                if args.target_weight_rule == UK_LOCAL_SOLVE_DOCTRINE.target_weight_rule
+                if args.target_weight_rule == posture.target_weight_rule
                 else {"target_weight_rule": args.target_weight_rule}
             ),
         )
@@ -1656,11 +1779,12 @@ def _create_staging_telemetry(
         return None
     local_only = bool(args.staging_local_only)
     out_dir = args.out.expanduser().resolve()
+    posture = _posture_of(args)
     return StagingTelemetryV2(
         run_id=args.staging_run_id or state.build_id,
         country_code="GB",
-        operation_id=_STAGING_OPERATION_ID,
-        pipeline_id=_UK_CANDIDATE_PIPELINE,
+        operation_id=posture.staging_operation_id,
+        pipeline_id=posture.pipeline,
         pipeline_version=metadata.version("microcosm-build"),
         candidate_id=args.staging_candidate_id or state.build_id,
         local_dir=args.staging_dir or out_dir / "staging",
@@ -1678,8 +1802,26 @@ def _stage(
     event_status: str = "started",
     **details: Any,
 ) -> None:
-    if telemetry is not None:
+    """Forward one stage event to the best-effort telemetry.
+
+    A contract or content refusal of the event is reported and the event
+    dropped; the build must never abort on its own progress report. Each
+    event is judged on its own details, so a refused event does not silence
+    the ones that follow.
+    """
+
+    if telemetry is None:
+        return
+    try:
         telemetry.stage(stage_id, event_status=event_status, **details)
+    except StagingContractError as error:
+        print(
+            f"warning: staging telemetry refused the {stage_id!r} stage event "
+            f"({type(error).__name__}: {error}); the event is not staged, the "
+            "build continues.",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def _staging_epoch_every(args: argparse.Namespace) -> int:
@@ -2446,6 +2588,7 @@ def _joint_dry_run_plan(
     return {
         "schema_version": 3,
         "build_kind": "uk_rowwise_calibrated_candidate_plan",
+        "release_role": _posture_of(args).role,
         "dry_run": True,
         "survey_year": source_year,
         "calibration_year": joint_inputs["calibration_year"],
@@ -2912,6 +3055,7 @@ def _dry_run_plan(
     return {
         "schema_version": 3,
         "build_kind": "uk_rowwise_calibrated_candidate_plan",
+        "release_role": _posture_of(args).role,
         "dry_run": True,
         "candidate_scope": "adjudicated_partial",
         "bound_target_families": list(args._bound_families),
@@ -3161,9 +3305,12 @@ def _manifest(
             }
         ]
     )
+    posture = _posture_of(args)
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "build_kind": "uk_rowwise_calibrated_candidate",
+        "release_role": posture.role,
+        "release_id": posture.release_id,
         "candidate_scope": "adjudicated_partial",
         "created_at": datetime.now(UTC).isoformat(),
         "git_commit": _git_commit(),
@@ -3257,7 +3404,7 @@ def _manifest(
                 "reason": str(calibration_record.reason),
             },
             "abs_delta": abs(new_total - old_total),
-            "declared_stretch_bound": float(UK_LOCAL_MAX_WEIGHT_RATIO),
+            "declared_stretch_bound": float(posture.doctrine.max_weight_ratio),
             "stretch_reference": "pool_design"
             if solve.size_receipt is None
             else "normalized_horvitz_thompson_w_over_q",
@@ -3416,8 +3563,10 @@ def _manifest(
 
 
 def _parameters(args: argparse.Namespace, *, source_year: int) -> dict[str, Any]:
+    posture = _posture_of(args)
     return {
-        "n_clones": int(args.n_clones),
+        "release_role": posture.role,
+        "n_clones": None if args.n_clones is None else int(args.n_clones),
         "dataset_households": args.dataset_households,
         "seed": int(args.seed),
         "selection_seed": None
@@ -3447,8 +3596,12 @@ def _parameters(args: argparse.Namespace, *, source_year: int) -> dict[str, Any]
         "skip_holdout": bool(args.skip_holdout),
         "epochs": int(args.epochs),
         "learning_rate": float(args.learning_rate),
-        "expected_constituency_vintage": str(args.expected_constituency_vintage),
-        "doctrine": _doctrine_bounds(),
+        "expected_constituency_vintage": (
+            None
+            if args.expected_constituency_vintage is None
+            else str(args.expected_constituency_vintage)
+        ),
+        "doctrine": _doctrine_bounds(posture),
         "solve_options": {
             "conserve_mass": _CONSERVE_MASS,
             "target_records": _TARGET_RECORDS,
@@ -3588,15 +3741,8 @@ def _local_output_registry(
     return TargetRegistry(specs, country="uk")
 
 
-def _doctrine_bounds() -> dict[str, Any]:
-    return {
-        "target_loss_cap": float(UK_LOCAL_TARGET_LOSS_CAP),
-        "max_weight_ratio": float(UK_LOCAL_MAX_WEIGHT_RATIO),
-        "scale_rule": UK_LOCAL_SOLVE_DOCTRINE.scale_rule,
-        "target_weight_rule": UK_LOCAL_SOLVE_DOCTRINE.target_weight_rule,
-        "solve_epochs": int(UK_LOCAL_SOLVE_EPOCHS),
-        "clone_count": int(UK_LOCAL_CLONE_COUNT),
-    }
+def _doctrine_bounds(posture: UKRowwisePosture) -> dict[str, Any]:
+    return posture.doctrine_bounds()
 
 
 def _gate_payload(gate: GateResult, *, phase: str) -> dict[str, Any]:
@@ -3667,6 +3813,13 @@ def _validate_support_summary(support: pd.DataFrame) -> None:
 
 
 def _validate_cli_args(args: argparse.Namespace) -> None:
+    posture = _posture_of(args)
+    # The declared role is checked against the parameters first: the other
+    # role's flags are refused by name before any value is range-checked.
+    if posture.role == "national":
+        _refuse_dense_role_arguments(args, posture)
+    else:
+        _refuse_national_role_arguments(args, posture)
     if args.selection_seed is not None and args.dataset_households is None:
         raise ValueError("--selection-seed requires --dataset-households.")
     if not (0.0 < args.selection_pi_hi <= 1.0):
@@ -3706,10 +3859,15 @@ def _validate_cli_args(args: argparse.Namespace) -> None:
             "--ledger-facts, --ledger-facts-sha256, and "
             "--ledger-manifest-sha256 are mandatory and must be supplied together."
         )
-    if args.input_sha256 is None or args.ladder_sha256 is None:
-        raise ValueError(
-            "the joint registry path requires --input-sha256 and --ladder-sha256."
-        )
+    if posture.ladder_required:
+        if args.ladder is None:
+            raise ValueError("--release-role dense requires --ladder.")
+        if args.input_sha256 is None or args.ladder_sha256 is None:
+            raise ValueError(
+                "the joint registry path requires --input-sha256 and --ladder-sha256."
+            )
+    elif args.input_sha256 is None:
+        raise ValueError("--release-role national requires --input-sha256.")
     if args.release_candidate:
         required_release = {
             "--input-sha256": args.input_sha256,
@@ -3727,12 +3885,12 @@ def _validate_cli_args(args: argparse.Namespace) -> None:
                 + ", ".join(missing_release)
             )
         refused = []
-        if args.target_weight_rule != UK_LOCAL_SOLVE_DOCTRINE.target_weight_rule:
+        if args.target_weight_rule != posture.target_weight_rule:
             refused.append("--target-weight-rule")
-        if args.epochs != UK_LOCAL_SOLVE_EPOCHS:
-            refused.append(f"--epochs != doctrine {UK_LOCAL_SOLVE_EPOCHS}")
-        if args.n_clones != UK_LOCAL_CLONE_COUNT:
-            refused.append(f"--n-clones != doctrine {UK_LOCAL_CLONE_COUNT}")
+        if args.epochs != posture.epochs:
+            refused.append(f"--epochs != doctrine {posture.epochs}")
+        if args.n_clones != posture.clone_count:
+            refused.append(f"--n-clones != doctrine {posture.clone_count}")
         if args.measure_exclusions is not None:
             refused.append("--measure-exclusions")
         if args.skip_holdout:
@@ -3746,7 +3904,7 @@ def _validate_cli_args(args: argparse.Namespace) -> None:
                 "--release-candidate refuses non-release settings: "
                 + ", ".join(refused)
             )
-    if args.n_clones <= 0:
+    if args.n_clones is not None and args.n_clones <= 0:
         raise ValueError("--n-clones must be positive.")
     if args.seed < 0:
         raise ValueError("--seed must be non-negative.")
@@ -3767,19 +3925,119 @@ def _validate_cli_args(args: argparse.Namespace) -> None:
         raise ValueError("--epochs must be positive.")
     if not np.isfinite(args.learning_rate) or args.learning_rate <= 0:
         raise ValueError("--learning-rate must be positive and finite.")
-    if not str(args.expected_constituency_vintage).strip():
+    if args.target_loss_cap is not None and (
+        not np.isfinite(args.target_loss_cap) or args.target_loss_cap <= 0
+    ):
+        raise ValueError("--target-loss-cap must be positive and finite.")
+    if (
+        args.expected_constituency_vintage is not None
+        and not str(args.expected_constituency_vintage).strip()
+    ):
         raise ValueError("--expected-constituency-vintage must be non-empty.")
+
+
+def _refuse_dense_role_arguments(
+    args: argparse.Namespace, posture: UKRowwisePosture
+) -> None:
+    """The national role's refusal table: nothing of the clone surface may be given.
+
+    ``--release-candidate`` is refused outright with the seam's own reason: the
+    calibration-seam battery covers six of the declared entries and must never
+    sign a shippability claim; a national cut's verdict comes only from the
+    release-cut certification producer (``tools/certify_uk_release_cut.py``).
+    """
+
+    if args.release_candidate:
+        raise ValueError(
+            "--release-candidate is refused on the national role: the "
+            "calibration seam's scoped battery cannot sign shippability; run "
+            "the release-cut certification producer "
+            "(tools/certify_uk_release_cut.py) on the finished build instead."
+        )
+    explicit = args._explicit_arguments
+    refused: list[str] = []
+    if args.ladder is not None:
+        refused.append("--ladder")
+    if args.ladder_sha256 is not None:
+        refused.append("--ladder-sha256")
+    if "expected_constituency_vintage" in explicit:
+        refused.append("--expected-constituency-vintage")
+    if args.source_year is not None:
+        refused.append("--source-year")
+    if args.source_lineage_modulus is not None:
+        refused.append("--source-lineage-modulus")
+    if "n_clones" in explicit:
+        refused.append("--n-clones")
+    if args.candidate_clone_counts is not None:
+        refused.append("--candidate-clone-counts")
+    if args.engine_blocks != 1:
+        refused.append("--engine-blocks")
+    if args.households_only:
+        refused.append("--households-only")
+    if args.skip_holdout:
+        refused.append("--skip-holdout")
+    if args.dataset_households is not None:
+        refused.append("--dataset-households")
+    if args.selection_seed is not None:
+        refused.append("--selection-seed")
+    if args.selection_pi_hi != 1.0:
+        refused.append("--selection-pi-hi")
+    if args.baseline_pi_floor != 0.0:
+        refused.append("--baseline-pi-floor")
+    if args.no_size_checkpoint:
+        refused.append("--no-size-checkpoint")
+    if args.resume_size_checkpoint is not None:
+        refused.append("--resume-size-checkpoint")
+    if args.sample_fraction != 1.0:
+        refused.append("--sample-fraction")
+    if "sample_seed" in explicit:
+        refused.append("--sample-seed")
+    if args.target_weight_rule not in posture.allowed_target_weight_rules:
+        refused.append(f"--target-weight-rule {args.target_weight_rule}")
+    if refused:
+        raise ValueError(
+            "--release-role national refuses the dense role's arguments: "
+            + ", ".join(refused)
+        )
+
+
+def _refuse_national_role_arguments(
+    args: argparse.Namespace, posture: UKRowwisePosture
+) -> None:
+    """The dense role's refusal table: the seam's knobs are not its own."""
+
+    refused: list[str] = []
+    if args.target_loss_cap is not None:
+        refused.append("--target-loss-cap")
+    if args.allow_unpinned_feed:
+        refused.append("--allow-unpinned-feed")
+    if args.target_weight_rule not in posture.allowed_target_weight_rules:
+        refused.append(f"--target-weight-rule {args.target_weight_rule}")
+    if refused:
+        raise ValueError(
+            "--release-role dense refuses the national role's arguments: "
+            + ", ".join(refused)
+        )
 
 
 def _output_paths(
     out_dir: Path,
     *,
-    source_year: int,
-    calibration_year: int,
+    posture: UKRowwisePosture,
+    vintage: str,
 ) -> dict[str, Path]:
-    dataset = out_dir / CANDIDATE_FILENAME_TEMPLATE.format(
-        calibration_year=calibration_year
-    )
+    """The role's output paths for one FRS release vintage (``2024_25``)."""
+
+    dataset = out_dir / posture.dataset_filename(vintage)
+    if posture.role == "national":
+        return {
+            "dataset": dataset,
+            "manifest": out_dir / MANIFEST_FILENAME,
+            "calibration_diagnostics": out_dir / CALIBRATION_DIAGNOSTICS_FILENAME,
+            "build_record": out_dir / BUILD_RECORD_FILENAME,
+            "terminal_gates": out_dir / posture.gate_report_filename(vintage),
+            "national_registry": out_dir / NATIONAL_REGISTRY_FILENAME,
+        }
     return {
         "dataset": dataset,
         "manifest": out_dir / MANIFEST_FILENAME,
@@ -3787,8 +4045,7 @@ def _output_paths(
         "support": out_dir / AREA_SUPPORT_FILENAME,
         "past_cap": out_dir / PAST_CAP_FILENAME,
         "calibration_diagnostics": out_dir / CALIBRATION_DIAGNOSTICS_FILENAME,
-        "local_gates": out_dir
-        / LOCAL_GATE_REPORT_FILENAME_TEMPLATE.format(calibration_year=calibration_year),
+        "local_gates": out_dir / posture.gate_report_filename(vintage),
         "local_registry": out_dir / LOCAL_REGISTRY_FILENAME,
         "dense_reference": out_dir / DENSE_REFERENCE_DIAGNOSTICS_FILENAME,
         "selection": out_dir / DATASET_SIZE_SELECTION_FILENAME,

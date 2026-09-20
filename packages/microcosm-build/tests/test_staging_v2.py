@@ -759,9 +759,30 @@ def test_version_2_cli_uses_country_owned_repository_configuration(monkeypatch):
 
     args = parser.parse_args([])
     assert args.staging_repo_id == "example/configured-staging"
+    assert args.staging_upload_interval_seconds == 30.0
     assert not hasattr(args, "staging_prefix")
     with pytest.raises(SystemExit):
         parser.parse_args(["--staging-prefix", "candidate-runs"])
+
+
+def test_version_2_cli_lets_a_long_running_command_slow_its_upload_cadence():
+    """A multi-hour solve at 30 s exhausts the Hub's commit budget (v20 run)."""
+
+    repository = StagingRepositoryConfig(
+        default_repo_id="example/default-staging",
+        repo_id_environment_variable="EXAMPLE_STAGING_REPO_ID",
+    )
+    parser = argparse.ArgumentParser()
+    add_staging_arguments(
+        parser, repository=repository, default_upload_interval_seconds=300
+    )
+    assert parser.parse_args([]).staging_upload_interval_seconds == 300.0
+    assert (
+        parser.parse_args(
+            ["--staging-upload-interval-seconds", "45"]
+        ).staging_upload_interval_seconds
+        == 45.0
+    )
 
 
 def test_typed_artifacts_reject_one_scalar_individual_record(tmp_path):
