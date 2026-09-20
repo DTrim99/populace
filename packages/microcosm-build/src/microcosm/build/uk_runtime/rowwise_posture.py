@@ -29,7 +29,9 @@ from typing import Any
 import numpy as np
 
 from microcosm.build.uk_runtime.calibration_run import (
+    UK_CALIBRATION_ATTEMPT_ID_PREFIX,
     UK_CALIBRATION_GATE_SCOPE,
+    UK_CALIBRATION_PIPELINE,
     UK_LOCAL_GATE_SCOPE,
 )
 from microcosm.build.uk_runtime.local_doctrine import (
@@ -242,8 +244,8 @@ UK_ROWWISE_NATIONAL_POSTURE = UKRowwisePosture(
     gate_scope=tuple(UK_CALIBRATION_GATE_SCOPE),
     gate_posture="calibration_seam",
     gate_policy_suffix="calibration_seam_scope",
-    pipeline="uk-frs-calibration",
-    build_id_prefix="uk-frs-calibration-attempt-",
+    pipeline=UK_CALIBRATION_PIPELINE,
+    build_id_prefix=UK_CALIBRATION_ATTEMPT_ID_PREFIX,
     staging_operation_id="uk_national_calibration",
     release_id=UK_NATIONAL_RELEASE_ID,
     dataset_filename_template="microcosm_uk_{vintage}.h5",

@@ -3488,11 +3488,3 @@ def test_national_role_refuses_release_candidate_with_the_seam_reason(tmp_path):
     args = builder._parse_args(_role_argv(tmp_path, "national", "--release-candidate"))
     with pytest.raises(ValueError, match="cannot sign shippability"):
         builder._validate_cli_args(args)
-
-
-def test_national_role_build_is_not_yet_wired(tmp_path) -> None:
-    """Declared and validated, but the seam delegation is the next increment."""
-
-    builder = _load_builder_module()
-    with pytest.raises(NotImplementedError, match="microcosm#823"):
-        builder.main(_role_argv(tmp_path, "national", "--staging-local-only"))

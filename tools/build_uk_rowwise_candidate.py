@@ -130,9 +130,15 @@ from microcosm.build.uk_runtime import (
 )
 from microcosm.build.uk_runtime.calibration_run import (
     UK_LOCAL_GATE_SCOPE,
+    UKCalibrationRunPaths,
     finalize_uk_scoped_gate_report,
+    new_uk_calibration_attempt_id,
+    run_uk_calibration,
     uk_local_gate_scope_exclusions,
     uk_scoped_gate_manifest,
+)
+from microcosm.build.uk_runtime.chronicle_feed import (
+    require_committed_uk_chronicle_feed_pin,
 )
 from microcosm.build.uk_runtime.frs_release import load_uk_frs_release
 from microcosm.build.uk_runtime.ledger_targets import _spec_geography
@@ -141,6 +147,7 @@ from microcosm.build.uk_runtime.measure_simulation import (
     apply_uk_calibration_measure_exclusions,
     load_uk_calibration_measure_exclusions,
 )
+from microcosm.build.uk_runtime.national_doctrine import uk_doctrine_with_overrides
 from microcosm.build.uk_runtime.national_sampling import (
     UK_SAMPLE_RUNG_TOKENS,
     UK_SAMPLE_SEED_DEFAULT,
@@ -975,12 +982,12 @@ def main(argv: list[str] | None = None) -> int:
     _validate_cli_args(args)
     posture = _posture_of(args)
     if posture.role == "national":
-        raise NotImplementedError(
-            "--release-role national is declared and validated here, but its "
-            "build flow (delegation to the calibration seam) lands in the next "
-            "increment of microcosm#823; run tools/calibrate_uk_national_dataset.py "
-            "until then."
-        )
+        if args.dry_run:
+            return _national_dry_run(args)
+        # Argument refusals above cost nothing; the credential check reaches
+        # the Hub, so it runs last, still before any input is read.
+        _preflight_staged_dataset(args)
+        return _run_national_role(args)
     if args.candidate_clone_counts is not None and not args.dry_run:
         raise ValueError("--candidate-clone-counts is valid only with --dry-run.")
     if _CONSERVE_MASS:
@@ -1022,7 +1029,7 @@ def main(argv: list[str] | None = None) -> int:
     predecessor = resolve_predecessor(args.logbook_prev_row_digest)
     # Staging telemetry opens with the attempt, as in the spine builder, so an
     # early refusal still leaves a failed run under runs/<build_id>/.
-    telemetry = _create_staging_telemetry(args, state=state)
+    telemetry = _create_staging_telemetry(args, build_id=state.build_id)
     try:
         return _run_candidate(
             args,
@@ -1689,6 +1696,509 @@ def _run_candidate(
         raise
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must hold a JSON object.")
+    return payload
+
+
+def _ledger_facts_pin(artifact: Any) -> dict[str, object]:
+    facts_path = (
+        artifact.path / "consumer_facts.jsonl"
+        if artifact.path.is_dir()
+        else artifact.path
+    )
+    return {"sha256": artifact.facts_sha256, "size_bytes": facts_path.stat().st_size}
+
+
+def _load_national_target_inputs(args: argparse.Namespace) -> dict[str, Any]:
+    """The national role's target surface: the pinned Ledger artifact, compiled.
+
+    The artifact must be the committed Chronicle feed pin unless
+    ``--allow-unpinned-feed`` records a reviewed diagnostic run; the
+    compiled register, less the measure exclusions, is the solve surface and
+    the full compiled register keeps the band edges; ``--register-json``
+    requires the re-derived register to be the frozen scoring surface.
+    """
+
+    artifact = load_ledger_consumer_artifact(
+        args.ledger_facts,
+        expected_facts_sha256=args.ledger_facts_sha256,
+        expected_manifest_sha256=args.ledger_manifest_sha256,
+    )
+    pin = require_committed_uk_chronicle_feed_pin(
+        artifact.facts_sha256,
+        manifest_sha256=artifact.manifest_sha256,
+        allow_unpinned_feed=bool(args.allow_unpinned_feed),
+    )
+    calibration_year = int(load_uk_frs_release().calibration_year)
+    compilation = compile_uk_target_registry(
+        artifact.facts, target_period=calibration_year
+    )
+    if compilation.unsupported:
+        raise SystemExit(
+            f"{len(compilation.unsupported)} national target references "
+            "failed to compile"
+        )
+    exclusions = load_uk_calibration_measure_exclusions(args.measure_exclusions)
+    registry, exclusion_receipt = apply_uk_calibration_measure_exclusions(
+        compilation.registry, exclusions
+    )
+    if args.register_json is not None:
+        try:
+            frozen = TargetRegistry.from_json(args.register_json)
+        except ValueError as error:
+            raise SystemExit(
+                f"error: frozen scoring register is unusable: {error}"
+            ) from error
+        if frozen.version != registry.version:
+            raise SystemExit(
+                "re-derived register differs from the frozen scoring register: "
+                f"{registry.version} vs {frozen.version}"
+            )
+    return {
+        "artifact": artifact,
+        "calibration_year": calibration_year,
+        "national_registry": registry,
+        "band_edge_registry": compilation.registry,
+        "measure_exclusions": exclusion_receipt,
+        "chronicle_feed_pin": pin.to_dict(),
+    }
+
+
+def _national_doctrine_overrides(args: argparse.Namespace) -> dict[str, Any]:
+    """The receipted per-run overrides of the seam doctrine, explicit flags only."""
+
+    explicit = args._explicit_arguments
+    overrides: dict[str, Any] = {}
+    if "epochs" in explicit:
+        overrides["epochs"] = int(args.epochs)
+    if "learning_rate" in explicit:
+        overrides["learning_rate"] = float(args.learning_rate)
+    if "target_weight_rule" in explicit:
+        overrides["target_weight_rule"] = str(args.target_weight_rule)
+    if args.target_loss_cap is not None:
+        overrides["target_loss_cap"] = float(args.target_loss_cap)
+    return overrides
+
+
+def _national_dry_run(args: argparse.Namespace) -> int:
+    """Compile the national target surface and print the plan; write nothing."""
+
+    posture = _posture_of(args)
+    input_h5 = _require_file(args.input_h5, label="--input-h5")
+    input_artifact = _artifact_info(input_h5)
+    _verify_requested_pin("--input-h5", input_artifact, requested=args.input_sha256)
+    frs_release = load_uk_frs_release()
+    inputs = _load_national_target_inputs(args)
+    doctrine, doctrine_overrides = uk_doctrine_with_overrides(
+        **_national_doctrine_overrides(args)
+    )
+    plan = {
+        "schema_version": 3,
+        "build_kind": "uk_national_calibrated_candidate_plan",
+        "release_role": posture.role,
+        "release_id": posture.release_id,
+        "dry_run": True,
+        "calibration_year": inputs["calibration_year"],
+        "inputs": {"dataset": dict(input_artifact)},
+        "targets": {
+            "chronicle": inputs["artifact"].provenance(),
+            "compiled": len(inputs["band_edge_registry"].specs),
+            "active": len(inputs["national_registry"].specs),
+            "excluded": len(inputs["measure_exclusions"]),
+            "register_sha256": inputs["national_registry"].version,
+        },
+        "doctrine": {
+            field: getattr(doctrine, field)
+            for field in (
+                "epochs",
+                "learning_rate",
+                "max_weight_ratio",
+                "seed",
+                "target_loss_cap",
+                "scale_rule",
+                "target_weight_rule",
+                "mass_rule",
+                "l0_lambda",
+            )
+        },
+        "doctrine_overrides": dict(doctrine_overrides),
+        "parameters": _parameters(
+            args,
+            source_year=_source_year(
+                args.source_year, time_period=str(frs_release.time_period)
+            ),
+        ),
+        "engine": "not_run",
+        "releasable": False,
+    }
+    print(_json_text(plan))
+    return 0
+
+
+def _run_national_role(args: argparse.Namespace) -> int:
+    """Build the national line: the calibration seam under the driver's posture.
+
+    The seam library (:func:`run_uk_calibration`) resolves the measures from
+    the input file, solves under the seam doctrine, runs the six
+    calibration-seam gates, writes the H5, the diagnostics, the signed gate
+    report, the build record and the Logbook row exactly as the retiring
+    seam command did, so a national cut built here is bit-for-bit the seam's.
+    The driver adds what the dense role has: the pinned input, the role's
+    doctrine and overrides, staging telemetry under the attempt id, the
+    rowwise manifest beside the seam's evidence, and the staged bundle.
+    """
+
+    posture = _posture_of(args)
+    out_dir = args.out.expanduser().resolve()
+    input_h5 = _require_file(args.input_h5, label="--input-h5")
+    if out_dir.exists() and not out_dir.is_dir():
+        raise ValueError(f"--out must be a directory path, got {out_dir}.")
+    input_artifact = _artifact_info(input_h5)
+    _verify_requested_pin("--input-h5", input_artifact, requested=args.input_sha256)
+    # The attempt id is minted before telemetry opens so the staging run id
+    # and the Logbook row agree, as on the dense role.
+    build_id = new_uk_calibration_attempt_id(timestamp=datetime.now(UTC))
+    telemetry = _create_staging_telemetry(args, build_id=build_id)
+    try:
+        return _run_national_attempt(
+            args,
+            posture=posture,
+            out_dir=out_dir,
+            input_h5=input_h5,
+            input_artifact=input_artifact,
+            build_id=build_id,
+            telemetry=telemetry,
+        )
+    except BaseException as error:
+        _fail_staging_telemetry(telemetry, error)
+        raise
+
+
+def _run_national_attempt(
+    args: argparse.Namespace,
+    *,
+    posture: UKRowwisePosture,
+    out_dir: Path,
+    input_h5: Path,
+    input_artifact: Mapping[str, Any],
+    build_id: str,
+    telemetry: StagingTelemetryV2 | None,
+) -> int:
+    _stage(
+        telemetry,
+        "input_pinning",
+        "completed",
+        dataset_sha256=input_artifact["sha256"],
+    )
+    if telemetry is not None:
+        telemetry.set_sample({"mode": "full"})
+    frs_release = load_uk_frs_release()
+    calibration_year = int(frs_release.calibration_year)
+    args._calibration_year = calibration_year
+    args._frs_vintage = str(frs_release.vintage)
+    source_year = _source_year(
+        args.source_year, time_period=str(frs_release.time_period)
+    )
+    output_paths = _output_paths(out_dir, posture=posture, vintage=args._frs_vintage)
+    _validate_output_paths(output_paths, input_h5=input_h5, ladder_path=None)
+    _stage(telemetry, "target_compilation", "started")
+    inputs = _load_national_target_inputs(args)
+    _stage(
+        telemetry,
+        "target_compilation",
+        "completed",
+        compiled_target_count=len(inputs["band_edge_registry"].specs),
+        active_target_count=len(inputs["national_registry"].specs),
+    )
+    doctrine, doctrine_overrides = uk_doctrine_with_overrides(
+        **_national_doctrine_overrides(args)
+    )
+    if doctrine.target_weight_rule != args.target_weight_rule:
+        raise RuntimeError(
+            "national doctrine override did not bind the requested rule."
+        )
+    args._doctrine_override_receipt = doctrine_overrides
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # The frozen register is the scorer's input: the same artifact this run
+    # solved against, by content hash.
+    inputs["national_registry"].to_json(output_paths["national_registry"])
+    resolver = UKMeasureResolver(
+        simulation_source=input_h5,
+        scratch_dir=out_dir,
+        year=calibration_year,
+        frame=None,
+    )
+    paths = UKCalibrationRunPaths(
+        input_h5=input_h5,
+        staging_h5=output_paths["dataset"],
+        diagnostics_json=output_paths["calibration_diagnostics"],
+        build_record_json=output_paths["build_record"],
+        terminal_gate_json=output_paths["terminal_gates"],
+    )
+    evidence: dict[str, Any] = {}
+
+    def publish_manifest() -> None:
+        # The seam has written its evidence; the manifest describes it and the
+        # staged bundle (every manifest-registered output) follows, as on the
+        # dense role. The staged copy predates the evidence blocks appended
+        # below; staged_manifest.json describes the remote side.
+        args._gate_report = _read_json(paths.terminal_gate_json)
+        manifest = _national_manifest(
+            args,
+            posture=posture,
+            build_id=build_id,
+            build_record=_read_json(paths.build_record_json),
+            build_record_path=paths.build_record_json,
+            gate_report=args._gate_report,
+            diagnostics=_read_json(paths.diagnostics_json),
+            inputs=inputs,
+            doctrine_overrides=doctrine_overrides,
+            output_paths=output_paths,
+            input_artifact=input_artifact,
+            source_year=source_year,
+        )
+        _replace_manifest(output_paths["manifest"], manifest)
+        evidence["manifest"] = manifest
+        evidence["staged_dataset"] = _stage_dataset(
+            args,
+            manifest=manifest,
+            output_paths=output_paths,
+            run_id=build_id if telemetry is None else telemetry.run_id,
+            telemetry=telemetry,
+        )
+
+    def finalize_staging() -> None:
+        publish_manifest()
+        _finalize_staging_telemetry(args, telemetry)
+
+    def event_callback(stage_id: str, status: str, details: Mapping[str, Any]) -> None:
+        _stage(telemetry, stage_id, status, **dict(details))
+
+    result = run_uk_calibration(
+        paths=paths,
+        build_id=build_id,
+        input_sha256=str(args.input_sha256),
+        ledger_artifact=inputs["artifact"],
+        register_registry=inputs["national_registry"],
+        band_edge_registry=inputs["band_edge_registry"],
+        calibration_year=calibration_year,
+        exclusion_receipt=inputs["measure_exclusions"],
+        doctrine=doctrine,
+        doctrine_overrides=doctrine_overrides,
+        measure_resolver=resolver,
+        source_pins={
+            "input_h5": {
+                "sha256": str(args.input_sha256),
+                "size_bytes": int(input_artifact["bytes"]),
+            },
+            "ledger_facts": _ledger_facts_pin(inputs["artifact"]),
+        },
+        run_config_extra={
+            "release_role": posture.role,
+            "calibration_year": calibration_year,
+            "allow_unpinned_feed": bool(args.allow_unpinned_feed),
+            "chronicle_feed_pin": inputs["chronicle_feed_pin"],
+            "rowwise_driver_parameters": _parameters(args, source_year=source_year),
+        },
+        release_id=posture.release_id,
+        logbook_prev_row_digest=args.logbook_prev_row_digest,
+        progress_callback=(
+            None
+            if telemetry is None
+            else _thinned_epochs(
+                telemetry.calibration_progress, every=_staging_epoch_every(args)
+            )
+        ),
+        event_callback=None if telemetry is None else event_callback,
+        staging_delivery=_staging_delivery(telemetry),
+        staging_finalizer=None if telemetry is None else finalize_staging,
+        staging_delivery_provider=(
+            None if telemetry is None else (lambda: telemetry.delivery_summary)
+        ),
+    )
+    if telemetry is None:
+        publish_manifest()
+    manifest = evidence["manifest"]
+    # The seam rewrote its record with the delivery summary after the
+    # finalizer; the manifest binds the record as it now is.
+    manifest["outputs"]["build_record"] = _artifact_info(paths.build_record_json)
+    manifest["build_record"] = {
+        "path": str(paths.build_record_json),
+        "sha256": result.build_record_sha256,
+    }
+    manifest["staging_delivery"] = _staging_delivery(telemetry)
+    manifest["staged_dataset"] = evidence["staged_dataset"]
+    _replace_manifest(output_paths["manifest"], manifest)
+    if (out_dir / SHA256SUMS_FILENAME).is_file():
+        # The uploaded copies list the files as uploaded; the local sums
+        # list the record and the manifest as they now are, evidence included.
+        refresh_sha256sums_entry(out_dir, paths.build_record_json.name)
+        refresh_sha256sums_entry(out_dir, output_paths["manifest"].name)
+    print(_json_text(manifest))
+    return 0
+
+
+def _national_fit_by_family(
+    diagnostics: Mapping[str, Any], registry: TargetRegistry
+) -> list[dict[str, object]]:
+    families = {str(spec.name): str(spec.family or "") for spec in registry.specs}
+    rows = []
+    for row in diagnostics.get("targets", []):
+        if not isinstance(row, Mapping):
+            continue
+        error = row.get("relative_error")
+        if error is None:
+            continue
+        # The diagnostics name a target by its register spec name and, on
+        # period-suffixed rows, by a materialized name; the family lives on
+        # the spec.
+        labels = [
+            str(label)
+            for label in (row.get("target_name"), row.get("name"))
+            if label is not None
+        ]
+        family = next((families[label] for label in labels if label in families), "")
+        rows.append(
+            {
+                "target_name": labels[0] if labels else "",
+                "family": family,
+                "abs_relative_error": abs(float(error)),
+            }
+        )
+    if not rows:
+        return []
+    return uk_fit_by_family(pd.DataFrame(rows))
+
+
+def _national_manifest(
+    args: argparse.Namespace,
+    *,
+    posture: UKRowwisePosture,
+    build_id: str,
+    build_record: Mapping[str, Any],
+    build_record_path: Path,
+    gate_report: Mapping[str, Any],
+    diagnostics: Mapping[str, Any],
+    inputs: Mapping[str, Any],
+    doctrine_overrides: Mapping[str, Any],
+    output_paths: Mapping[str, Path],
+    input_artifact: Mapping[str, Any],
+    source_year: int,
+) -> dict[str, Any]:
+    """The rowwise manifest of a national-role run, over the seam's evidence."""
+
+    calibration = build_record["calibration"]
+    solve = calibration["solve"]
+    statuses = _gate_statuses(gate_report)
+    abs_errors = np.asarray(
+        [
+            abs(float(row["relative_error"]))
+            for row in diagnostics.get("targets", [])
+            if isinstance(row, Mapping) and row.get("relative_error") is not None
+        ],
+        dtype=np.float64,
+    )
+    fit_rows = _national_fit_by_family(diagnostics, inputs["national_registry"])
+    outputs = {
+        "dataset": _artifact_info(output_paths["dataset"]),
+        "calibration_diagnostics": _artifact_info(
+            output_paths["calibration_diagnostics"]
+        ),
+        "build_record": _artifact_info(build_record_path),
+        "terminal_gate_report": _artifact_info(output_paths["terminal_gates"]),
+        "national_target_registry": _artifact_info(output_paths["national_registry"]),
+    }
+    return {
+        "schema_version": 4,
+        "build_kind": "uk_national_calibrated_candidate",
+        "release_role": posture.role,
+        "release_id": posture.release_id,
+        "build_id": build_id,
+        "candidate_scope": "national",
+        "created_at": datetime.now(UTC).isoformat(),
+        "git_commit": _git_commit(),
+        "git_dirty": _git_dirty(),
+        "parameters": _parameters(args, source_year=source_year),
+        "inputs": {"dataset": dict(input_artifact)},
+        "identity": {
+            "spine": {
+                **dict(input_artifact),
+                "spine_provenance": dict(build_record["spine_provenance"]),
+            },
+            "targets": {"chronicle": inputs["artifact"].provenance()},
+            "code": {"git_commit": _git_commit(), "git_dirty": _git_dirty()},
+            "runtime": runtime_provenance(),
+            "sampling": {"mode": "full"},
+            "survey_year": source_year,
+            "calibration_year": int(inputs["calibration_year"]),
+        },
+        "sampling": {"mode": "full"},
+        "outputs": outputs,
+        "weights": dict(calibration["weights"]),
+        "solve": {
+            "n_targets": int(solve["n_targets"]),
+            "n_targets_by_kind": {
+                "national": int(solve["n_targets"]),
+                "local": 0,
+                "ladder": 0,
+            },
+            "n_households": int(solve["n_households"]),
+            "pool_households": int(solve["n_households"]),
+            "initial_loss": float(solve["initial_loss"]),
+            "final_loss": float(solve["final_loss"]),
+            "n_nonzero": int(solve["n_nonzero"]),
+            "max_abs_relative_error": (
+                float(abs_errors.max()) if abs_errors.size else None
+            ),
+            "median_abs_relative_error": (
+                float(np.median(abs_errors)) if abs_errors.size else None
+            ),
+            "effective_sample_size": calibration.get("effective_sample_size"),
+            "max_weight_ratio": calibration.get("max_weight_ratio"),
+            "target_weight_rule": str(args.target_weight_rule),
+            "target_weight_rule_override": dict(
+                doctrine_overrides.get("target_weight_rule", {})
+            ),
+            "doctrine_overrides": dict(doctrine_overrides),
+            "measure_resolution": calibration.get("measure_resolution"),
+        },
+        "fit": {
+            "national_by_family": fit_rows,
+            "weakest_families": sorted(
+                fit_rows,
+                key=lambda row: (
+                    -float(row["worst_abs_relative_error"]),
+                    row["family"],
+                ),
+            )[:10],
+        },
+        "gate": {
+            "scope": list(posture.gate_scope),
+            "posture": posture.gate_posture,
+            "release_id": gate_report.get("release_id"),
+            "statuses": statuses,
+        },
+        "failing_gate_ids": sorted(
+            gate_id for gate_id, status in statuses.items() if status != "passed"
+        ),
+        "releasable": False,
+        "release_posture": {
+            "release_candidate": False,
+            "shippable_by": "tools/certify_uk_release_cut.py",
+            "calibration_seam_gates_passed": bool(statuses)
+            and all(status == "passed" for status in statuses.values()),
+        },
+        "measure_exclusions": dict(inputs["measure_exclusions"]),
+        "build_record": {
+            "path": str(build_record_path),
+            "sha256": outputs["build_record"]["sha256"],
+        },
+    }
+
+
 def _hub_api() -> Any:
     """The Hub client used for telemetry and the staged dataset (test seam)."""
 
@@ -1773,7 +2283,7 @@ def _require_write_credential(storage: HuggingFaceDatasetStorage, *, hint: str) 
 
 
 def _create_staging_telemetry(
-    args: argparse.Namespace, *, state: AttemptState
+    args: argparse.Namespace, *, build_id: str
 ) -> StagingTelemetryV2 | None:
     if args.no_staging:
         return None
@@ -1781,12 +2291,12 @@ def _create_staging_telemetry(
     out_dir = args.out.expanduser().resolve()
     posture = _posture_of(args)
     return StagingTelemetryV2(
-        run_id=args.staging_run_id or state.build_id,
+        run_id=args.staging_run_id or build_id,
         country_code="GB",
         operation_id=posture.staging_operation_id,
         pipeline_id=posture.pipeline,
         pipeline_version=metadata.version("microcosm-build"),
-        candidate_id=args.staging_candidate_id or state.build_id,
+        candidate_id=args.staging_candidate_id or build_id,
         local_dir=args.staging_dir or out_dir / "staging",
         run_kind="calibration",
         delivery_mode="local_only" if local_only else "local_and_remote",
@@ -3992,6 +4502,9 @@ def _refuse_dense_role_arguments(
         refused.append("--sample-fraction")
     if "sample_seed" in explicit:
         refused.append("--sample-seed")
+    if "seed" in explicit and args.seed != posture.seed:
+        # The seam doctrine's seed is a reviewed constant, not a knob.
+        refused.append(f"--seed != doctrine {posture.seed}")
     if args.target_weight_rule not in posture.allowed_target_weight_rules:
         refused.append(f"--target-weight-rule {args.target_weight_rule}")
     if refused:
@@ -4056,12 +4569,14 @@ def _validate_output_paths(
     output_paths: Mapping[str, Path],
     *,
     input_h5: Path,
-    ladder_path: Path,
+    ladder_path: Path | None,
 ) -> None:
     resolved = {name: path.resolve() for name, path in output_paths.items()}
     if len(set(resolved.values())) != len(resolved):
         raise ValueError("candidate output paths must be distinct.")
-    protected = {input_h5.resolve(), ladder_path.resolve()}
+    protected = {input_h5.resolve()}
+    if ladder_path is not None:
+        protected.add(ladder_path.resolve())
     collisions = sorted(str(path) for path in resolved.values() if path in protected)
     if collisions:
         raise ValueError(

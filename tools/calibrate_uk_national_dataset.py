@@ -36,7 +36,9 @@ from microcosm.build.uk_runtime.calibration_run import (
 )
 from microcosm.build.uk_runtime.chronicle_feed import (
     UKChronicleFeed,
+    UKChronicleFeedPinError,
     load_uk_chronicle_feed,
+    require_committed_uk_chronicle_feed_pin,
 )
 from microcosm.build.uk_runtime.frs_release import load_uk_frs_release
 from microcosm.build.uk_runtime.ledger_targets import compile_uk_target_registry
@@ -343,21 +345,15 @@ def _check_committed_ledger_feed_pin(
     allow_unpinned_feed: bool,
     pin: UKChronicleFeed | None = None,
 ) -> None:
-    pin = pin or load_uk_chronicle_feed()
-    mismatches = []
-    for label, loaded, committed in (
-        ("facts", facts_sha256, pin.facts_sha256),
-        ("manifest", manifest_sha256, pin.manifest_sha256),
-    ):
-        if loaded != committed:
-            mismatches.append(f"{label}: loaded {loaded}, committed {committed}")
-    if mismatches and not allow_unpinned_feed:
-        raise SystemExit(
-            "error: Chronicle artifact differs from the committed UK national feed pin: "
-            + "; ".join(mismatches)
-            + "; pass "
-            "--allow-unpinned-feed only for an explicitly reviewed diagnostic run"
+    try:
+        require_committed_uk_chronicle_feed_pin(
+            facts_sha256,
+            manifest_sha256=manifest_sha256,
+            allow_unpinned_feed=allow_unpinned_feed,
+            pin=pin,
         )
+    except UKChronicleFeedPinError as error:
+        raise SystemExit(f"error: {error}") from error
 
 
 def _validate_distinct_paths(paths: dict[str, Path]) -> None:
