@@ -20,6 +20,11 @@ from microcosm.build.logbook import load_spool_rows
 from microcosm.build.staging_v2 import validate_v2_bundle
 from microcosm.build.uk_runtime import calibration_run
 from microcosm.build.uk_runtime.calibration_run import UK_CALIBRATION_GATE_SCOPE
+from microcosm.build.uk_runtime.chronicle_feed import (
+    UKChronicleFeedPinError,
+    load_uk_chronicle_feed,
+    require_committed_uk_chronicle_feed_pin,
+)
 from microcosm.build.uk_runtime.national_frame import write_uk_national_frame
 from microcosm.build.uk_runtime.release_identity import UK_NATIONAL_RELEASE_ID
 from microcosm.calibrate import TargetRegistry
@@ -507,3 +512,138 @@ def test_uk_national_role_marks_the_staging_run_failed_on_a_refusal(
     bundle = validate_v2_bundle(out / "staging", runs[0])
     assert bundle["progress"]["status"] == "failed"
     assert not (out / "build_record.json").exists()
+
+
+# --- Behaviours re-anchored from the retired seam command's tests (B3) ---
+
+
+def test_uk_national_role_has_no_release_id_flag(tmp_path) -> None:
+    """Canonical ids are the role's own; the seam's --release-id is gone."""
+
+    builder = _CANDIDATE._load_builder_module()
+    (tmp_path / "spine.h5").write_bytes(b"spine")
+    with pytest.raises(SystemExit):
+        builder._parse_args(
+            _argv(tmp_path / "spine.h5", tmp_path / "out", "--release-id", "dev-x")
+        )
+
+
+def test_uk_national_role_accepts_operator_exclusions_and_refuses_a_bad_sha(
+    tmp_path,
+) -> None:
+    builder = _CANDIDATE._load_builder_module()
+    (tmp_path / "spine.h5").write_bytes(b"spine")
+    exclusions = tmp_path / "operator.json"
+    exclusions.write_text("{}", encoding="utf-8")
+    argv = _argv(tmp_path / "spine.h5", tmp_path / "out")
+    argv[argv.index("--input-sha256") + 1] = "0" * 64
+    parsed = builder._parse_args([*argv, "--measure-exclusions", str(exclusions)])
+    builder._validate_cli_args(parsed)
+    assert parsed.measure_exclusions == exclusions
+    argv[argv.index("--input-sha256") + 1] = "not-a-sha"
+    with pytest.raises(SystemExit):
+        builder._parse_args(argv)
+
+
+def test_uk_national_role_exposes_the_shared_staging_modes(tmp_path) -> None:
+    builder = _CANDIDATE._load_builder_module()
+    (tmp_path / "spine.h5").write_bytes(b"spine")
+    argv = _argv(tmp_path / "spine.h5", tmp_path / "out")
+    argv[argv.index("--input-sha256") + 1] = "0" * 64
+    remote = builder._parse_args(argv)
+    local = builder._parse_args([*argv, "--staging-local-only"])
+    disabled = builder._parse_args([*argv, "--no-staging"])
+    assert remote.staging_repo_id == "policyengine/populace-uk-staging"
+    assert not remote.staging_local_only and not remote.no_staging
+    assert local.staging_local_only and not local.no_staging
+    assert disabled.no_staging
+    with pytest.raises(SystemExit):
+        builder._parse_args([*argv, "--staging-repo-id", ""])
+    with pytest.raises(SystemExit):
+        builder._parse_args([*argv, "--staging-local-only", "--staging-read-back"])
+
+
+def _foreign_artifact(ledger_dir: Path, *, facts_sha256: str, manifest_sha256):
+    return SimpleNamespace(
+        facts=None,
+        facts_sha256=facts_sha256,
+        manifest_sha256=manifest_sha256,
+        path=ledger_dir,
+        provenance=lambda: {
+            "facts_sha256": facts_sha256,
+            "manifest_sha256": manifest_sha256,
+            "artifact_id": "foreign",
+        },
+    )
+
+
+@pytest.mark.parametrize("manifest_sha256", ["c" * 64, None])
+def test_uk_national_role_refuses_a_feed_outside_the_committed_pin(
+    monkeypatch, tmp_path, manifest_sha256
+) -> None:
+    """The committed pin is checked before the register compiles."""
+
+    pytest.importorskip("tables")
+    builder = _CANDIDATE._load_builder_module()
+    input_h5, _registry, _artifact, _pin = _national_inputs(
+        builder, monkeypatch, tmp_path
+    )
+    # The fixture stubs the check; this test wants the real one.
+    monkeypatch.setattr(
+        builder,
+        "require_committed_uk_chronicle_feed_pin",
+        require_committed_uk_chronicle_feed_pin,
+    )
+    pin = load_uk_chronicle_feed()
+    artifact = _foreign_artifact(
+        tmp_path / "ledger",
+        facts_sha256=pin.facts_sha256,
+        manifest_sha256=manifest_sha256,
+    )
+    monkeypatch.setattr(
+        builder, "load_ledger_consumer_artifact", lambda path, **kwargs: artifact
+    )
+
+    def compile_must_not_run(facts, target_period):
+        raise AssertionError("the register compiled before the feed pin was checked")
+
+    monkeypatch.setattr(builder, "compile_uk_target_registry", compile_must_not_run)
+    out = tmp_path / "national"
+    with pytest.raises(UKChronicleFeedPinError, match="manifest: loaded"):
+        builder.main(_argv(input_h5, out, "--staging-local-only"))
+    # The refusal happened after telemetry opened: the local run reads failed.
+    runs = sorted(path.name for path in (out / "staging" / "runs").iterdir())
+    assert (
+        validate_v2_bundle(out / "staging", runs[0])["progress"]["status"] == "failed"
+    )
+
+
+def test_uk_national_role_records_an_unpinned_feed_override(
+    monkeypatch, tmp_path
+) -> None:
+    pytest.importorskip("tables")
+    builder = _CANDIDATE._load_builder_module()
+    input_h5, _registry, _artifact, _pin = _national_inputs(
+        builder, monkeypatch, tmp_path, resolver=_FakeResolver
+    )
+    monkeypatch.setattr(
+        builder,
+        "require_committed_uk_chronicle_feed_pin",
+        require_committed_uk_chronicle_feed_pin,
+    )
+    artifact = _foreign_artifact(
+        tmp_path / "ledger", facts_sha256="0" * 64, manifest_sha256="c" * 64
+    )
+    monkeypatch.setattr(
+        builder, "load_ledger_consumer_artifact", lambda path, **kwargs: artifact
+    )
+    calls: list[dict] = []
+    monkeypatch.setattr(builder, "run_uk_calibration", _fake_seam_run(calls))
+    out = tmp_path / "national"
+    assert (
+        builder.main(_argv(input_h5, out, "--no-staging", "--allow-unpinned-feed")) == 0
+    )
+    extra = calls[0]["run_config_extra"]
+    assert extra["allow_unpinned_feed"] is True
+    # The pin the artifact was checked against is the committed one.
+    assert extra["chronicle_feed_pin"]["facts_sha256"] != "0" * 64

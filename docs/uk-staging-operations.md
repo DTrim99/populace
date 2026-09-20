@@ -115,9 +115,9 @@ read-only credential.
 
 ## Command modes and files
 
-The three UK commands (`tools/build_uk_frs_spine.py`,
-`tools/calibrate_uk_national_dataset.py` and
-`tools/build_uk_rowwise_candidate.py`) support these staging modes:
+The two UK commands (`tools/build_uk_frs_spine.py` and
+`tools/build_uk_rowwise_candidate.py` in either release role, `national` or
+`dense`) support these staging modes:
 
 - Default: local version 2 files plus best-effort delivery to
   `policyengine/populace-uk-staging`.

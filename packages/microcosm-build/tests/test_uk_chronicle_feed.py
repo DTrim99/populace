@@ -96,3 +96,22 @@ def test_committed_feed_pin_check_refuses_a_foreign_artifact():
         )
         is pin
     )
+
+
+def test_national_and_local_census_read_the_one_chronicle_pin():
+    """The national and local surfaces share uk/chronicle_feed.json (#890)."""
+
+    from microcosm.build.uk_runtime.chronicle_feed import (
+        load_uk_chronicle_feed,
+        require_committed_uk_chronicle_feed_pin,
+    )
+    from microcosm.build.uk_runtime.local_target_census import _LEDGER_FACT_FEED_PIN
+
+    pin = load_uk_chronicle_feed()
+    require_committed_uk_chronicle_feed_pin(
+        pin.facts_sha256, manifest_sha256=pin.manifest_sha256, allow_unpinned_feed=False
+    )
+    assert _LEDGER_FACT_FEED_PIN["facts_sha256"] == pin.facts_sha256
+    assert _LEDGER_FACT_FEED_PIN["manifest_sha256"] == pin.manifest_sha256
+    assert _LEDGER_FACT_FEED_PIN["source_commit"] == pin.source_commit
+    assert _LEDGER_FACT_FEED_PIN["fact_row_count"] == pin.fact_row_count
