@@ -1181,6 +1181,7 @@ def _check_release_manifest(
     failures: list[str],
     *,
     expected_schema_version: object = RELEASE_MANIFEST_SCHEMA_VERSION,
+    annual_revision: str | None = None,
 ) -> None:
     schema_version = manifest.get("schema_version")
     if schema_version is None:
@@ -1279,14 +1280,18 @@ def _check_release_manifest(
                         f"release_manifest.json artifact {key!r} is missing {field!r}."
                     )
             revision = entry.get("revision")
-            revision_matches_release = revision == release_id or (
-                release_id == _UK_NATIONAL_RELEASE_ID
-                and isinstance(revision, str)
-                and revision.startswith(release_id + "-")
-                and _UK_NATIONAL_REVISION_SUFFIX_RE.fullmatch(
-                    revision[len(release_id) + 1 :]
+            revision_matches_release = (
+                revision == release_id
+                or (annual_revision is not None and revision == annual_revision)
+                or (
+                    release_id == _UK_NATIONAL_RELEASE_ID
+                    and isinstance(revision, str)
+                    and revision.startswith(release_id + "-")
+                    and _UK_NATIONAL_REVISION_SUFFIX_RE.fullmatch(
+                        revision[len(release_id) + 1 :]
+                    )
+                    is not None
                 )
-                is not None
             )
             # A present-but-non-string revision must fail here rather than
             # slide past the isinstance guard: publish collects only string
@@ -5127,6 +5132,7 @@ def validate_release_dir(
     # than a silent fallback.
     role: str = NATIONAL_DEFAULT_DATASET_ROLE
     manifest_probe_path = release_dir / "release_manifest.json"
+    annual_extension = None
     if manifest_probe_path.is_file():
         try:
             manifest_probe = json.loads(manifest_probe_path.read_text())
@@ -5155,6 +5161,19 @@ def validate_release_dir(
                         f"{manifest_probe['release_type']!r}."
                     ],
                 )
+        if isinstance(manifest_probe, Mapping):
+            from microcosm.data.annual_projections import (
+                validate_annual_projection_extension,
+            )
+
+            try:
+                annual_extension = validate_annual_projection_extension(
+                    release_dir, manifest_probe, artifact_root=artifact_root
+                )
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                raise ReleaseContractError(
+                    release_dir, [f"annual projection extension: {exc}"]
+                ) from exc
         if isinstance(manifest_probe, Mapping) and "dataset_role" in manifest_probe:
             declared_role = manifest_probe["dataset_role"]
             if declared_role not in (
@@ -5200,7 +5219,12 @@ def validate_release_dir(
         manifest = _load_json(release_manifest_path, failures)
         if manifest is not None:
             release_manifest = manifest
-            _check_release_manifest(manifest, release_id, failures)
+            _check_release_manifest(
+                manifest,
+                release_id,
+                failures,
+                annual_revision=annual_extension.revision if annual_extension else None,
+            )
 
     calibration_diagnostics_path = release_dir / "calibration_diagnostics.json"
     if calibration_diagnostics_path.is_file():
