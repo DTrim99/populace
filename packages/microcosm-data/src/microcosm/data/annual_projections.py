@@ -110,7 +110,10 @@ def _native_year(h5: h5py.File) -> int:
 def _check_native_identity(
     base: Path, projected: Path, year: int, record: Mapping
 ) -> None:
-    with h5py.File(base) as original, h5py.File(projected) as annual:
+    with (
+        h5py.File(base, mode="r") as original,
+        h5py.File(projected, mode="r") as annual,
+    ):
         if _native_year(annual) != year:
             raise ValueError(f"annual H5 stored year does not match {year}")
         rows = _object(record.get("rows"), f"{year} row counts")
