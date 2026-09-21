@@ -277,3 +277,116 @@ def test_do_package_requires_qa_and_consumer_evidence(tmp_path: Path) -> None:
     )
     with pytest.raises(SystemExit, match="consumer_export.json is missing"):
         module.do_package(args)
+
+
+def _staging_frame_with_hours(weekly: list[float], last_week: list[float]):
+    """A minimal US-schema staging frame carrying the two pool hours columns."""
+
+    from microcosm.frame import US_SCHEMA, Frame, WeightKind, Weights
+
+    n = len(weekly)
+    ids = np.arange(1, n + 1)
+    person = pd.DataFrame(
+        {
+            "person_id": ids,
+            "person_household_id": ids,
+            "person_tax_unit_id": ids,
+            "person_spm_unit_id": ids,
+            "person_family_id": ids,
+            "person_marital_unit_id": ids,
+            "weekly_hours_worked_before_lsr": np.asarray(weekly, dtype=float),
+            "hours_worked_last_week": np.asarray(last_week, dtype=float),
+        }
+    )
+    tables = {
+        "person": person,
+        "household": pd.DataFrame({"household_id": ids}),
+        "tax_unit": pd.DataFrame({"tax_unit_id": ids}),
+        "spm_unit": pd.DataFrame({"spm_unit_id": ids}),
+        "family": pd.DataFrame({"family_id": ids}),
+        "marital_unit": pd.DataFrame({"marital_unit_id": ids}),
+    }
+    return Frame(
+        tables,
+        US_SCHEMA,
+        {"household": Weights(np.ones(n, dtype=np.float64), WeightKind.DESIGN)},
+    )
+
+
+def _finalize_args(module, tmp_path: Path):
+    staging = tmp_path / "staging.h5"
+    staging.touch()
+    (tmp_path / "staging.summary.json").write_text(
+        json.dumps({"reviewed_limitations": []})
+    )
+    ckpt = tmp_path / "ckpt"
+    ckpt.mkdir(exist_ok=True)
+    (ckpt / "calibration_diagnostics.json").write_text(
+        json.dumps(
+            {"final_loss": 0.1, "initial_loss": 0.5, "mass_conserved_ratio": 1.0}
+        )
+    )
+    ladder = tmp_path / "ladder.npz"
+    ladder.write_bytes(b"ladder-bytes")
+    return module._parse_args(
+        [
+            "--stage",
+            "finalize",
+            "--staging-h5",
+            str(staging),
+            "--checkpoint-dir",
+            str(ckpt),
+            "--out-h5",
+            str(tmp_path / "out.h5"),
+            "--ladder",
+            str(ladder),
+        ]
+    )
+
+
+def _run_finalize(module, monkeypatch, args, frame):
+    import microcosm.build.us_runtime.puma_ladder as puma
+    from microcosm.build.gates import GateResult
+
+    monkeypatch.setattr(puma, "load_us_puma_ladder", lambda *a, **k: None)
+    monkeypatch.setattr(
+        puma,
+        "us_puma_ladder_gate",
+        lambda *a, **k: GateResult(
+            name="us_puma_ladder", passed=True, failures=(), details={}
+        ),
+    )
+    monkeypatch.setattr(module, "spine_composition", lambda *a, **k: {})
+    monkeypatch.setattr(module, "_load_staging_frame", lambda *a, **k: frame)
+    monkeypatch.setattr(
+        module,
+        "_verify_run_identity",
+        lambda a: {"ladder_sha256": module._sha256(a.ladder)},
+    )
+    with pytest.raises(SystemExit) as exc:
+        module.do_finalize(args)
+    report = json.loads(args.gate_report.read_text())
+    return str(exc.value), report
+
+
+def test_do_finalize_hard_fails_on_constant_forty_hours(tmp_path, monkeypatch) -> None:
+    # microcosm#765: an artifact whose usual weekly hours are the engine's
+    # constant-40 default must block packaging via the finalize hard gate.
+    module = _load_tool_module()
+    args = _finalize_args(module, tmp_path)
+    frame = _staging_frame_with_hours([40.0] * 8, [40.0] * 8)
+    message, report = _run_finalize(module, monkeypatch, args, frame)
+    assert "hours_worked_signal" in message
+    assert report["gates"]["hours_worked_signal"]["passed"] is False
+
+
+def test_do_finalize_hours_gate_passes_on_plausible_surface(
+    tmp_path, monkeypatch
+) -> None:
+    module = _load_tool_module()
+    args = _finalize_args(module, tmp_path)
+    weekly = [40.0, 38.0, 20.0, 45.0, 0.0, 0.0, 0.0, 0.0]
+    last_week = [40.0, 35.0, 22.0, 40.0, 0.0, 0.0, 0.0, 5.0]
+    frame = _staging_frame_with_hours(weekly, last_week)
+    _message, report = _run_finalize(module, monkeypatch, args, frame)
+    assert report["gates"]["hours_worked_signal"]["passed"] is True

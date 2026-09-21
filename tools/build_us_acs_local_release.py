@@ -1430,6 +1430,10 @@ def finalize_reviewed_limitations(
 
 
 def do_finalize(args) -> None:
+    from microcosm.build.us_runtime.hours_worked import (
+        US_HOURS_WORKED_POOL_OUTPUT_COLUMNS,
+        us_hours_worked_signal_gate,
+    )
     from microcosm.build.us_runtime.puma_ladder import (
         load_us_puma_ladder,
         us_puma_ladder_gate,
@@ -1461,6 +1465,14 @@ def do_finalize(args) -> None:
     load_us_puma_ladder(args.ladder)
     ladder_gate = us_puma_ladder_gate(households, weights)
     composition = spine_composition(households, frame.table("person"), weights)
+    # microcosm#765: refuse to package an artifact whose usual-weekly-hours
+    # surface is the engine's constant-40 default (or otherwise out of band),
+    # which silently no-ops SNAP's ABAWD and general work-requirement tests.
+    # weeks_worked is dropped from the pool/ACS surface, so scope the gate to
+    # the two hours columns it carries.
+    hours_gate = us_hours_worked_signal_gate(
+        frame, required_columns=US_HOURS_WORKED_POOL_OUTPUT_COLUMNS
+    )
     del frame
     gc.collect()
 
@@ -1489,6 +1501,11 @@ def do_finalize(args) -> None:
             "passed": bool(ladder_gate.passed),
             "failures": list(ladder_gate.failures),
             "detail": dict(ladder_gate.details),
+        },
+        "hours_worked_signal": {
+            "passed": bool(hours_gate.passed),
+            "failures": list(hours_gate.failures),
+            "detail": dict(hours_gate.details),
         },
         "calibration": {
             # The cap criterion alone is near-tautological (the solver clips
@@ -1573,7 +1590,12 @@ def do_finalize(args) -> None:
     limitations = finalize_reviewed_limitations(staging_summary, diagnostics, spine_qa)
     hard_failures = [
         name
-        for name in ("us_puma_ladder_gate", "calibration", "consumer_ready")
+        for name in (
+            "us_puma_ladder_gate",
+            "hours_worked_signal",
+            "calibration",
+            "consumer_ready",
+        )
         if not gates[name]["passed"]
     ]
     updated_summary = dict(staging_summary)
