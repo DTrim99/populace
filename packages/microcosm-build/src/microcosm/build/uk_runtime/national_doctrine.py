@@ -58,7 +58,8 @@ _ALLOWED_SCALE_RULES = ("default_target_loss_scales",)
 # per-run override (its own run-9 receipts show a 9-member family carrying
 # 5.5x the per-reference weight of a 50-member one).
 #
-# Ruling 2026-09-20 (microcosm#823 consolidation): every campaign national
+# María's ruling (2026-09-20, acknowledged on microcosm#965): every campaign
+# national
 # run since v18 has overridden to family_equal at 1,500 epochs — the v20
 # certified-cut posture (spine-s, loss 0.0104, 6/6 seam gates) carried the
 # receipt {epochs 256 → 1500, target_weight_rule uniform → family_equal} —

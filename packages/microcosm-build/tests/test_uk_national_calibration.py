@@ -862,7 +862,7 @@ def test_post_solve_fence_requires_calibrated_kind_and_mass_record() -> None:
 
 
 def test_national_doctrine_constants_are_the_declared_contract() -> None:
-    # Ruling 2026-09-20 (microcosm#823): the certified-cut posture every
+    # María's ruling (2026-09-20, microcosm#965): the certified-cut posture every
     # campaign national run overrode to — 1,500 epochs, family_equal — is
     # the doctrine, so a certified national cut records no overrides.
     assert UK_NATIONAL_SOLVE_EPOCHS == 1500

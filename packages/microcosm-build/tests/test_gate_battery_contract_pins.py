@@ -404,7 +404,12 @@ class TestDenseLineMirrors:
         assembler = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
         spec.loader.exec_module(assembler)
+        from microcosm.data.registry import REGISTRY
+
         assert data_contract._UK_DENSE_DATASET_FILENAME == assembler._DATASET_FILENAME
+        # The reader's leg: the registry's dense variant must name the file
+        # the assembler mints and the contract reads (the #900 class).
+        assert REGISTRY[("uk", 2025, "dense")].filename == assembler._DATASET_FILENAME
         assert (
             data_contract._UK_DENSE_DATASET_FILENAME == "microcosm_uk_2024_25_dense.h5"
         )

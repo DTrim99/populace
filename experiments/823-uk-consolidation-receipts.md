@@ -6,11 +6,14 @@ Comparison run: `tools/build_uk_rowwise_candidate.py --release-role national` on
 v20 inputs — spine-s (`4d9752fdcd92…`, 175,920,391 bytes), Chronicle feed
 `c5e5bf8` (facts `6d039dd869dc…`, manifest `20ac5d22e7d8…`), the committed feed
 pin — under the ruled doctrine (1,500 epochs, `family_equal`, learning rate 0.02,
-seed 0) with no solve flags, `--staging-local-only`; code = the B3 tip plus the
-signed self-employment 20-30k deferral (`90bdb809`, cherry-picked as `3828183c`,
-`git_dirty` false, engine 2.98.0). Output
-`data/ukds/acceptance/823-consolidation/national-v20-twin/` (attempt id in its
-build record). Reference: `runs/uk-623-first-calibrated/spine-assessment-v20/`
+seed 0) with no solve flags, `--staging-local-only`; code = `eba0e152` (the
+retirement commit, this PR's head minus the receipts commit) plus the signed
+self-employment 20-30k deferral (`90bdb809`, cherry-picked as `3828183c`,
+`git_dirty` false, engine 2.98.0) — the deferral is not in this PR (it is the
+v20 branch's own commit) and without it the target-fit gate blocks while the
+weights still compare, so the same inputs on the bare head are unverified past
+the gate. Output `data/ukds/acceptance/823-consolidation/national-v20-twin/`,
+attempt id `uk-frs-calibration-attempt-20260920T165920Z-5acd7515`. Reference: `runs/uk-623-first-calibrated/spine-assessment-v20/`
 (`uk-frs-calibration-attempt-20260918T174754Z-3f928f19`, built by the retired
 `tools/calibrate_uk_national_dataset.py` with `--epochs 1500
 --target-weight-rule family_equal`).

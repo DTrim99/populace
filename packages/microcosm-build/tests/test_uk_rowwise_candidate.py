@@ -6,6 +6,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import shutil
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -2618,9 +2619,30 @@ def test_size_candidate_checkpoints_before_the_draw_and_resumes_from_it(
     )
     assert "written_at" not in resumed_receipt
 
+    # ---------------------------------------------------------------------------
+    # Staging: telemetry to runs/<run_id>/ and the staged dataset bundle.
 
-# ---------------------------------------------------------------------------
-# Staging: telemetry to runs/<run_id>/ and the staged dataset bundle.
+    # A checkpoint written before the release role existed (no release_role
+    # in its identity) refuses to resume: the identity is the run's
+    # contract, and a pre-role checkpoint is rebuilt, never grandfathered.
+    legacy = tmp_path / "legacy"
+    shutil.copytree(first, legacy)
+    legacy_manifest = json.loads(
+        (legacy / SIZE_CHECKPOINT_MANIFEST_FILENAME).read_text()
+    )
+    del legacy_manifest["identity"]["release_role"]
+    (legacy / SIZE_CHECKPOINT_MANIFEST_FILENAME).write_text(json.dumps(legacy_manifest))
+    with pytest.raises(ValueError, match="release_role: absent in checkpoint"):
+        builder.main(
+            [
+                *common,
+                "--out",
+                str(tmp_path / "from-legacy"),
+                "--resume-size-checkpoint",
+                str(legacy),
+            ]
+        )
+    assert not (tmp_path / "from-legacy" / builder.MANIFEST_FILENAME).exists()
 
 
 def _load_tool(name: str):
@@ -3426,6 +3448,10 @@ def test_release_role_supplies_the_solve_defaults(tmp_path) -> None:
     explicit = builder._parse_args(_role_argv(tmp_path, "national", "--epochs", "5"))
     assert explicit.epochs == 5
     assert explicit._explicit_arguments == frozenset({"epochs"})
+    # The doctrine's own seed may be spelled out; only another seed is refused.
+    builder._validate_cli_args(
+        builder._parse_args(_role_argv(tmp_path, "national", "--seed", "0"))
+    )
 
 
 @pytest.mark.parametrize(
@@ -3472,6 +3498,7 @@ def test_dense_role_requires_the_ladder(tmp_path) -> None:
         (["--resume-size-checkpoint", "dir"], "--resume-size-checkpoint"),
         (["--sample-fraction", "0.1"], "--sample-fraction"),
         (["--sample-seed", "9"], "--sample-seed"),
+        (["--seed", "7"], "--seed != doctrine 0"),
         (["--target-weight-rule", "grain_equal"], "--target-weight-rule grain_equal"),
     ],
 )

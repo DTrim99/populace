@@ -229,7 +229,10 @@ requires the manifest's `staging_delivery` receipt and copies it into
 `build_manifest.json` as `staging`, where publication reads it. A dense run
 built before this lane carries no receipt; `--allow-missing-staging` assembles
 it with a recorded disabled-staging opt-out naming the override, the same
-posture publication's `--allow-missing-staging` grants.
+posture publication's `--allow-missing-staging` grants. Since microcosm#823 the
+pre-flight and the assembler check the manifest's `release_role` before that
+override, so a run built before the release role existed is refused on the
+role and is rebuilt, never grandfathered.
 
 ## Smoke verification
 
