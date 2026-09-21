@@ -95,8 +95,10 @@ and both sides are scored on the same frozen register.
 - `microcosm_uk_2024_25.terminal_gates.json`
 - `calibration_diagnostics.json`
 - `national_target_registry.json`
+- `national_contract_registry.json`
 - `rowwise_candidate_manifest.json`
-- `score_vs_enhanced_frs.json`
+- `score_vs_incumbent.json` (the build's own when run with `--incumbent-h5`;
+  the manifest's `evaluation` block records its verdict)
 - `logbook-spool/` (one row for the attempt, whatever its disposition)
 
 Acceptance follows #578: the candidate must not regress incumbent battery

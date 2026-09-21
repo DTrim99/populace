@@ -37,15 +37,31 @@ uv run --no-sync python tools/build_uk_rowwise_candidate.py --release-role natio
   --ledger-facts <ledger-consumer-facts> \
   --ledger-facts-sha256 <ledger-facts-sha256> \
   --ledger-manifest-sha256 <ledger-manifest-sha256> \
+  --incumbent-h5 <incumbent-h5> \
+  --incumbent-sha256 <incumbent-h5-sha256> \
   --out <candidate-dir>
 ```
+
+`--incumbent-h5` (with its digest; `--incumbent-label` names it, default
+`enhanced_frs_2024_25`) makes the build evaluate the finished candidate
+against the incumbent after the bundle is staged: `score_vs_incumbent.json`
+lands beside the outputs with the rule-1 verdict, rows the incumbent cannot
+materialize are pruned from both arms and named on stderr, the receipt rides
+the staging telemetry as `artifacts/score_vs_incumbent.json`, and the manifest
+records `evaluation` (`status`, `verdict`, `rule_1`, `scored_surface`,
+`pruned_measures`). The evaluation never blocks the build: an error is
+recorded as `status: error` and warned. Without the flags the manifest says
+`not_requested`, and the certifier has no receipt to read until the candidate
+is scored by hand.
 
 The role's doctrine is the campaign posture (1,500 epochs, `family_equal`,
 learning rate 0.02, seed 0): a certified cut passes no solve flags and records
 no overrides. It writes `microcosm_uk_2024_25.h5`,
 `calibration_diagnostics.json`, `build_record.json`,
-`microcosm_uk_2024_25.terminal_gates.json`, `national_target_registry.json`
-and `rowwise_candidate_manifest.json` into `<candidate-dir>`. The build
+`microcosm_uk_2024_25.terminal_gates.json`, `national_target_registry.json`,
+`national_contract_registry.json` (the full compiled register the scoring
+surface takes its band edges from) and `rowwise_candidate_manifest.json`
+into `<candidate-dir>`. The build
 record's id has the form
 `uk-frs-calibration-attempt-<YYYYMMDDTHHMMSSZ>-<uuid8>`; assembly derives the
 per-cut tag from that suffix.

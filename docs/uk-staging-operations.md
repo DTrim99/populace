@@ -200,7 +200,13 @@ code or Logbook disposition. The telemetry run declares two reviewed
 artifacts, `artifacts/staged_dataset.json` (the same block) and
 `artifacts/fit_summary.json` (loss, fit by family, gate verdicts, the size
 receipt without its per-row arrays), so a run in the dashboard points at its
-bundle.
+bundle. A national run given `--incumbent-h5` adds a third,
+`artifacts/score_vs_incumbent.json`: the rule-1 score receipt against the
+incumbent on the surface both can materialize, produced after the bundle is
+staged and before the telemetry completes, with the rows the incumbent cannot
+materialize pruned from both arms and listed; the manifest's `evaluation`
+block records its verdict, and the release-cut certifier requires that
+verdict to be `passed`.
 
 Re-stage a finished directory, including runs built before this lane existed
 or whose upload failed, with:

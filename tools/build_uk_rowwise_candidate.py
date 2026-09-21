@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import importlib
 import json
 import shutil
 import subprocess
@@ -73,6 +74,7 @@ from microcosm.build.staging_dataset import (
     StagedDatasetBundle,
     disabled_staged_dataset,
     local_only_staged_dataset,
+    parse_sha256sums,
     refresh_sha256sums_entry,
     stage_bundle,
     write_sidecars,
@@ -178,6 +180,8 @@ LOCAL_REGISTRY_FILENAME = "local_target_registry.json"
 #: National-role outputs (the calibration seam's evidence shape).
 BUILD_RECORD_FILENAME = "build_record.json"
 NATIONAL_REGISTRY_FILENAME = "national_target_registry.json"
+NATIONAL_CONTRACT_REGISTRY_FILENAME = "national_contract_registry.json"
+SCORE_RECEIPT_FILENAME = "score_vs_incumbent.json"
 DENSE_REFERENCE_DIAGNOSTICS_FILENAME = "dense_reference_diagnostics.csv"
 DATASET_SIZE_SELECTION_FILENAME = "dataset_size_selection.csv"
 
@@ -784,6 +788,26 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "National role only: allow a Ledger artifact whose feed commit is "
             "not the committed Chronicle pin (development runs)."
         ),
+    )
+    parser.add_argument(
+        "--incumbent-h5",
+        type=Path,
+        help=(
+            "National role only: the incumbent dataset the finished candidate "
+            "is evaluated against (microcosm#578 rule 1 on the surface both "
+            "can materialize). The evaluation runs after the bundle is staged "
+            "and never blocks the build; its receipt is what the release-cut "
+            "certifier reads."
+        ),
+    )
+    parser.add_argument(
+        "--incumbent-sha256",
+        help="National role only: the incumbent's SHA-256, verified before it is read.",
+    )
+    parser.add_argument(
+        "--incumbent-label",
+        default="enhanced_frs_2024_25",
+        help="National role only: the incumbent's label in the score receipt.",
     )
     parser.add_argument("--release-candidate", action="store_true")
     parser.add_argument(
@@ -1832,6 +1856,7 @@ def _national_dry_run(args: argparse.Namespace) -> int:
             ),
         ),
         "engine": "not_run",
+        "incumbent": _incumbent_arguments(args),
         "releasable": False,
     }
     print(_json_text(plan))
@@ -1858,6 +1883,7 @@ def _run_national_role(args: argparse.Namespace) -> int:
         raise ValueError(f"--out must be a directory path, got {out_dir}.")
     input_artifact = _artifact_info(input_h5)
     _verify_requested_pin("--input-h5", input_artifact, requested=args.input_sha256)
+    incumbent = _incumbent_arguments(args)
     # The attempt id is minted before telemetry opens so the staging run id
     # and the Logbook row agree, as on the dense role.
     build_id = new_uk_calibration_attempt_id(timestamp=datetime.now(UTC))
@@ -1871,6 +1897,7 @@ def _run_national_role(args: argparse.Namespace) -> int:
             input_artifact=input_artifact,
             build_id=build_id,
             telemetry=telemetry,
+            incumbent=incumbent,
         )
     except BaseException as error:
         _fail_staging_telemetry(telemetry, error)
@@ -1886,6 +1913,7 @@ def _run_national_attempt(
     input_artifact: Mapping[str, Any],
     build_id: str,
     telemetry: StagingTelemetryV2 | None,
+    incumbent: Mapping[str, Any] | None = None,
 ) -> int:
     _stage(
         telemetry,
@@ -1925,6 +1953,10 @@ def _run_national_attempt(
     # The frozen register is the scorer's input: the same artifact this run
     # solved against, by content hash.
     inputs["national_registry"].to_json(output_paths["national_registry"])
+    # The full compiled register beside it: the band edges a pruned scoring
+    # surface must never redraw (#803), for the end-of-build evaluation and
+    # for a re-score by hand (--band-edge-registry-json).
+    inputs["band_edge_registry"].to_json(output_paths["contract_registry"])
     resolver = UKMeasureResolver(
         simulation_source=input_h5,
         scratch_dir=out_dir,
@@ -1970,8 +2002,22 @@ def _run_national_attempt(
             telemetry=telemetry,
         )
 
+    def evaluate() -> None:
+        # After the bundle is staged (the evaluation never blocks staging),
+        # before the telemetry completes (the receipt rides it as an artifact).
+        evidence["evaluation"] = _evaluate_against_incumbent(
+            args,
+            incumbent=incumbent,
+            inputs=inputs,
+            output_paths=output_paths,
+            telemetry=telemetry,
+            calibration_year=calibration_year,
+            out_dir=out_dir,
+        )
+
     def finalize_staging() -> None:
         publish_manifest()
+        evaluate()
         _finalize_staging_telemetry(args, telemetry)
 
     def event_callback(stage_id: str, status: str, details: Mapping[str, Any]) -> None:
@@ -2021,6 +2067,7 @@ def _run_national_attempt(
     )
     if telemetry is None:
         publish_manifest()
+        evaluate()
     manifest = evidence["manifest"]
     # The seam rewrote its record with the delivery summary after the
     # finalizer; the manifest binds the record as it now is.
@@ -2031,11 +2078,18 @@ def _run_national_attempt(
     }
     manifest["staging_delivery"] = _staging_delivery(telemetry)
     manifest["staged_dataset"] = evidence["staged_dataset"]
+    evaluation = evidence.get("evaluation", {"status": "not_requested"})
+    manifest["evaluation"] = evaluation
+    if evaluation.get("status") == "completed":
+        manifest["outputs"]["score_receipt"] = evaluation["receipt"]
     _replace_manifest(output_paths["manifest"], manifest)
     if (out_dir / SHA256SUMS_FILENAME).is_file():
         # The uploaded copies list the files as uploaded; the local sums
-        # list the record and the manifest as they now are, evidence included.
+        # list the record, the receipt and the manifest as they now are,
+        # evidence included.
         refresh_sha256sums_entry(out_dir, paths.build_record_json.name)
+        if evaluation.get("status") == "completed":
+            _list_sha256sums_entry(out_dir, output_paths["score_receipt"].name)
         refresh_sha256sums_entry(out_dir, output_paths["manifest"].name)
     print(_json_text(manifest))
     return 0
@@ -2110,6 +2164,7 @@ def _national_manifest(
         "build_record": _artifact_info(build_record_path),
         "terminal_gate_report": _artifact_info(output_paths["terminal_gates"]),
         "national_target_registry": _artifact_info(output_paths["national_registry"]),
+        "national_contract_registry": _artifact_info(output_paths["contract_registry"]),
     }
     return {
         "schema_version": 4,
@@ -4524,6 +4579,8 @@ def _refuse_national_role_arguments(
         refused.append("--target-loss-cap")
     if args.allow_unpinned_feed:
         refused.append("--allow-unpinned-feed")
+    if args.incumbent_h5 is not None or args.incumbent_sha256 is not None:
+        refused.append("--incumbent-h5/--incumbent-sha256")
     if args.target_weight_rule not in posture.allowed_target_weight_rules:
         refused.append(f"--target-weight-rule {args.target_weight_rule}")
     if refused:
@@ -4531,6 +4588,160 @@ def _refuse_national_role_arguments(
             "--release-role dense refuses the national role's arguments: "
             + ", ".join(refused)
         )
+
+
+def _load_candidate_evaluator(importer=importlib.import_module):
+    """The common-surface scorer (microcosm#967), loaded when an incumbent is given.
+
+    Lazy so the driver imports without it; a build asked to evaluate refuses
+    up front, before any solve, when the scorer is not in the tree.
+    """
+
+    try:
+        return importer("microcosm.build.uk_runtime.candidate_score")
+    except ImportError as error:
+        raise ValueError(
+            "--incumbent-h5 needs the common-surface scorer (microcosm#967): "
+            "microcosm.build.uk_runtime.candidate_score is not in this tree."
+        ) from error
+
+
+def _incumbent_arguments(args: argparse.Namespace) -> dict[str, Any] | None:
+    """The national role's optional incumbent, pinned and verified up front."""
+
+    if args.incumbent_h5 is None and args.incumbent_sha256 is None:
+        return None
+    if args.incumbent_h5 is None or args.incumbent_sha256 is None:
+        raise ValueError(
+            "--incumbent-h5 and --incumbent-sha256 must be given together."
+        )
+    _load_candidate_evaluator()
+    incumbent_h5 = _require_file(args.incumbent_h5, label="--incumbent-h5")
+    info = _artifact_info(incumbent_h5)
+    _verify_requested_pin("--incumbent-h5", info, requested=args.incumbent_sha256)
+    return {
+        "path": str(incumbent_h5),
+        "sha256": info["sha256"],
+        "bytes": info["bytes"],
+        "label": str(args.incumbent_label),
+    }
+
+
+def _list_sha256sums_entry(out_dir: Path, name: str) -> None:
+    """List a file the build wrote after the sidecars in the local sums."""
+
+    sums_path = out_dir / SHA256SUMS_FILENAME
+    entries = parse_sha256sums(sums_path.read_text(encoding="utf-8"))
+    if name in {listed for _, listed in entries}:
+        refresh_sha256sums_entry(out_dir, name)
+        return
+    digest = _artifact_info(out_dir / name)["sha256"]
+    sums_path.write_text(
+        sums_path.read_text(encoding="utf-8") + f"{digest}  {name}\n",
+        encoding="utf-8",
+    )
+
+
+def _evaluate_against_incumbent(
+    args: argparse.Namespace,
+    *,
+    incumbent: Mapping[str, Any] | None,
+    inputs: Mapping[str, Any],
+    output_paths: Mapping[str, Path],
+    telemetry: StagingTelemetryV2 | None,
+    calibration_year: int,
+    out_dir: Path,
+) -> dict[str, Any]:
+    """Score the finished candidate against the incumbent; never fail the build.
+
+    Runs after the staged bundle is on the Hub and before the telemetry
+    completes, so the receipt rides the run as a reviewed artifact. Rows the
+    incumbent cannot materialize are pruned from both arms and warned about
+    by name; the verdict (microcosm#578 rule 1 on the common surface) is
+    what the release-cut certifier requires to be ``passed``. An error is
+    recorded and warned, never raised: staging and the exit code stand.
+    """
+
+    if incumbent is None:
+        return {
+            "status": "not_requested",
+            "note": (
+                "no --incumbent-h5: the rule-1 score receipt the release-cut "
+                "certifier needs was not produced; score the candidate with "
+                "tools/score_uk_national_candidate.py before certification."
+            ),
+        }
+    _stage(
+        telemetry,
+        "incumbent_evaluation",
+        "started",
+        incumbent_sha256=incumbent["sha256"],
+    )
+    candidate = _artifact_info(output_paths["dataset"])
+    try:
+        module = _load_candidate_evaluator()
+        score = module.evaluate_uk_candidate_against_incumbent(
+            candidate_h5=output_paths["dataset"],
+            incumbent_h5=Path(incumbent["path"]),
+            candidate_sha256=candidate["sha256"],
+            incumbent_sha256=incumbent["sha256"],
+            target_registry=inputs["national_registry"],
+            calibration_year=calibration_year,
+            measure_resolver_factory=module._default_measure_resolver_factory(
+                out_dir, calibration_year
+            ),
+            candidate_label=output_paths["dataset"].stem,
+            incumbent_label=incumbent["label"],
+            band_edge_registry=inputs["band_edge_registry"],
+        )
+        atomic_write_json(output_paths["score_receipt"], score)
+    except Exception as error:  # noqa: BLE001 - the evaluation never fails a finished build
+        message = f"{type(error).__name__}: {error}"[:600]
+        print(
+            f"warning: the incumbent evaluation failed ({message}); the build's "
+            "evidence and staging are unaffected, and the candidate cannot be "
+            "certified until it is re-scored with "
+            "tools/score_uk_national_candidate.py.",
+            file=sys.stderr,
+            flush=True,
+        )
+        _stage(telemetry, "incumbent_evaluation", "failed", error=message)
+        return {
+            "status": "error",
+            "error": message,
+            "incumbent": dict(incumbent),
+            "receipt": None,
+        }
+    warning = module.pruned_warning(score)
+    if warning is not None:
+        print(warning, file=sys.stderr, flush=True)
+    evaluation = score["evaluation"]
+    pruned = score["incumbent_unresolvable_pruned"]
+    _add_staging_artifact(
+        telemetry,
+        "score_vs_incumbent",
+        score,
+        artifact_kind="aggregate_diagnostics",
+        classification="aggregate",
+    )
+    _stage(
+        telemetry,
+        "incumbent_evaluation",
+        "completed",
+        verdict=evaluation["verdict"],
+        n_scored=int(evaluation["scored_surface"]["n_scored"]),
+        n_pruned=int(evaluation["scored_surface"]["n_pruned"]),
+    )
+    return {
+        "status": "completed",
+        "verdict": evaluation["verdict"],
+        "rule_1": dict(evaluation["rule_1"]),
+        "scored_surface": dict(evaluation["scored_surface"]),
+        "pruned_measures": list(pruned["measures"]),
+        "pruned_families": dict(pruned["families"]),
+        "receipt": _artifact_info(output_paths["score_receipt"]),
+        "incumbent": dict(incumbent),
+    }
 
 
 def _output_paths(
@@ -4550,6 +4761,8 @@ def _output_paths(
             "build_record": out_dir / BUILD_RECORD_FILENAME,
             "terminal_gates": out_dir / posture.gate_report_filename(vintage),
             "national_registry": out_dir / NATIONAL_REGISTRY_FILENAME,
+            "contract_registry": out_dir / NATIONAL_CONTRACT_REGISTRY_FILENAME,
+            "score_receipt": out_dir / SCORE_RECEIPT_FILENAME,
         }
     return {
         "dataset": dataset,
