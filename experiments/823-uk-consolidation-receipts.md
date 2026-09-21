@@ -153,3 +153,54 @@ adaptations, the export allow-list and dataset name, the two input-mass
 breaches and the two stale exclusions, the two all-zero columns and the negative
 consumption values. Assembly and the inspect publication wait on a green
 certification and her go.
+
+## R4 — the release-cut battery on the R3 candidate with the certifier-evidence fixes (2026-09-21)
+
+María's direction (2026-09-21): retire the stale exclusions, fix the fit-weight
+records, give the coverage engine an enum-domain method, evaluate the
+spine-stage contract on the spine's importance weights and the calibration
+checks on the calibrated weights, and retire `hmrc_cgt_gains` from the June
+path. Code: the four commits pushed to PR #967 (`447a24bd` stale exclusions,
+`f6b8ce0c` June CGT family + pass-through semantics, `e77cc65c` enum-domain
+accessor + build-state half on the spine frame + `--spine-sha256`, `dc42375b`
+fit-weight collector), picked onto the scratch branch `uk-823-rehearsal-eval`
+(never pushed) as `7222f78a`, `fd358654`, `be818e8e`, `d07ac0e7` on top of R3's
+`d45e91be`.
+
+**Certification.** The same candidate and inputs as R3 (candidate
+`5b88e4accbb1…`, spine-s `4d9752fdcd92…` now pinned by `--spine-sha256`, feed
+`c5e5bf8`, the accepted input-mass reference, the R3 score receipt), outputs
+written beside R3's as `microcosm_uk_2024_25.release_cut_gates.r4.json` (sha
+`802290cefe08…`). Attempt
+`uk-frs-release-certification-attempt-20260921T185339Z`, 18:53Z → 19:09Z
+(16 minutes; R3 took 71), the 20-gate release-cut battery: **15 passed, 4
+failed, 1 evidence absent**, `GateBatteryBlockedError` at the terminal phase,
+no certification composed. Against R3:
+
+- `uk_release_input_coverage` failed → **passed**: the family build-state half
+  read the spine frame (`details.family_build_state_frame: "spine"`), so the
+  13 weight-kind failures are gone, and the 6 mass-record failures are gone
+  with the invented E5 reasons (five families now `weights_pass_through`) and
+  the retired June CGT family. The column and effective-mass halves still
+  read the calibrated release frame.
+- `uk_uc_deduction_combination_enum_domain` and
+  `uk_student_loan_plan_enum_domain` failed-closed → **passed**: one column
+  each checked against the engine's enum domain through the new accessor,
+  zero invalid values.
+- `uk_input_mass_parity` still fails, now on the two breaches alone
+  (`dfe_education_spending` +187,609 %, `jsa_income_reported` +909 %):
+  `stale_exclusions: []`, `expired_exclusions: []`, reviewed exclusions `{}`.
+- `uk_weights_audit` still evidence-absent (`fit_weight_records`): the
+  collector fix lands in the spine builder, so the evidence appears only in a
+  spine built from `dc42375b` onward; spine-s cannot be retrofitted.
+- Unchanged: `uk_export_surface` (June allow-list and
+  `UK_CANDIDATE_DATASET_NAME`), `uk_degenerate_release_surface` (two all-zero
+  columns), `uk_nonnegative_columns` (239 negative
+  `housing_water_and_electricity_consumption` values). The twelve R3 passes
+  still pass.
+
+The certifier-evidence group from R3 is closed except for the spine rebuild.
+What blocks a certified cut is now entirely María's calls: the export
+allow-list and dataset name, the two input-mass breaches, the two all-zero
+columns, the negative consumption values, and a spine rebuild for the weights
+audit.
