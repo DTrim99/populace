@@ -62,14 +62,94 @@ Same inputs, code and doctrine as R1, remote staging on at the driver's default
   digest-verified and the fetched H5 is byte-equal to the local one (the copy
   was deleted after the check).
 
-## R3 — certification of the cut (not run)
+## R3 — the end-of-build evaluation and the first release-cut certification (2026-09-21)
 
-The plan's step 3 scores the candidate against the eFRS 1.57.3 copy on the run's
-frozen register with `tools/score_uk_national_candidate.py`. That scorer refuses
-a register it cannot materialize on both sides, and 119 of the 638 targets are
-unresolvable on the incumbent (the v20 head-to-head used the evaluation repo's
-pass-2 scorer, which prunes them, receipted in its run). A repository-native
-certification of a national cut therefore still needs a reviewed common
-register or a pruning scorer in this repository; certification, assembly and
-the inspect publication wait on that (and on María's go for anything that
-reaches `releases/`).
+María's direction (2026-09-21): certify national candidates; warn loudly, naming
+every measure absent on the incumbent, instead of refusing; evaluate at the end
+of every national build without blocking staging; never publish on an unpassed
+evaluation. Code: scratch branch `uk-823-rehearsal-eval` (never pushed) = this
+branch's `acd93c12` (the driver hook, PR #965) + PR #967's `92edabdd`,
+`e0d80c37`, `4173ab38` (the v20 deferral, the scoring-route fix, the six A16
+retirements) + `9f81db51`/`a58b6c29` (the common-surface scorer, #967) + the
+certifier pin fix (#967 `3f2fe52d`, picked as `d45e91be`).
+
+**Build.** `tools/build_uk_rowwise_candidate.py --release-role national` on
+spine-s (`4d9752fdcd92…`) and feed `c5e5bf8`, no solve flags (1,500 epochs,
+`family_equal`, learning rate 0.02, seed 0; override receipt `{}`),
+`--staging-local-only`, `--incumbent-h5` the enhanced FRS 1.57.3 copy
+(`ef34c1ae2821…`, label `enhanced_frs_2024_25_v1_57_3`). Attempt
+`uk-frs-calibration-attempt-20260921T152658Z-6609d768`, 15:26:47Z → 15:35:30Z
+(8m43s including the evaluation), exit 0. 644 targets (v20's 638 plus the six
+retired A16 rows), 52,846 households, final loss 0.010453, max absolute relative
+error 0.2524 (the signed 20-30k self-employment deferral, inside its window),
+median 0.00109; the six calibration-seam gates passed. Output directory
+`data/ukds/acceptance/823-consolidation/national-eval-rehearsal/`; the full
+compiled register is frozen beside the solve register as
+`national_contract_registry.json`.
+
+**Evaluation.** `score_vs_incumbent.json` (sha `749598dff826…`, listed in the
+sums, `outputs.score_receipt`, manifest `evaluation` block; telemetry events
+`dataset_staging` < `incumbent_evaluation` < `complete`). Verdict **passed**:
+candidate full loss 0.009559 against the incumbent's 0.212540; 501 candidate
+wins to 23 on the 524 common targets (register `2331a9386a2e`). 120 targets
+pruned from both arms and named on stderr, as the v21 head-to-head had them:
+`dwp_universal_credit` 93, `dwp_two_child_limit` 15, `ons_household_composition`
+10, `hmrc_cgt` 2, over six measures the enhanced FRS never carried
+(`benunit.uc_calibration_administrative_family_type`, `…_child_count`,
+`…_has_child_under_one`, `benunit.uc_tcl_affected_benunit_proxy`,
+`household.ons_household_type`, `person.capital_gains_asset_type`). One defect
+surfaced: the telemetry copy of the receipt was refused as a record array (the
+per-target drift list), so this run's telemetry carries no `score_vs_incumbent`
+artifact; fixed on this branch as `6104926e` (the staged copy keeps the
+verdict, the pruned block and the aggregates and drops the arrays).
+
+**Certification.** `tools/certify_uk_release_cut.py` with the spine H5, the
+feed, the accepted input-mass reference
+(`686-spine-swap/uk_input_mass_reference_2024_25_v1_56_16.json`) and the
+receipt. The first attempt refused before any gate ran: the certifier's Logbook
+pin roles carried a digest without `size_bytes`, so it had never run end to end
+(fixed on #967 as `3f2fe52d`, with a stub-battery test). The second attempt
+(`uk-frs-release-certification-attempt-20260921T153934Z`, 15:39Z → 16:50Z) ran
+the 20-gate release-cut battery: **12 passed, 7 failed, 1 evidence absent**,
+`GateBatteryBlockedError`, no certification composed (error receipt under
+`logbook-receipts/`). Passed: `uk_aggregate_admin`, the three Ledger compile
+parity gates, `uk_qrf_tail_concentration`, `uk_release_family_build_stages`,
+`uk_release_input_coverage_manifest_current`, `uk_support`,
+`uk_take_up_signal`, `uk_target_surface`, `uk_target_surface_local_default_2025`,
+`uk_uc_capital_coherence`. The rest fall into three groups:
+
+- *Certifier evidence adaptation, not the candidate.* `uk_release_input_coverage`
+  (19 failures over 13 stage families: 13 "final household weights have kind
+  'calibrated', expected reviewed kind 'importance'" and 6 "lacks the reviewed
+  mass-conserving MassChangeRecord": the gate re-evaluates stage-boundary
+  expectations on the calibrated frame). `uk_uc_deduction_combination_enum_domain`
+  and `uk_student_loan_plan_enum_domain` fail closed with
+  `'PolicyEngineUKCoverageEngine' object has no attribute '_variable'`: the
+  evaluator (`battery_bindings.py`) reads `engine._variable(column)` while the
+  certifier supplies the coverage engine, which exposes `variables()`,
+  `variable_entities()` and `default_values()`. `uk_weights_audit` is
+  evidence-absent because spine-s's sidecar carries no `fit_weight_records`
+  block (the rehydration returns `None` for a pre-#757 sidecar).
+- *Stale reviewed registers.* `uk_export_surface` compares against
+  `UK_CANDIDATE_DATASET_NAME = "microcosm_uk_2024"` and the June allow-list: 49
+  exported columns outside the enhanced FRS surface without an entry (person 32,
+  household 12, benunit 5: the `hmrc_spi_*` income components, reported benefit
+  flags, council tax, support-channel and clone ids, source keys), the calibrated
+  weight not exported as `household.household_weight`, and one reference-only
+  column to drop (`person.incapacity_benefit_reported`). `uk_input_mass_parity`:
+  two columns beyond the ±452 % fence (`dfe_education_spending` +187,609 %,
+  `jsa_income_reported` +909 %) and two stale exclusions now within tolerance
+  (`charitable_investment_gifts`, `owned_land`), over 126 checked columns and 65
+  candidate-only ones.
+- *Data findings.* `uk_degenerate_release_surface`: two persisted all-zero
+  columns (`person.incapacity_benefit_reported`, `person.is_in_approved_training`).
+  `uk_nonnegative_columns`: `housing_water_and_electricity_consumption` has 239
+  values below zero (minimum −14,165).
+
+The evaluation path therefore works end to end and the receipt is certifiable
+in shape; the cut does not certify today because the release-cut battery had
+never been run on a candidate of this shape. María's calls: the three certifier
+adaptations, the export allow-list and dataset name, the two input-mass
+breaches and the two stale exclusions, the two all-zero columns and the negative
+consumption values. Assembly and the inspect publication wait on a green
+certification and her go.
