@@ -704,6 +704,21 @@ def _receipt(kwargs, *, verdict="passed", pruned_measures=()):
         "candidate_target_wins": 1,
         "incumbent_target_wins": 0,
         "register": {"n_specs": 1},
+        # Record arrays the reviewed telemetry artifact must not carry.
+        "target_drift": [
+            {
+                "target": "dwp.uc.households@2025",
+                "family": "dwp_universal_credit",
+                "candidate_relative_error": 0.01,
+                "incumbent_relative_error": 0.2,
+                "winner": "candidate",
+            }
+        ],
+        "signed_asymmetries": [{"id": "incumbent_own_registry", "description": "…"}],
+        "measure_resolution": {
+            "candidate": {"rounds": [{"round": 0}]},
+            "incumbent": None,
+        },
         "incumbent_unresolvable_pruned": {
             "n_pruned": n_pruned,
             "n_scored": 1,
@@ -945,6 +960,15 @@ def test_uk_national_role_evaluates_after_staging_the_bundle(
     artifacts = out / "staging" / "runs" / run_id / "artifacts"
     staged_receipt = json.loads((artifacts / "score_vs_incumbent.json").read_text())
     assert staged_receipt["evaluation"]["verdict"] == "passed"
+    # The staged copy keeps the verdict, the pruned block and the aggregates
+    # and drops the record arrays the reviewed-artifact policy refuses; the
+    # full receipt is beside the outputs.
+    assert "incumbent_unresolvable_pruned" in staged_receipt
+    assert staged_receipt["candidate_target_wins"] == 1
+    for key in ("target_drift", "signed_asymmetries", "measure_resolution"):
+        assert key not in staged_receipt
+    full_receipt = json.loads((out / "score_vs_incumbent.json").read_text())
+    assert full_receipt["target_drift"][0]["winner"] == "candidate"
     assert calls[0]["candidate_sha256"] == manifest["outputs"]["dataset"]["sha256"]
 
 

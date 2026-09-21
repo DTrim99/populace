@@ -4642,6 +4642,25 @@ def _list_sha256sums_entry(out_dir: Path, name: str) -> None:
     )
 
 
+#: Receipt blocks that are record arrays (lists of mappings): the reviewed
+#: telemetry artifact policy refuses them, and the verdict, the pruned block
+#: and the aggregates carry everything a reviewer reads. The full receipt stays
+#: beside the outputs and in the staged bundle.
+_SCORE_RECEIPT_TELEMETRY_EXCLUDED = (
+    "target_drift",
+    "signed_asymmetries",
+    "measure_resolution",
+)
+
+
+def _score_receipt_telemetry_summary(score: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in score.items()
+        if key not in _SCORE_RECEIPT_TELEMETRY_EXCLUDED
+    }
+
+
 def _evaluate_against_incumbent(
     args: argparse.Namespace,
     *,
@@ -4720,7 +4739,7 @@ def _evaluate_against_incumbent(
     _add_staging_artifact(
         telemetry,
         "score_vs_incumbent",
-        score,
+        _score_receipt_telemetry_summary(score),
         artifact_kind="aggregate_diagnostics",
         classification="aggregate",
     )
