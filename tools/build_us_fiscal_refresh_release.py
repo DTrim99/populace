@@ -5098,26 +5098,51 @@ def _spm_composition_report(frame: Frame) -> CheckResult:
     return check_spm_composition(frame)
 
 
-def _assert_spm_composition(frame: Frame, *, stage: str) -> dict[str, object]:
-    """Refuse an export whose SPM measurement the engine would reject.
+def _spm_composition_gate_failures(
+    frame: Frame, *, stage: str
+) -> tuple[list[str], dict[str, object]]:
+    """The SPM measurement composition as one more batched pre-export gate.
 
     ``reform_validation`` measures the release's 104 state SPM poverty levels on
     one whole-dataset ``Microsimulation``, and one SPM unit with no classified
     adult raises ``SPMInputError("SPM_COMPOSITION_REQUIRED")`` for the *whole
-    population* — a traceback naming neither the unit nor a remedy, arriving
-    after calibration, export and the NPZ write. Raising here instead names the
-    offending units and the fix.
+    population* — a traceback naming neither the unit nor a remedy. This
+    classifies the same composition off the export frame, which exists as soon
+    as the calibrated weights are attached, so the refusal joins the batched
+    pre-export report: named, with every other failing gate, and before the H5
+    and NPZ writes rather than after them.
+
+    Returns the gate's failure lines (empty when the engine would accept this
+    export) and the detail keys its telemetry stage records. It never raises on
+    a frame it cannot classify: an unevaluable export frame is itself one of
+    those failure lines, so the run dies in the tool's ``Release gates failed:``
+    report naming the reason instead of with a bare ``ValueError`` traceback out
+    of the check.
     """
 
-    report = _spm_composition_report(frame)
-    if report.status == "FAIL":
-        raise RuntimeError(
-            f"Release gates failed: SPM measurement composition ({stage}). "
-            + report.summary
-            + " "
-            + " ".join(report.failures)
+    try:
+        report = _spm_composition_report(frame)
+    except (KeyError, ValueError) as error:
+        return (
+            [
+                f"SPM measurement composition failed ({stage}): the export "
+                "frame cannot be classified, so the rule the engine applies to "
+                f"it cannot be checked: {error}"
+            ],
+            {"evaluated": False, "error": str(error)},
         )
-    return dict(report.details)
+    details = {"evaluated": True, **report.details}
+    if report.status != "FAIL":
+        return [], details
+    return (
+        [
+            f"SPM measurement composition failed ({stage}): "
+            + report.summary
+            + ". "
+            + " ".join(report.failures)
+        ],
+        details,
+    )
 
 
 def _with_l0_refit_weights(base_frame: Frame, result) -> Frame:
@@ -10599,13 +10624,13 @@ def _main(argv: Sequence[str] | None = None) -> None:
     # this pool (``attach_l0_refit_entity_weights`` calls ``base_frame.select``),
     # so a pool unit with no classified adult may simply not ship, and a hard
     # refusal here would reject a run that would have succeeded. The exact,
-    # blocking answer is taken on the export frame below. What this buys the
-    # operator is the pool-level number now rather than after the solve: a pool
-    # that carries the defect needs the SPM independence role whether or not
-    # today's selection happens to dodge it.
+    # blocking answer is the batched pre-export gate taken on the export frame
+    # below. What this buys the operator is the pool-level number now rather
+    # than after the solve: a pool that carries the defect needs the SPM
+    # independence role whether or not today's selection happens to dodge it.
     # Advisory means advisory: a pool that cannot be classified at all (no age
     # column, no spm_unit table) must not abort the build from here. The export
-    # frame below is the graded point, and it raises with the same diagnosis.
+    # frame below is the graded point, and it fails with the same diagnosis.
     try:
         base_frame_spm_composition = _spm_composition_report(base_frame)
     except (KeyError, ValueError) as error:
@@ -11401,6 +11426,54 @@ def _main(argv: Sequence[str] | None = None) -> None:
             force_upload=True,
         )
 
+    # SPM measurement composition, as a batched pre-export gate.
+    #
+    # The export frame exists here — it is the calibrated/refit weights attached
+    # to the base support, built before any of this batch's gates — so the
+    # cheapest of them (pure pandas, ~0.05 s on a 900k-person pool) runs first
+    # and its failure joins the same list. That keeps BOTH properties the batch
+    # exists for: the run refuses by name rather than through the engine's
+    # anonymous population-wide SPM_COMPOSITION_REQUIRED, and it refuses with
+    # every other failing pre-export gate on record, before the H5 write and
+    # before the NPZ write, instead of after them.
+    #
+    # It rides the batch like every other pre-export gate, which also means
+    # --evidence-release can convert it into an owned known failure and export
+    # anyway (microcosm#506) — the conversion contract
+    # test_evidence_mode_conversion_is_pinned_structurally enforces on every
+    # terminal raise past the accumulator. Such an export still cannot be
+    # SPM-measured, so reform validation below reaches the engine's own
+    # refusal; that is the declared, owner-checked, manifest-recorded choice an
+    # evidence release makes about any pre-export gate, not a hole here.
+    spm_composition_failures, export_frame_spm_composition = (
+        _spm_composition_gate_failures(export_frame, stage="export frame")
+    )
+    terminal_gate_failures.extend(spm_composition_failures)
+    terminal_batch_telemetry.stage(
+        "export_frame_spm_composition",
+        message="Classified the export frame's SPM measurement composition.",
+        **{
+            key: value
+            for key, value in export_frame_spm_composition.items()
+            if key
+            in (
+                "evaluated",
+                "n_units",
+                "n_units_without_classified_adult",
+                "n_units_without_member_aged_18_or_over",
+                "role_source",
+            )
+        },
+    )
+    if spm_composition_failures:
+        terminal_batch_telemetry.stage(
+            "export_frame_spm_composition",
+            status="failed",
+            message="SPM measurement composition gate failed.",
+            failures=spm_composition_failures,
+            force_upload=True,
+        )
+
     terminal_batch_telemetry.stage(
         "export_dataset",
         message="Writing PolicyEngine-US H5.",
@@ -11653,7 +11726,8 @@ def _main(argv: Sequence[str] | None = None) -> None:
                 failures=list(qrf_tail_gate.failures),
                 force_upload=True,
             )
-    # Batched pre-export raise: the calibration battery, input coverage,
+    # Batched pre-export raise: the calibration battery, SPM measurement
+    # composition, input coverage,
     # export-mass parity, and QRF tail concentration have ALL been evaluated
     # at this point, so one failed
     # run reports every failing pre-export group at once (Build M attempts 9
@@ -11825,38 +11899,6 @@ def _main(argv: Sequence[str] | None = None) -> None:
     _write_npz(calibration_path, result=result, registry=registry)
 
     if not args.skip_reform_validation:
-        # The named refusal, immediately before the engine's anonymous one.
-        #
-        # Placed here rather than at export-frame construction on purpose: the
-        # batched pre-export raise above deliberately evaluates every gate
-        # before raising once, so an earlier raise would destroy that failure
-        # record ("compute is cheaper than a destroyed failure record"). By this
-        # point every pre-export gate has been evaluated and recorded, and the
-        # only thing left to lose is the reform-validation pass itself.
-        if telemetry is not None:
-            telemetry.stage(
-                "export_frame_spm_composition",
-                message="Verifying the export frame's SPM measurement composition.",
-            )
-        export_frame_spm_composition = _assert_spm_composition(
-            export_frame, stage="export frame, before reform validation"
-        )
-        if telemetry is not None:
-            telemetry.stage(
-                "export_frame_spm_composition",
-                message="Export frame SPM measurement composition verified.",
-                **{
-                    key: value
-                    for key, value in export_frame_spm_composition.items()
-                    if key
-                    in (
-                        "n_units",
-                        "n_units_without_classified_adult",
-                        "n_units_without_member_aged_18_or_over",
-                        "role_source",
-                    )
-                },
-            )
         if telemetry is not None:
             telemetry.stage(
                 "reform_validation",

@@ -4367,6 +4367,15 @@ def test_main_writes_diagnostics_before_post_calibration_gate_failure(
             )
 
     class FakeExportFrame:
+        # Household-only, shaped like the real ``Frame`` contract for the same
+        # reason ``FakeFrame`` above is: ``schema`` is always present and
+        # ``table`` raises ``ValueError`` for an entity the schema does not
+        # carry. That is what lets the batched SPM composition gate contribute
+        # one "cannot be classified" failure line to this run's report — the
+        # degraded-mode behaviour this test's cofailure contract expects — with
+        # no attribute the real frame lacks.
+        schema = EntitySchema(group_entities=("household",))
+
         def n(self, entity):
             assert entity == "household"
             return 2
@@ -4379,7 +4388,11 @@ def test_main_writes_diagnostics_before_post_calibration_gate_failure(
             )
 
         def table(self, entity):
-            assert entity == "household"
+            if entity != "household":
+                raise ValueError(
+                    f"Unknown entity {entity!r}; schema declares "
+                    f"{list(self.schema.entities)}."
+                )
             return pd.DataFrame({"household_id": np.asarray([10, 20], dtype="int64")})
 
     if terminal_mode == "puf_tail":
@@ -12356,34 +12369,38 @@ def _spm_frame(people: list[dict]) -> Frame:
     )
 
 
-def test__assert_spm_composition__minor_only_unit__refuses_by_name() -> None:
+def test__spm_composition_gate__minor_only_unit__fails_by_name() -> None:
     """The release must name the unit and the remedy, not re-raise the engine's
     anonymous population-wide ``SPM_COMPOSITION_REQUIRED``."""
     builder = _load_builder_module()
     frame = _spm_frame([{"spm": 1, "age": 40}, {"spm": 2, "age": 16}])
 
-    with pytest.raises(RuntimeError) as error:
-        builder._assert_spm_composition(frame, stage="unit test")
+    failures, details = builder._spm_composition_gate_failures(frame, stage="unit test")
 
-    message = str(error.value)
-    assert "Release gates failed: SPM measurement composition (unit test)" in message
-    assert "SPM_COMPOSITION_REQUIRED" in message
+    assert len(failures) == 1
+    # The batched raise prefixes "Release gates failed: " to the joined lines.
+    assert failures[0].startswith("SPM measurement composition failed (unit test): ")
+    assert "SPM_COMPOSITION_REQUIRED" in failures[0]
     # The single-sourced remedy travels with the refusal.
-    assert "Remedy:" in message
-    assert "spm_unit_id(s): 2" in message
+    assert "Remedy:" in failures[0]
+    assert "spm_unit_id(s): 2" in failures[0]
+    assert details["evaluated"] is True
+    assert details["n_units_without_classified_adult"] == 1
 
 
-def test__assert_spm_composition__every_unit_classified__returns_details() -> None:
+def test__spm_composition_gate__every_unit_classified__contributes_no_failure() -> None:
     builder = _load_builder_module()
     frame = _spm_frame([{"spm": 1, "age": 40}, {"spm": 2, "age": 18}])
 
-    details = builder._assert_spm_composition(frame, stage="unit test")
+    failures, details = builder._spm_composition_gate_failures(frame, stage="unit test")
 
+    assert failures == []
+    assert details["evaluated"] is True
     assert details["n_units"] == 2
     assert details["n_units_without_classified_adult"] == 0
 
 
-def test__assert_spm_composition__source_role_rescues_the_minor() -> None:
+def test__spm_composition_gate__source_role_rescues_the_minor() -> None:
     builder = _load_builder_module()
     frame = _spm_frame(
         [
@@ -12392,10 +12409,49 @@ def test__assert_spm_composition__source_role_rescues_the_minor() -> None:
         ]
     )
 
-    details = builder._assert_spm_composition(frame, stage="unit test")
+    failures, details = builder._spm_composition_gate_failures(frame, stage="unit test")
 
+    assert failures == []
     assert details["role_source"] == "source_column"
     assert details["n_units_without_classified_adult"] == 0
+
+
+def test__spm_composition_gate__unclassifiable_frame__is_a_named_gate_failure() -> None:
+    """A frame the rule cannot read must not kill the build with a bare
+    ``ValueError`` out of the check.
+
+    policyengine-us registers ``age`` as an input-only variable with
+    ``default_value = 40``, so an export carrying no ``age`` column is not a
+    population the engine would refuse — but it is a population this gate
+    cannot vouch for either. It becomes one more line in the tool's batched
+    ``Release gates failed:`` report, naming the reason, rather than a
+    traceback from inside ``check_spm_composition``.
+    """
+    builder = _load_builder_module()
+    frame = _spm_frame([{"spm": 1, "age": 40}])
+    person = frame.table("person").drop(columns=["age"])
+    stripped = Frame(
+        {
+            entity: (person if entity == "person" else frame.table(entity))
+            for entity in frame.entities
+        },
+        frame.schema,
+        {entity: frame.weights_for(entity) for entity in frame.weighted_entities},
+    )
+
+    failures, details = builder._spm_composition_gate_failures(
+        stripped, stage="unit test"
+    )
+
+    assert len(failures) == 1
+    assert failures[0].startswith("SPM measurement composition failed (unit test): ")
+    assert "cannot be classified" in failures[0]
+    assert "no 'age' column" in failures[0]
+    assert details == {
+        "evaluated": False,
+        "error": details["error"],
+    }
+    assert "no 'age' column" in details["error"]
 
 
 def test__spm_composition_report__unclassifiable_frame__raises_for_the_advisory(
@@ -12452,3 +12508,111 @@ def test__spm_composition_report__frame_without_spm_units__raises_for_the_adviso
 
     with pytest.raises(ValueError, match="Unknown entity 'spm_unit'"):
         builder._spm_composition_report(frame)
+
+
+def test_spm_composition_gate_rides_the_batched_pre_export_raise() -> None:
+    """Pin the WIRING, not just the helper.
+
+    Every other test here calls ``_spm_composition_gate_failures`` directly, so
+    deleting its call from ``_main()`` would leave them all green while the
+    release stopped refusing anything. This is the same AST ordering idiom
+    ``test_release_h5_write_sits_between_batched_raise_and_smoke`` uses, and it
+    pins the three properties the placement exists for: the gate is evaluated
+    exactly once, its verdict joins the single batched pre-export failure list,
+    and that raise precedes both the export H5 write and the calibration NPZ
+    write.
+    """
+    import ast
+    import inspect
+
+    builder = _load_builder_module()
+    source = inspect.getsource(builder._main)
+    tree = ast.parse(source)
+
+    gate_calls: list[int] = []
+    extends: list[int] = []
+    batched_raises: list[int] = []
+    writes: list[int] = []
+    npz_writes: list[int] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Raise):
+            segment = ast.get_source_segment(source, node) or ""
+            if "terminal_gate_failures" in segment:
+                batched_raises.append(node.lineno)
+        elif isinstance(node, ast.Call):
+            func = node.func
+            name = (
+                func.attr
+                if isinstance(func, ast.Attribute)
+                else getattr(func, "id", None)
+            )
+            if name == "_spm_composition_gate_failures":
+                gate_calls.append(node.lineno)
+            elif name == "write_dataset":
+                writes.append(node.lineno)
+            elif name == "_write_npz":
+                npz_writes.append(node.lineno)
+            elif name == "extend" and "spm_composition_failures" in (
+                ast.get_source_segment(source, node) or ""
+            ):
+                extends.append(node.lineno)
+
+    assert len(gate_calls) == 1, (
+        "main() must classify the export frame's SPM measurement composition "
+        f"exactly once; found {gate_calls}"
+    )
+    assert len(extends) == 1, (
+        "the gate's verdict must join terminal_gate_failures, or a failing "
+        f"export is exported anyway; found {extends}"
+    )
+    assert len(batched_raises) == 1, batched_raises
+    assert len(writes) == 1, writes
+    assert len(npz_writes) == 1, npz_writes
+    assert gate_calls[0] < extends[0] < batched_raises[0] < writes[0] < npz_writes[0], (
+        "Ordering contract violated: the SPM composition gate "
+        f"({gate_calls[0]}) must be evaluated and extended into the batch "
+        f"({extends[0]}) before the batched pre-export raise "
+        f"({batched_raises[0]}), which must precede the export H5 write "
+        f"({writes[0]}) and the calibration NPZ write ({npz_writes[0]})."
+    )
+
+
+def test_spm_composition_gate_is_not_guarded_by_skip_reform_validation() -> None:
+    """The check needs no engine and no reform-validation machinery.
+
+    ``--skip-reform-validation``'s help is "Do not emit reform_validation.json
+    for this release" — nothing in it suggests it also disables a data-integrity
+    gate. Walking the ``if not args.skip_reform_validation:`` bodies proves the
+    gate call is not inside one, rather than trusting indentation.
+    """
+    import ast
+    import inspect
+
+    builder = _load_builder_module()
+    source = inspect.getsource(builder._main)
+    tree = ast.parse(source)
+
+    skipped_lines: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        if "args.skip_reform_validation" not in (
+            ast.get_source_segment(source, node.test) or ""
+        ):
+            continue
+        for branch in (*node.body, *node.orelse):
+            for inner in ast.walk(branch):
+                if hasattr(inner, "lineno"):
+                    skipped_lines.add(inner.lineno)
+
+    assert skipped_lines, "expected at least one --skip-reform-validation guard"
+    gate_calls = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and getattr(node.func, "id", None) == "_spm_composition_gate_failures"
+    ]
+    assert gate_calls and not skipped_lines.intersection(gate_calls), (
+        "--skip-reform-validation must not disable the SPM composition gate; "
+        f"gate call at {gate_calls} sits inside one of its branches"
+    )
