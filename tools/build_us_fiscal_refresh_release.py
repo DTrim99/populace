@@ -11430,8 +11430,9 @@ def _main(argv: Sequence[str] | None = None) -> None:
     #
     # The export frame exists here — it is the calibrated/refit weights attached
     # to the base support, built before any of this batch's gates — so the
-    # cheapest of them (pure pandas, ~0.05 s on a 900k-person pool) runs first
-    # and its failure joins the same list. That keeps BOTH properties the batch
+    # cheapest of them (pure pandas; the #893 lane journal measured the check at
+    # 0.05 s on the 907k-person phase-2 base pool) runs first and its failure
+    # joins the same list. That keeps BOTH properties the batch
     # exists for: the run refuses by name rather than through the engine's
     # anonymous population-wide SPM_COMPOSITION_REQUIRED, and it refuses with
     # every other failing pre-export gate on record, before the H5 write and

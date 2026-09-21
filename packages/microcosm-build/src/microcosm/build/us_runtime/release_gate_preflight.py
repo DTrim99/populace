@@ -154,11 +154,6 @@ _MAX_REPORTED_SPM_UNITS = 20
 #: is the number that matters at any volume, and it is never capped.
 MAX_REPORTED_SPM_UNITS_HARD_CAP = 100
 
-#: The bands the reported rows describe members by. Exact ages are not needed to
-#: diagnose a zero-classified-adult unit — the rule's own thresholds are 15 and
-#: 18 — and an exact age per member is easier never to emit than to retract.
-_SPM_AGE_BANDS = ("under_15", "15_to_17", "18_plus", "unknown")
-
 #: The single-sourced remedy for a zero-classified-adult SPM unit. The release
 #: tool raises with this same text, so an operator who skipped preflight reads
 #: the identical instruction.
@@ -1032,7 +1027,10 @@ def _spm_composition(frame: Frame, *, unit_entity: str) -> _SPMComposition:
 def _age_band(value: float) -> str:
     """One member's age as a band, never as an exact age.
 
-    The bands are the rule's own thresholds: ``18_plus`` is an adult outright,
+    Exact ages are not needed to diagnose a zero-classified-adult unit, and the
+    rows travel to preflight stdout and ``--json-out`` — an age per member is
+    easier never to emit than to retract. The four bands are the rule's own
+    thresholds: ``18_plus`` is an adult outright,
     ``15_to_17`` is an adult only with the independence role, ``under_15`` can
     never be one, and ``unknown`` is an age that did not read as a number (which
     the comparison treats as not an adult).
