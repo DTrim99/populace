@@ -1459,6 +1459,12 @@ def do_finalize(args) -> None:
     spine_qa = _load_json(args.checkpoint_dir / "spine_qa.json")
     consumer_export = _load_json(args.checkpoint_dir / "consumer_export.json")
 
+    # The hours gate certifies specific artifact bytes. Hash the calibrated
+    # H5 before loading it, so the binding the package stage checks is the
+    # bytes the gate actually evaluated, and refuse if they moved meanwhile.
+    if not args.out_h5.exists():
+        raise SystemExit(f"Calibrated H5 not found: {args.out_h5}.")
+    hours_artifact_sha = _sha256(args.out_h5)
     frame = _load_staging_frame(args.out_h5)
     households = frame.table("household")
     weights = np.asarray(frame.weights_for("household").values, dtype=np.float64)
@@ -1475,6 +1481,11 @@ def do_finalize(args) -> None:
     )
     del frame
     gc.collect()
+    if _sha256(args.out_h5) != hours_artifact_sha:
+        raise SystemExit(
+            "The calibrated H5 changed during hours_worked_signal validation. "
+            "Re-run --stage qa and --stage finalize against the current artifact."
+        )
 
     breakdown: dict[str, int] = {}
     for target in targets:
@@ -1506,6 +1517,7 @@ def do_finalize(args) -> None:
             "passed": bool(hours_gate.passed),
             "failures": list(hours_gate.failures),
             "detail": dict(hours_gate.details),
+            "artifact_sha256": hours_artifact_sha,
         },
         "calibration": {
             # The cap criterion alone is near-tautological (the solver clips

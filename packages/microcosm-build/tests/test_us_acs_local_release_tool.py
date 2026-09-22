@@ -319,6 +319,9 @@ def _finalize_args(module, tmp_path: Path):
     (tmp_path / "staging.summary.json").write_text(
         json.dumps({"reviewed_limitations": []})
     )
+    # finalize hashes the calibrated H5 before loading it; tests that do not
+    # load real bytes still need bytes to hash.
+    (tmp_path / "out.h5").write_bytes(b"invented-finalize-artifact")
     ckpt = tmp_path / "ckpt"
     ckpt.mkdir(exist_ok=True)
     (ckpt / "calibration_diagnostics.json").write_text(
@@ -344,7 +347,9 @@ def _finalize_args(module, tmp_path: Path):
     )
 
 
-def _run_finalize(module, monkeypatch, args, frame):
+def _patch_finalize_collaborators(module, monkeypatch, frame=None, *, identity=True):
+    """Stub the ladder gate and composition; ``frame=None`` loads real bytes."""
+
     import microcosm.build.us_runtime.puma_ladder as puma
     from microcosm.build.gates import GateResult
 
@@ -357,16 +362,44 @@ def _run_finalize(module, monkeypatch, args, frame):
         ),
     )
     monkeypatch.setattr(module, "spine_composition", lambda *a, **k: {})
-    monkeypatch.setattr(module, "_load_staging_frame", lambda *a, **k: frame)
-    monkeypatch.setattr(
-        module,
-        "_verify_run_identity",
-        lambda a: {"ladder_sha256": module._sha256(a.ladder)},
-    )
+    if frame is not None:
+        monkeypatch.setattr(module, "_load_staging_frame", lambda *a, **k: frame)
+    if identity:
+        monkeypatch.setattr(
+            module,
+            "_verify_run_identity",
+            lambda a: {"ladder_sha256": module._sha256(a.ladder)},
+        )
+
+
+def _run_finalize(module, monkeypatch, args, frame=None):
+    _patch_finalize_collaborators(module, monkeypatch, frame)
     with pytest.raises(SystemExit) as exc:
         module.do_finalize(args)
-    report = json.loads(args.gate_report.read_text())
+    report = (
+        json.loads(args.gate_report.read_text()) if args.gate_report.exists() else None
+    )
     return str(exc.value), report
+
+
+def _write_frame_h5(path: Path, frame) -> None:
+    """Write a staging frame as the tool's loader reads it (fixed format)."""
+
+    from microcosm.frame import put_frame_table
+
+    with pd.HDFStore(path, mode="w") as store:
+        for entity in frame.entities:
+            table = frame.table(entity).copy()
+            if entity == "household":
+                table["household_weight"] = frame.weights_for(entity).values
+            put_frame_table(store, entity, table, preferred_format="fixed")
+
+
+def _plausible_hours_frame():
+    return _staging_frame_with_hours(
+        [40.0, 38.0, 20.0, 45.0, 0.0, 0.0, 0.0, 0.0],
+        [40.0, 35.0, 22.0, 40.0, 0.0, 0.0, 0.0, 5.0],
+    )
 
 
 def test_do_finalize_hard_fails_on_constant_forty_hours(tmp_path, monkeypatch) -> None:
@@ -392,23 +425,113 @@ def test_do_finalize_hours_gate_passes_on_plausible_surface(
     assert report["gates"]["hours_worked_signal"]["passed"] is True
 
 
+def test_finalize_binds_the_hours_gate_to_the_calibrated_artifact_bytes(
+    tmp_path, monkeypatch
+) -> None:
+    """The gate entry must carry the digest of the bytes it evaluated."""
+
+    module = _load_tool_module()
+    args = _finalize_args(module, tmp_path)
+    _write_frame_h5(args.out_h5, _plausible_hours_frame())
+    hashed = []
+    original_sha = module._sha256
+
+    def recording_sha(path):
+        result = original_sha(path)
+        if Path(path) == args.out_h5:
+            hashed.append(result)
+        return result
+
+    monkeypatch.setattr(module, "_sha256", recording_sha)
+    loads = []
+    real_load = module._load_staging_frame
+    monkeypatch.setattr(
+        module,
+        "_load_staging_frame",
+        lambda p: (loads.append(len(hashed)), real_load(p))[1],
+    )
+    _message, report = _run_finalize(module, monkeypatch, args)
+    gate = report["gates"]["hours_worked_signal"]
+    assert gate["passed"] is True
+    assert gate["artifact_sha256"] == original_sha(args.out_h5)
+    # Hashed once before the frame was loaded, then re-checked after the gate.
+    assert loads == [1]
+    assert hashed == [gate["artifact_sha256"]] * 2
+
+
+def test_finalize_refuses_artifact_changed_during_hours_validation(
+    tmp_path, monkeypatch
+) -> None:
+    import microcosm.build.us_runtime.hours_worked as hours_worked
+
+    module = _load_tool_module()
+    args = _finalize_args(module, tmp_path)
+    _write_frame_h5(args.out_h5, _plausible_hours_frame())
+    original_gate = hours_worked.us_hours_worked_signal_gate
+
+    def changed_artifact(frame, **kwargs):
+        result = original_gate(frame, **kwargs)
+        args.out_h5.write_bytes(b"different-invented-artifact")
+        return result
+
+    monkeypatch.setattr(hours_worked, "us_hours_worked_signal_gate", changed_artifact)
+    message, report = _run_finalize(module, monkeypatch, args)
+    assert "changed during hours_worked_signal validation" in message
+    assert report is None
+    assert not args.out_summary.exists()
+
+
+def test_finalize_report_round_trips_into_package(tmp_path, monkeypatch) -> None:
+    """A finalize-written report must satisfy the package stage's binding."""
+
+    module = _load_tool_module()
+    args = _finalize_args(module, tmp_path)
+    _write_frame_h5(args.out_h5, _plausible_hours_frame())
+    artifact_sha = module._sha256(args.out_h5)
+    evidence = {
+        "run_identity.json": {
+            "staging_sha256": module._sha256(args.staging_h5),
+            "ladder_sha256": module._sha256(args.ladder),
+            "population_cells_dropped": [],
+        },
+        "spine_qa.json": {
+            "plain_consumption": True,
+            "artifact_sha256": artifact_sha,
+            "per_spine": {},
+        },
+        "consumer_export.json": {"staging_sha256": artifact_sha},
+        "consumer_reviewed_null_fills.json": {"columns_filled": []},
+    }
+    for name, value in evidence.items():
+        (args.checkpoint_dir / name).write_text(json.dumps(value))
+    _patch_finalize_collaborators(module, monkeypatch, identity=False)
+    module.do_finalize(args)
+    report = json.loads(args.gate_report.read_text())
+    assert report["gates"]["hours_worked_signal"]["artifact_sha256"] == artifact_sha
+    assert json.loads(args.out_summary.read_text())["simulation_ready"] is True
+
+    args.out = tmp_path / "release"
+    args.allow_dirty = True
+    result = module.do_package(args)
+    shipped = json.loads(
+        (Path(result["release_dir"]) / "gate_summary.json").read_text()
+    )["gates"]["hours_worked_signal"]
+    assert shipped["passed"] is True
+    assert (
+        shipped["artifact_sha256"]
+        == result["root_artifact"]["sha256"]
+        == module._sha256(Path(result["root_artifact"]["local_path"]))
+        == artifact_sha
+    )
+
+
 def _package_args_with_hours(module, tmp_path, *, gate_state):
     """Real tiny H5 bytes; gate edits model stale separately resumed finalize."""
-    from microcosm.frame import put_frame_table
 
     args = _finalize_args(module, tmp_path)
     args.out = tmp_path / "release"
     args.allow_dirty = True
-    frame = _staging_frame_with_hours(
-        [40.0, 38.0, 20.0, 45.0, 0.0, 0.0, 0.0, 0.0],
-        [40.0, 35.0, 22.0, 40.0, 0.0, 0.0, 0.0, 5.0],
-    )
-    with pd.HDFStore(args.out_h5, mode="w") as store:
-        for entity in frame.entities:
-            table = frame.table(entity).copy()
-            if entity == "household":
-                table["household_weight"] = frame.weights_for(entity).values
-            put_frame_table(store, entity, table, preferred_format="fixed")
+    _write_frame_h5(args.out_h5, _plausible_hours_frame())
     artifact_sha = module._sha256(args.out_h5)
     gate = {"passed": True, "failures": [], "artifact_sha256": artifact_sha}
     if gate_state == "failed":
