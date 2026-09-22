@@ -1,0 +1,1 @@
+Refuse to package an ACS local-area artifact unless the finalize report carries a passing hours_worked_signal gate bound to the packaged H5's digest, and re-hash the packaged copy after it is written.

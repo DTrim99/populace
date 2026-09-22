@@ -1685,6 +1685,19 @@ def do_package(args) -> dict:
             f"certified ({h5_sha[:12]}… vs {str(qa_sha)[:12]}…). Re-run "
             "--stage qa and --stage finalize against the current artifact."
         )
+    gates = gate_report.get("gates")
+    hours_gate = gates.get("hours_worked_signal") if isinstance(gates, dict) else None
+    if not isinstance(hours_gate, dict) or hours_gate.get("passed") is not True:
+        raise SystemExit(
+            "Packaging requires a present, passing hours_worked_signal gate; "
+            "an old simulation_ready summary is insufficient. Re-run --stage finalize."
+        )
+    if hours_gate.get("artifact_sha256") != h5_sha:
+        raise SystemExit(
+            "The hours_worked_signal gate is missing its artifact binding or "
+            "certifies different H5 bytes. Re-run --stage finalize against the "
+            "current artifact."
+        )
     dropped_cells = identity.get("population_cells_dropped") or []
     if dropped_cells:
         raise SystemExit(
@@ -1889,6 +1902,16 @@ def do_package(args) -> dict:
         if not root_copy.exists() or _sha256(root_copy) != h5_sha:
             log(f"copying calibrated H5 to artifact root {root_copy} …")
             shutil.copy2(calibrated_h5, root_copy)
+    # Check the actual final artifact, including a reused copy or the no-copy
+    # path. A changed source/copy must not inherit the earlier hours verdict.
+    if _sha256(root_copy) != h5_sha:
+        if root_copy.resolve() != calibrated_h5.resolve():
+            # A refused copy must not sit where a good package puts its artifact.
+            root_copy.unlink(missing_ok=True)
+        raise SystemExit(
+            "The packaged H5 no longer matches the hours_worked_signal artifact "
+            "binding. Re-run --stage qa and --stage finalize against stable bytes."
+        )
 
     result = {
         "release_id": release_id,
