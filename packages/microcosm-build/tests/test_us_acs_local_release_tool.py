@@ -412,7 +412,14 @@ def _finalize_args(module, tmp_path: Path):
     staging = tmp_path / "staging.h5"
     staging.touch()
     (tmp_path / "staging.summary.json").write_text(
-        json.dumps({"reviewed_limitations": []})
+        json.dumps(
+            {
+                "reviewed_limitations": [],
+                # The current staging builder records its cap; an uncapped run
+                # is what the package-stage tests built on this fixture need.
+                "orchestration": {"max_households": None},
+            }
+        )
     )
     # finalize hashes the calibrated H5 before loading it; tests that do not
     # load real bytes still need bytes to hash.
